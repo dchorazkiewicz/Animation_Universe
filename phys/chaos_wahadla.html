@@ -123,6 +123,23 @@
                         Każde wahadło ma swój unikalny kolor i pozycję startową.
                     </p>
                 </div>
+
+                <!-- Nowe suwaki kątów początkowych -->
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Kąt Początkowy 1 (Góra)</span>
+                        <span class="mono-val" id="val-theta1">90°</span>
+                    </div>
+                    <input type="range" id="inp-theta1" min="0" max="360" step="1" value="90">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Kąt Początkowy 2 (Dół)</span>
+                        <span class="mono-val" id="val-theta2">90°</span>
+                    </div>
+                    <input type="range" id="inp-theta2" min="0" max="360" step="1" value="90">
+                </div>
             </div>
 
             <!-- Fizyka -->
@@ -153,6 +170,14 @@
                         <span class="mono-val" id="val-len">1.0</span>
                     </div>
                     <input type="range" id="inp-len" min="0.1" max="2.0" step="0.1" value="1.0">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Szybkość Symulacji</span>
+                        <span class="mono-val" id="val-speed">1.0x</span>
+                    </div>
+                    <input type="range" id="inp-speed" min="0.1" max="5.0" step="0.1" value="1.0">
                 </div>
             </div>
 
@@ -199,9 +224,12 @@
             m2: 10,
             l1: 150,
             l2: 150,
-            trailFade: 0.05, 
+            // trailFade usunięte, bo czyścimy ekran całkowicie
             timeScale: 1.0,
             stepsPerFrame: 10,
+            // Nowe parametry kątów (w radianach)
+            baseTheta1: Math.PI / 2,
+            baseTheta2: Math.PI / 2
         };
 
         let pendulums = [];
@@ -369,12 +397,11 @@
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const baseAngle = Math.PI / 2; 
-
+            // Używamy kątów z konfiguracji
             for (let i = 0; i < config.count; i++) {
                 const angleOffset = i * config.delta;
                 // Przekazujemy indeks i całkowitą liczbę do konstruktora
-                const p = new DoublePendulum(baseAngle + angleOffset, baseAngle + angleOffset, i, config.count);
+                const p = new DoublePendulum(config.baseTheta1 + angleOffset, config.baseTheta2 + angleOffset, i, config.count);
                 pendulums.push(p);
             }
         }
@@ -387,8 +414,8 @@
         window.addEventListener('resize', resize);
 
         function loop() {
-            // Efekt zanikania śladu
-            ctx.fillStyle = `rgba(0, 0, 0, ${config.trailFade})`;
+            // CZYSZCZENIE EKRANU (Brak śladów, tylko aktualny stan)
+            ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const dt = 0.016 * config.timeScale; 
@@ -401,15 +428,10 @@
             }
             time += dt;
 
-            // Rysowanie - Standardowy blending (Source-Over) dla wyraźnych kolorów
+            // Rysowanie - Standardowy blending
             ctx.globalCompositeOperation = 'source-over'; 
             
-            // Ślady
-            for (let p of pendulums) {
-                p.draw(ctx);
-            }
-            
-            // Struktury (Kulki)
+            // W tej wersji rysujemy tylko strukturę (ramiona + kulki)
             for (let p of pendulums) {
                 p.drawStructure(ctx);
             }
@@ -436,6 +458,19 @@
             updateVal('delta', config.delta.toFixed(7), ' rad');
         });
 
+        // Listenery dla nowych kątów
+        document.getElementById('inp-theta1').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            config.baseTheta1 = (val * Math.PI) / 180; // Konwersja na radiany
+            updateVal('theta1', val, '°');
+        });
+
+        document.getElementById('inp-theta2').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            config.baseTheta2 = (val * Math.PI) / 180;
+            updateVal('theta2', val, '°');
+        });
+
         document.getElementById('inp-g').addEventListener('input', (e) => {
             config.g = parseFloat(e.target.value);
             updateVal('g', config.g.toFixed(2));
@@ -451,6 +486,11 @@
             const val = parseFloat(e.target.value);
             config.l2 = 150 * val;
             updateVal('len', val.toFixed(1));
+        });
+
+        document.getElementById('inp-speed').addEventListener('input', (e) => {
+            config.timeScale = parseFloat(e.target.value);
+            updateVal('speed', config.timeScale.toFixed(1), 'x');
         });
 
         // Buttons
