@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Ułamków - Ciemny Motyw</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel (do obsługi JSX w przeglądarce) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Dodatkowe style dla czcionki "ręcznej" */
+        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Noto+Sans:wght@400;700&display=swap');
+        
+        .font-handwriting {
+            font-family: 'Kalam', cursive;
+        }
+        body {
+            font-family: 'Noto Sans', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // --- IKONY (Zastępstwo dla lucide-react) ---
+        const ChevronDown = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6 9 6 6 6-6"/></svg>
+        );
+        const Calculator = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+        );
+        const Plus = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        );
+        const Minus = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/></svg>
+        );
+        const XIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 18 18"/></svg>
+        );
+        const Divide = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="6" r="1"/><line x1="5" x2="19" y1="12" y2="12"/><circle cx="12" cy="18" r="1"/></svg>
+        );
+        const Eraser = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+        );
+
+        // --- GŁÓWNY KOMPONENT ---
+        const FractionNotebook = () => {
+            // Stan wejściowy
+            const [f1, setF1] = useState({ whole: 0, num: 1, den: 2 });
+            const [f2, setF2] = useState({ whole: 0, num: 1, den: 3 });
+            const [operation, setOperation] = useState('add'); // add, sub, mul, div
+            
+            // Stan zeszytu (lista kroków do wyświetlenia)
+            const [notebookLines, setNotebookLines] = useState([]);
+            const [visibleLinesCount, setVisibleLinesCount] = useState(0);
+            const bottomRef = useRef(null);
+
+            // Funkcje matematyczne
+            const gcd = (a, b) => (!b ? a : gcd(b, a % b));
+            const lcm = (a, b) => (a * b) / gcd(a, b);
+
+            // Przewijanie do dołu przy nowym kroku
+            useEffect(() => {
+                if (bottomRef.current) {
+                bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, [visibleLinesCount]);
+
+            // Główna funkcja rozwiązująca
+            const solve = () => {
+                const lines = [];
+                
+                // LINIA 0: Zadanie
+                lines.push({
+                type: 'equation',
+                f1: { ...f1 },
+                f2: { ...f2 },
+                op: operation,
+                comment: "Zapisujemy działanie"
+                });
+
+                let currF1 = { ...f1 };
+                let currF2 = { ...f2 };
+                let currOp = operation;
+
+                // --- LOGIKA DLA DODAWANIA I ODEJMOWANIA ---
+                if (operation === 'add' || operation === 'sub') {
+                
+                // Krok 1: Wspólny mianownik (jeśli potrzebny)
+                if (currF1.den !== currF2.den) {
+                    const commonDen = lcm(currF1.den, currF2.den);
+                    const m1 = commonDen / currF1.den;
+                    const m2 = commonDen / currF2.den;
+                    
+                    // Jawne pokazanie mnożenia (rozszerzania)
+                    lines.push({
+                        type: 'expansion',
+                        f1: { ...currF1 },
+                        m1: m1,
+                        f2: { ...currF2 },
+                        m2: m2,
+                        op: operation,
+                        comment: `Rozszerzamy: mnożymy górę i dół przez to samo`
+                    });
+
+                    currF1 = { ...currF1, num: currF1.num * m1, den: commonDen };
+                    currF2 = { ...currF2, num: currF2.num * m2, den: commonDen };
+
+                    lines.push({
+                    type: 'step',
+                    f1: currF1,
+                    f2: currF2,
+                    op: operation,
+                    comment: `Teraz mamy wspólny mianownik (${commonDen})`
+                    });
+                }
+
+                // Krok 2: Zamiana na niewłaściwe (jeśli są całości)
+                const needsImproper = (currF1.whole > 0 || currF2.whole > 0);
+                
+                if (needsImproper) {
+                    const imp1 = toImproper(currF1);
+                    const imp2 = toImproper(currF2);
+                    currF1 = { whole: 0, ...imp1 };
+                    currF2 = { whole: 0, ...imp2 };
+
+                    lines.push({
+                    type: 'step',
+                    f1: currF1,
+                    f2: currF2,
+                    op: operation,
+                    comment: "Zamieniamy na ułamki niewłaściwe (włączamy całości)"
+                    });
+                }
+
+                // Krok 3: Obliczenie
+                let resNum = operation === 'add' ? currF1.num + currF2.num : currF1.num - currF2.num;
+                let resDen = currF1.den;
+                let result = { whole: 0, num: resNum, den: resDen };
+
+                lines.push({
+                    type: 'result',
+                    res: result,
+                    comment: operation === 'add' ? "Dodajemy liczniki" : "Odejmujemy liczniki"
+                });
+
+                // Krok 4: Wyciąganie całości i skracanie (Finalizacja)
+                finalizeResult(lines, result);
+                } 
+                
+                // --- LOGIKA DLA MNOŻENIA I DZIELENIA ---
+                else {
+                // Krok 1: Zamiana na niewłaściwe
+                if (currF1.whole > 0 || currF2.whole > 0) {
+                    const imp1 = toImproper(currF1);
+                    const imp2 = toImproper(currF2);
+                    currF1 = { whole: 0, ...imp1 };
+                    currF2 = { whole: 0, ...imp2 };
+
+                    lines.push({
+                    type: 'step',
+                    f1: currF1,
+                    f2: currF2,
+                    op: operation,
+                    comment: "Przy mnożeniu/dzieleniu zamieniamy na ułamki niewłaściwe"
+                    });
+                }
+
+                // Krok 2: Dzielenie -> Mnożenie przez odwrotność
+                if (operation === 'div') {
+                    currOp = 'mul';
+                    const oldNum = currF2.num;
+                    currF2 = { whole: 0, num: currF2.den, den: currF2.num };
+                    
+                    lines.push({
+                    type: 'step',
+                    f1: currF1,
+                    f2: currF2,
+                    op: 'mul',
+                    highlightF2: true, 
+                    comment: "Dzielenie to mnożenie przez odwrotność"
+                    });
+                }
+
+                // Krok 3: Mnożenie
+                let resNum = currF1.num * currF2.num;
+                let resDen = currF1.den * currF2.den;
+                let result = { whole: 0, num: resNum, den: resDen };
+
+                lines.push({
+                    type: 'single_fraction_mul',
+                    numEq: `${currF1.num} · ${currF2.num}`,
+                    denEq: `${currF1.den} · ${currF2.den}`,
+                    comment: "Mnożymy: góra razy góra, dół razy dół"
+                });
+
+                lines.push({
+                    type: 'result',
+                    res: result,
+                    comment: "Wynik mnożenia"
+                });
+
+                finalizeResult(lines, result);
+                }
+
+                setNotebookLines(lines);
+                setVisibleLinesCount(1);
+            };
+
+            const finalizeResult = (lines, currentRes) => {
+                let { num, den } = currentRes;
+
+                // Skracanie
+                const commonDivisor = gcd(Math.abs(num), den);
+                if (commonDivisor > 1) {
+                num /= commonDivisor;
+                den /= commonDivisor;
+                currentRes = { whole: 0, num, den };
+                lines.push({
+                    type: 'result',
+                    res: currentRes,
+                    comment: `Skracamy przez ${commonDivisor}`
+                });
+                }
+
+                // Wyciąganie całości
+                if (Math.abs(num) >= den && den !== 1) {
+                const whole = Math.floor(num / den);
+                const newNum = num % den;
+                
+                if (newNum === 0) {
+                    lines.push({ type: 'final_integer', val: whole, comment: "Wynik jest liczbą całkowitą" });
+                } else {
+                    lines.push({
+                    type: 'result',
+                    res: { whole, num: newNum, den },
+                    comment: "Wyciągamy całości"
+                    });
+                }
+                } else if (den === 1) {
+                    lines.push({ type: 'final_integer', val: num, comment: "Mianownik to 1, więc to liczba całkowita" });
+                } else if (num === 0) {
+                    lines.push({ type: 'final_integer', val: 0, comment: "Zero" });
+                }
+            };
+
+            const toImproper = (f) => ({ num: f.whole * f.den + f.num, den: f.den });
+
+            const nextStep = () => {
+                if (visibleLinesCount < notebookLines.length) {
+                setVisibleLinesCount(prev => prev + 1);
+                }
+            };
+
+            const reset = () => {
+                setNotebookLines([]);
+                setVisibleLinesCount(0);
+            };
+
+            // --- KOMPONENTY UI ---
+
+            const Fraction = ({ f, highlight = false }) => (
+                <div className={`inline-flex items-center align-middle mx-1 font-serif ${highlight ? 'bg-yellow-900/40 rounded px-1' : ''}`}>
+                {f.whole !== 0 && <span className="text-xl font-semibold mr-1.5 text-slate-200">{f.whole}</span>}
+                <div className="flex flex-col items-center leading-none">
+                    <span className="border-b border-slate-400 pb-0.5 mb-0.5 px-1 min-w-[14px] text-center font-medium text-orange-400">{f.num}</span>
+                    <span className="px-1 min-w-[14px] text-center font-medium text-emerald-400">{f.den}</span>
+                </div>
+                </div>
+            );
+
+            const ExpandedFraction = ({ f, m }) => (
+                <div className="inline-flex items-center align-middle mx-1 font-serif">
+                {f.whole !== 0 && <span className="text-xl font-semibold mr-1.5 text-slate-200">{f.whole}</span>}
+                <div className="flex flex-col items-center leading-none">
+                    <span className="border-b border-slate-400 pb-0.5 mb-0.5 px-1 text-center font-medium text-orange-400 flex items-center gap-1">
+                        {f.num} <span className="text-blue-400 text-sm font-bold">·{m}</span>
+                    </span>
+                    <span className="px-1 text-center font-medium text-emerald-400 flex items-center gap-1">
+                        {f.den} <span className="text-blue-400 text-sm font-bold">·{m}</span>
+                    </span>
+                </div>
+                </div>
+            );
+
+            const OpSymbol = ({ op }) => {
+                switch(op) {
+                case 'add': return <Plus className="w-4 h-4 mx-2 text-slate-300" />;
+                case 'sub': return <Minus className="w-4 h-4 mx-2 text-slate-300" />;
+                case 'mul': return <div className="mx-2 text-xl leading-none text-slate-300">·</div>;
+                case 'div': return <div className="mx-2 text-xl leading-none text-slate-300">:</div>;
+                default: return null;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 font-sans text-slate-200">
+                <h1 className="text-2xl font-bold text-slate-100 mb-4 flex items-center gap-2">
+                    <Calculator className="w-6 h-6 text-blue-400" />
+                    Kalkulator Ułamków
+                </h1>
+
+                {/* Input Section */}
+                <div className="bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 flex flex-wrap justify-center items-center gap-4">
+                    {/* Input F1 */}
+                    <div className="flex gap-1 items-center bg-slate-900 p-2 rounded-lg border border-slate-700">
+                        <input 
+                            type="number" 
+                            value={f1.whole} 
+                            onChange={e => setF1({...f1, whole: +e.target.value})} 
+                            className="w-8 h-10 text-center border border-slate-600 rounded bg-slate-800 text-slate-200 font-bold focus:border-blue-500 focus:outline-none" 
+                            placeholder="0" 
+                        />
+                        <div className="flex flex-col gap-1">
+                        <input 
+                            type="number" 
+                            value={f1.num} 
+                            onChange={e => setF1({...f1, num: +e.target.value})} 
+                            className="w-8 h-8 text-center border border-orange-800 rounded bg-slate-800 text-orange-400 font-bold focus:border-orange-500 focus:outline-none" 
+                        />
+                        <input 
+                            type="number" 
+                            value={f1.den} 
+                            onChange={e => setF1({...f1, den: +e.target.value})} 
+                            className="w-8 h-8 text-center border border-emerald-800 rounded bg-slate-800 text-emerald-400 font-bold focus:border-emerald-500 focus:outline-none" 
+                        />
+                        </div>
+                    </div>
+
+                    {/* Operacja */}
+                    <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
+                        {['add', 'sub', 'mul', 'div'].map(o => (
+                        <button key={o} onClick={() => { setOperation(o); reset(); }} 
+                            className={`p-2 rounded transition-colors ${operation === o ? 'bg-slate-700 shadow text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}>
+                            <OpSymbol op={o} />
+                        </button>
+                        ))}
+                    </div>
+
+                    {/* Input F2 */}
+                    <div className="flex gap-1 items-center bg-slate-900 p-2 rounded-lg border border-slate-700">
+                        <input 
+                            type="number" 
+                            value={f2.whole} 
+                            onChange={e => setF2({...f2, whole: +e.target.value})} 
+                            className="w-8 h-10 text-center border border-slate-600 rounded bg-slate-800 text-slate-200 font-bold focus:border-blue-500 focus:outline-none" 
+                            placeholder="0" 
+                        />
+                        <div className="flex flex-col gap-1">
+                        <input 
+                            type="number" 
+                            value={f2.num} 
+                            onChange={e => setF2({...f2, num: +e.target.value})} 
+                            className="w-8 h-8 text-center border border-orange-800 rounded bg-slate-800 text-orange-400 font-bold focus:border-orange-500 focus:outline-none" 
+                        />
+                        <input 
+                            type="number" 
+                            value={f2.den} 
+                            onChange={e => setF2({...f2, den: +e.target.value})} 
+                            className="w-8 h-8 text-center border border-emerald-800 rounded bg-slate-800 text-emerald-400 font-bold focus:border-emerald-500 focus:outline-none" 
+                        />
+                        </div>
+                    </div>
+
+                    <button onClick={solve} disabled={visibleLinesCount > 0} className={`px-6 py-3 rounded-lg font-bold text-white shadow-md transition-all ${visibleLinesCount > 0 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}>
+                        Start
+                    </button>
+                    
+                    {visibleLinesCount > 0 && (
+                        <button onClick={reset} className="px-4 py-3 rounded-lg border-2 border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-900 transition-colors">
+                            <Eraser className="w-5 h-5" />
+                        </button>
+                    )}
+                </div>
+
+                {/* ZESZYT */}
+                <div className="w-full max-w-2xl bg-slate-800 min-h-[400px] shadow-2xl rounded-sm border-l-8 border-red-900/50 p-8 relative" 
+                    style={{ backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+                    
+                    {/* Placeholder jeśli pusty */}
+                    {visibleLinesCount === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
+                        <span className="text-4xl opacity-20 font-handwriting italic">Miejsce na obliczenia...</span>
+                    </div>
+                    )}
+
+                    <div className="space-y-4 font-mono text-lg">
+                    {notebookLines.slice(0, visibleLinesCount).map((line, idx) => (
+                        <div key={idx} className="flex flex-wrap items-center animate-in fade-in slide-in-from-top-2 duration-300">
+                        
+                        {/* Znak równości (dla linii innych niż pierwsza) */}
+                        <div className="w-8 font-bold text-slate-500 flex justify-center">
+                            {idx > 0 ? '=' : ''}
+                        </div>
+
+                        {/* TREŚĆ LINII */}
+                        <div className="flex items-center flex-wrap gap-1">
+                            {line.type === 'equation' && (
+                            <>
+                                <Fraction f={line.f1} />
+                                <OpSymbol op={line.op} />
+                                <Fraction f={line.f2} />
+                            </>
+                            )}
+                            
+                            {/* Rozszerzanie */}
+                            {line.type === 'expansion' && (
+                            <>
+                                <ExpandedFraction f={line.f1} m={line.m1} />
+                                <OpSymbol op={line.op} />
+                                <ExpandedFraction f={line.f2} m={line.m2} />
+                            </>
+                            )}
+                            
+                            {line.type === 'step' && (
+                            <>
+                                <Fraction f={line.f1} />
+                                <OpSymbol op={line.op} />
+                                <Fraction f={line.f2} highlight={line.highlightF2} />
+                            </>
+                            )}
+
+                            {line.type === 'single_fraction_mul' && (
+                            <div className="flex flex-col items-center mx-2">
+                                <div className="border-b border-slate-400 px-2 pb-1 mb-1 text-slate-200">{line.numEq}</div>
+                                <div className="px-2 text-slate-200">{line.denEq}</div>
+                            </div>
+                            )}
+
+                            {line.type === 'result' && (
+                            <Fraction f={line.res} />
+                            )}
+
+                            {line.type === 'final_integer' && (
+                            <span className="text-2xl font-bold text-blue-400 ml-2">{line.val}</span>
+                            )}
+                        </div>
+
+                        {/* KOMENTARZ NA MARGINESIE */}
+                        {line.comment && (
+                            <div className="ml-auto pl-4 text-xs text-slate-400 italic max-w-[150px] md:max-w-xs border-l border-slate-700">
+                                {line.comment}
+                            </div>
+                        )}
+                        </div>
+                    ))}
+                    <div ref={bottomRef} />
+                    </div>
+                </div>
+
+                {/* PRZYCISK DALEJ */}
+                {visibleLinesCount > 0 && visibleLinesCount < notebookLines.length && (
+                    <button 
+                    onClick={nextStep}
+                    className="mt-6 flex items-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all animate-bounce-slow"
+                    >
+                    Dalej <ChevronDown className="w-5 h-5" />
+                    </button>
+                )}
+
+                {visibleLinesCount > 0 && visibleLinesCount === notebookLines.length && (
+                    <div className="mt-6 text-green-400 font-bold flex items-center gap-2 bg-green-900/30 px-4 py-2 rounded-full border border-green-800">
+                        Koniec zadania!
+                    </div>
+                )}
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FractionNotebook />);
+    </script>
+</body>
+</html>
