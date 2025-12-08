@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atraktor Lorenza 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            background-color: #09090b; /* Zinc 950 */
+            color: #e4e4e7;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            cursor: move;
+        }
+
+        .panel {
+            background-color: rgba(24, 24, 27, 0.9);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid #27272a;
+        }
+
+        .slider-container {
+            margin-bottom: 1.25rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #a1a1aa;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #8b5cf6; /* Violet 500 */
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #3f3f46;
+            border-radius: 2px;
+        }
+
+        .mono-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: #a78bfa; /* Violet 400 */
+        }
+
+        .math-eq {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: #71717a;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+
+    <!-- Lewy Panel -->
+    <div class="panel w-80 flex-shrink-0 flex flex-col h-full z-20 shadow-2xl relative overflow-y-auto">
+        <div class="p-6 border-b border-zinc-800">
+            <h1 class="text-xl font-bold flex items-center gap-2 text-violet-400 tracking-tight">
+                <i data-lucide="tornado" class="w-6 h-6"></i>
+                Atraktor Lorenza
+            </h1>
+            <p class="text-xs text-zinc-500 mt-1">Chaotyczny Układ Dynamiczny</p>
+        </div>
+
+        <div class="p-6 space-y-6 flex-1">
+            
+            <!-- Parametry Równania -->
+            <div>
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">
+                    Stałe Lorenza
+                </h3>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Sigma (σ)</span>
+                        <span class="mono-val" id="val-sigma">10.0</span>
+                    </div>
+                    <input type="range" id="inp-sigma" min="0" max="50" step="0.1" value="10.0">
+                    <div class="math-eq">dx/dt = σ(y - x)</div>
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Rho (ρ)</span>
+                        <span class="mono-val" id="val-rho">28.0</span>
+                    </div>
+                    <input type="range" id="inp-rho" min="0" max="100" step="0.1" value="28.0">
+                    <div class="math-eq">dy/dt = x(ρ - z) - y</div>
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Beta (β)</span>
+                        <span class="mono-val" id="val-beta">2.67</span>
+                    </div>
+                    <input type="range" id="inp-beta" min="0" max="10" step="0.01" value="2.666">
+                    <div class="math-eq">dz/dt = xy - βz</div>
+                </div>
+            </div>
+
+            <!-- Ustawienia Symulacji -->
+            <div>
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">
+                    Symulacja
+                </h3>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Szybkość (Iteracje/Klatkę)</span>
+                        <span class="mono-val" id="val-speed">5</span>
+                    </div>
+                    <!-- Zmieniona logika: zamiast zmieniać dt, zmieniamy ilość kroków -->
+                    <input type="range" id="inp-speed" min="1" max="20" step="1" value="5">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Długość ogona</span>
+                        <span class="mono-val" id="val-length">2000</span>
+                    </div>
+                    <input type="range" id="inp-length" min="500" max="5000" step="100" value="2000">
+                </div>
+            </div>
+
+            <div class="pt-4 space-y-3">
+                <button onclick="restartSim()" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-violet-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Restartuj
+                </button>
+            </div>
+
+            <div class="bg-zinc-900/50 p-3 rounded border border-zinc-800 text-[10px] text-zinc-500 mt-4 leading-relaxed">
+                <strong class="text-cyan-400">Cyan</strong> i <strong class="text-rose-400">Rose</strong> startują z różnicą pozycji 0.01. <br>
+                Zastosowano stały krok fizyki (dt=0.005) dla zachowania stabilności.
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="flex-1 relative bg-black overflow-hidden" id="canvas-wrapper">
+        <canvas id="simCanvas"></canvas>
+        
+        <!-- Overlay -->
+        <div class="absolute top-6 right-6 text-right pointer-events-none opacity-50">
+            <div class="text-xs text-zinc-500 font-mono mb-1">Myszka: Obrót 3D</div>
+            <div class="text-xs text-zinc-500 font-mono">Scroll: Zoom</div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- KONFIGURACJA ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-wrapper');
+
+        const config = {
+            sigma: 10.0,
+            rho: 28.0,
+            beta: 8/3,
+            fixedDt: 0.005, // Stały, mały krok czasowy dla stabilności matematycznej
+            stepsPerFrame: 5, // Ile razy liczymy fizykę na jedną klatkę (kontrola szybkości)
+            maxPoints: 2000,
+            scale: 15
+        };
+
+        // Kamera
+        let cam = {
+            rotX: 0,
+            rotY: 0,
+            zoom: 1.0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0
+        };
+
+        // Punkty symulacji
+        let trajectoryA = [];
+        let trajectoryB = [];
+        
+        let posA = { x: 0.1, y: 0, z: 0 };
+        let posB = { x: 0.11, y: 0, z: 0 }; 
+
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        function reset() {
+            trajectoryA = [];
+            trajectoryB = [];
+            posA = { x: 0.1, y: 0, z: 0 };
+            posB = { x: 0.1 + 0.01, y: 0, z: 0 }; 
+            
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // --- MATEMATYKA ---
+
+        function computeNextStep(p) {
+            // Używamy stałego kroku czasowego config.fixedDt
+            const dx = config.sigma * (p.y - p.x);
+            const dy = p.x * (config.rho - p.z) - p.y;
+            const dz = p.x * p.y - config.beta * p.z;
+
+            return {
+                x: p.x + dx * config.fixedDt,
+                y: p.y + dy * config.fixedDt,
+                z: p.z + dz * config.fixedDt
+            };
+        }
+
+        // Projekcja 3D na 2D
+        function project(p) {
+            // 1. Rotacja Y (yaw)
+            let x1 = p.x * Math.cos(cam.rotY) - p.z * Math.sin(cam.rotY);
+            let z1 = p.x * Math.sin(cam.rotY) + p.z * Math.cos(cam.rotY);
+            
+            // 2. Rotacja X (pitch)
+            let y2 = p.y * Math.cos(cam.rotX) - z1 * Math.sin(cam.rotX);
+            let z2 = p.y * Math.sin(cam.rotX) + z1 * Math.cos(cam.rotX);
+
+            // 3. Projekcja i Skala
+            const scale = config.scale * cam.zoom;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2 + (25 * scale); 
+
+            return {
+                x: cx + x1 * scale,
+                y: cy - y2 * scale, // Y w górę
+                z: z2 
+            };
+        }
+
+        // --- PĘTLA GŁÓWNA ---
+
+        function loop() {
+            // Fizyka: pętla wykonuje się tyle razy, ile ustawiono na suwaku szybkości.
+            // Każdy krok ma jednakowe, małe dt, co gwarantuje precyzję.
+            for(let i=0; i<config.stepsPerFrame; i++) {
+                posA = computeNextStep(posA);
+                posB = computeNextStep(posB);
+                
+                trajectoryA.push({...posA});
+                trajectoryB.push({...posB});
+
+                if (trajectoryA.length > config.maxPoints) trajectoryA.shift();
+                if (trajectoryB.length > config.maxPoints) trajectoryB.shift();
+            }
+
+            // Rysowanie
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineWidth = 1.5;
+
+            // Rysuj A (Cyan)
+            ctx.beginPath();
+            ctx.strokeStyle = '#22d3ee'; 
+            for (let i = 0; i < trajectoryA.length - 1; i++) {
+                const p1 = project(trajectoryA[i]);
+                const p2 = project(trajectoryA[i+1]);
+                if (i===0) ctx.moveTo(p1.x, p1.y);
+                else ctx.lineTo(p1.x, p1.y); 
+                ctx.lineTo(p2.x, p2.y);
+            }
+            ctx.stroke();
+
+            // Rysuj B (Rose)
+            ctx.beginPath();
+            ctx.strokeStyle = '#fb7185'; 
+            for (let i = 0; i < trajectoryB.length - 1; i++) {
+                const p1 = project(trajectoryB[i]);
+                const p2 = project(trajectoryB[i+1]);
+                if (i===0) ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+            }
+            ctx.stroke();
+
+            // Głowice
+            ctx.globalCompositeOperation = 'source-over';
+            
+            const headA = project(posA);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(headA.x, headA.y, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headA.x, headA.y, 8, 0, Math.PI*2); 
+            ctx.fillStyle = 'rgba(34, 211, 238, 0.4)'; ctx.fill();
+
+            const headB = project(posB);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(headB.x, headB.y, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headB.x, headB.y, 8, 0, Math.PI*2); 
+            ctx.fillStyle = 'rgba(251, 113, 133, 0.4)'; ctx.fill();
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- OBSŁUGA UI ---
+
+        function updateVal(id, val) {
+            document.getElementById(`val-${id}`).innerText = val;
+        }
+
+        document.getElementById('inp-sigma').addEventListener('input', (e) => {
+            config.sigma = parseFloat(e.target.value);
+            updateVal('sigma', config.sigma.toFixed(1));
+        });
+        document.getElementById('inp-rho').addEventListener('input', (e) => {
+            config.rho = parseFloat(e.target.value);
+            updateVal('rho', config.rho.toFixed(1));
+        });
+        document.getElementById('inp-beta').addEventListener('input', (e) => {
+            config.beta = parseFloat(e.target.value);
+            updateVal('beta', config.beta.toFixed(2));
+        });
+        document.getElementById('inp-speed').addEventListener('input', (e) => {
+            // Suwak steruje liczbą kroków na klatkę (1-20)
+            config.stepsPerFrame = parseInt(e.target.value);
+            updateVal('speed', config.stepsPerFrame);
+        });
+        document.getElementById('inp-length').addEventListener('input', (e) => {
+            config.maxPoints = parseInt(e.target.value);
+            updateVal('length', config.maxPoints);
+        });
+
+        // Interakcja Myszą (Obrót)
+        canvas.addEventListener('mousedown', (e) => {
+            cam.isDragging = true;
+            cam.lastX = e.clientX;
+            cam.lastY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => cam.isDragging = false);
+        window.addEventListener('mousemove', (e) => {
+            if(!cam.isDragging) return;
+            const dx = e.clientX - cam.lastX;
+            const dy = e.clientY - cam.lastY;
+            
+            cam.rotY += dx * 0.01;
+            cam.rotX += dy * 0.01;
+            
+            cam.lastX = e.clientX;
+            cam.lastY = e.clientY;
+        });
+
+        // Zoom
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.9 : 1.1;
+            config.scale *= factor;
+        }, { passive: false });
+
+        function restartSim() {
+            reset();
+        }
+
+        // Start
+        resize();
+        reset();
+        loop();
+
+    </script>
+</body>
+</html>
