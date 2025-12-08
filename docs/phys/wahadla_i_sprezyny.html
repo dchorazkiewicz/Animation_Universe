@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oscylatorium - Symulator Układów Złożonych</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            background-color: #020617; /* Slate 950 */
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            cursor: grab;
+            display: block;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .panel {
+            background-color: rgba(15, 23, 42, 0.9); /* Slate 900 */
+            backdrop-filter: blur(12px);
+            border-right: 1px solid #1e293b;
+        }
+
+        .slider-container {
+            margin-bottom: 1.25rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #38bdf8; /* Sky 400 */
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        .mono-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: #cbd5e1;
+        }
+
+        .tab-btn {
+            @apply flex-1 py-2 text-xs font-bold rounded-md transition-all uppercase tracking-wider;
+        }
+        .tab-active {
+            background-color: #0ea5e9; /* Sky 500 */
+            color: white;
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.3);
+        }
+        .tab-inactive {
+            background-color: rgba(30, 41, 59, 0.5);
+            color: #64748b;
+            border: 1px solid #1e293b;
+        }
+        .tab-inactive:hover {
+            background-color: #1e293b;
+            color: #94a3b8;
+        }
+
+        .mode-btn {
+            @apply px-3 py-1 text-xs font-bold rounded border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors;
+        }
+        .mode-btn.active {
+            @apply bg-sky-600 text-white border-sky-500 shadow-lg shadow-sky-900/50;
+        }
+        
+        .badge {
+            @apply text-[10px] font-bold px-2 py-0.5 rounded bg-sky-900 text-sky-200 border border-sky-700 ml-2;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+
+    <!-- Lewy Panel -->
+    <div class="panel w-80 flex-shrink-0 flex flex-col h-full z-20 shadow-2xl relative">
+        <div class="p-6 border-b border-slate-800">
+            <h1 class="text-xl font-bold flex items-center gap-2 text-sky-400 tracking-tight">
+                <i data-lucide="activity" class="w-6 h-6"></i>
+                Oscylatorium
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Symulacja układów złożonych</p>
+        </div>
+
+        <div class="p-4 flex gap-2">
+            <button onclick="setMode('springs')" id="btn-springs" class="tab-btn tab-active">Sprężyny</button>
+            <button onclick="setMode('pendulum')" id="btn-pendulum" class="tab-btn tab-inactive">Wahadła</button>
+        </div>
+
+        <div class="px-6 pb-2 pt-2 border-b border-slate-800">
+            <div class="slider-label">Liczba Ciał</div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="setBodyCount(1)" class="mode-btn flex-1 active" id="count-1">1</button>
+                <button onclick="setBodyCount(2)" class="mode-btn flex-1" id="count-2">2</button>
+                <button onclick="setBodyCount(3)" class="mode-btn flex-1" id="count-3">3</button>
+            </div>
+        </div>
+
+        <div class="p-6 flex-1 overflow-y-auto space-y-6">
+            
+            <!-- Parametry Fizyczne -->
+            <div>
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Grawitacja (g)</span>
+                        <span class="mono-val" id="val-g"></span>
+                    </div>
+                    <input type="range" id="inp-g" min="0" max="1.5" step="0.01" value="0.5">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Opór powietrza</span>
+                        <span class="mono-val" id="val-drag"></span>
+                    </div>
+                    <input type="range" id="inp-drag" min="0" max="100" step="1" value="0">
+                </div>
+
+                <div id="energy-status" class="hidden text-xs text-green-400 bg-green-900/20 border border-green-800 p-2 rounded mb-4 text-center">
+                    <i data-lucide="zap" class="w-3 h-3 inline mr-1"></i>
+                    Idealne zachowanie energii (Korekcja włączona)
+                </div>
+
+                <!-- Kontrolki tylko dla Sprężyn -->
+                <div id="controls-spring" class="block">
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Sztywność (k)</span>
+                            <span class="mono-val" id="val-k"></span>
+                        </div>
+                        <input type="range" id="inp-k" min="0.0001" max="0.05" step="0.0001" value="0.005">
+                    </div>
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Długość spoczynkowa</span>
+                            <span class="mono-val" id="val-len-s"></span>
+                        </div>
+                        <input type="range" id="inp-len-s" min="50" max="300" step="10" value="150">
+                    </div>
+                </div>
+
+                <!-- Kontrolki tylko dla Wahadła -->
+                <div id="controls-pendulum" class="hidden">
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Długość pręta</span>
+                            <span class="mono-val" id="val-len-p"></span>
+                        </div>
+                        <input type="range" id="inp-len-p" min="50" max="300" step="10" value="150">
+                    </div>
+                </div>
+                
+                <div class="slider-container mt-8">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-bold text-slate-400 uppercase flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chk-trails" class="accent-sky-500 w-4 h-4 rounded">
+                            Rysuj Ślad
+                        </label>
+                        <button onclick="resetSim()" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded border border-slate-600 transition-colors">
+                            Resetuj
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-4 text-[10px] text-slate-600 text-center border-t border-slate-800">
+            LPM: Chwyć kulkę | Scroll: Zoom | Przeciągnij tło: Pan
+        </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="flex-1 relative bg-slate-950 overflow-hidden" id="canvas-wrapper">
+        <canvas id="simCanvas"></canvas>
+        <div id="overlay-text" class="absolute top-4 right-4 text-slate-500 font-mono text-xs pointer-events-none select-none text-right">
+            <span id="zoom-level">Zoom: 100%</span><br>
+            <span class="opacity-50">Myszka: Interakcja i Kamera</span>
+        </div>
+        
+        <!-- Zoom controls for touch/easy access -->
+        <div class="absolute bottom-6 right-6 flex flex-col gap-2">
+            <button onclick="changeZoom(1.2)" class="w-10 h-10 bg-slate-800 hover:bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors border border-slate-700">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+            </button>
+            <button onclick="changeZoom(0.8)" class="w-10 h-10 bg-slate-800 hover:bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors border border-slate-700">
+                <i data-lucide="minus" class="w-5 h-5"></i>
+            </button>
+            <button onclick="resetView()" class="w-10 h-10 bg-slate-800 hover:bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors border border-slate-700" title="Centruj">
+                <i data-lucide="focus" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- KONFIGURACJA ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-wrapper');
+
+        let config = {
+            mode: 'springs', // 'springs' | 'pendulum'
+            bodyCount: 1,
+            gravity: 0.5,
+            drag: 0, 
+            stiffness: 0.005,
+            restLength: 150,
+            showTrails: false
+        };
+
+        // Zmienna do przechowywania energii referencyjnej dla wahadła
+        let targetTotalEnergy = null;
+
+        // Stan kamery
+        let view = {
+            x: 0,
+            y: 0,
+            zoom: 1.0,
+            isPanning: false,
+            lastX: 0,
+            lastY: 0
+        };
+
+        // --- FIZYKA ---
+
+        class Point {
+            constructor(x, y, pinned = false) {
+                this.x = x;
+                this.y = y;
+                this.oldx = x;
+                this.oldy = y;
+                this.pinned = pinned; 
+                this.mass = 1.0;
+                this.ax = 0;
+                this.ay = 0;
+            }
+
+            resetForces() {
+                this.ax = 0;
+                this.ay = config.gravity; 
+            }
+
+            addForce(fx, fy) {
+                this.ax += fx;
+                this.ay += fy;
+            }
+
+            update() {
+                if (this.pinned) return;
+
+                const friction = config.drag === 0 ? 1.0 : (1.0 - (config.drag * 0.0005)); 
+
+                const vx = (this.x - this.oldx) * friction;
+                const vy = (this.y - this.oldy) * friction;
+
+                this.oldx = this.x;
+                this.oldy = this.y;
+
+                this.x += vx + this.ax;
+                this.y += vy + this.ay;
+            }
+            
+            // Getters for Energy Calc
+            getVelocitySq() {
+                const vx = this.x - this.oldx;
+                const vy = this.y - this.oldy;
+                return vx*vx + vy*vy;
+            }
+            
+            getPotentialEnergy() {
+                // PE = -m * g * y (gdzie y rośnie w dół, więc im niżej tym mniejszy potencjał w sensie grawitacji, 
+                // ale tutaj dla uproszczenia conservation, PE = - mass * g * y_pos_from_anchor)
+                // Przyjmijmy poziom 0 w y=0.
+                return -this.mass * config.gravity * this.y;
+            }
+        }
+
+        class Constraint {
+            constructor(p1, p2, length, type) {
+                this.p1 = p1;
+                this.p2 = p2;
+                this.length = length;
+                this.type = type; 
+            }
+
+            applyForce() {
+                if (this.type !== 'spring') return;
+
+                const dx = this.p2.x - this.p1.x;
+                const dy = this.p2.y - this.p1.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist === 0) return;
+
+                const extension = dist - this.length;
+                const forceMag = config.stiffness * extension;
+
+                const fx = (dx / dist) * forceMag;
+                const fy = (dy / dist) * forceMag;
+
+                if (!this.p1.pinned) this.p1.addForce(fx, fy);
+                if (!this.p2.pinned) this.p2.addForce(-fx, -fy);
+            }
+
+            resolve() {
+                if (this.type !== 'rod') return;
+
+                const dx = this.p2.x - this.p1.x;
+                const dy = this.p2.y - this.p1.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist === 0) return;
+
+                const diff = this.length - dist;
+                const percent = diff / dist / 2;
+                const offsetX = dx * percent;
+                const offsetY = dy * percent;
+
+                if (!this.p1.pinned) {
+                    this.p1.x -= offsetX;
+                    this.p1.y -= offsetY;
+                }
+                if (!this.p2.pinned) {
+                    this.p2.x += offsetX;
+                    this.p2.y += offsetY;
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                if (this.type === 'rod') {
+                    ctx.strokeStyle = '#64748b'; 
+                    ctx.lineWidth = 2;
+                    ctx.moveTo(this.p1.x, this.p1.y);
+                    ctx.lineTo(this.p2.x, this.p2.y);
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = '#0ea5e9'; 
+                    ctx.lineWidth = 2;
+                    
+                    const steps = 15;
+                    const dx = this.p2.x - this.p1.x;
+                    const dy = this.p2.y - this.p1.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    const nx = -dy / dist;
+                    const ny = dx / dist;
+                    const width = 8; 
+
+                    ctx.moveTo(this.p1.x, this.p1.y);
+                    for (let i = 1; i < steps; i++) {
+                        const t = i / steps;
+                        let bx = this.p1.x + dx * t;
+                        let by = this.p1.y + dy * t;
+                        
+                        const side = (i % 2 === 0) ? 1 : -1;
+                        let w = width;
+                        if (i === 1 || i === steps -1) w = 0;
+
+                        ctx.lineTo(bx + nx * w * side, by + ny * w * side);
+                    }
+                    ctx.lineTo(this.p2.x, this.p2.y);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // --- GLOBAL STATE ---
+        let points = [];
+        let constraints = [];
+        let trailCanvas = document.createElement('canvas'); 
+        let trailCtx = trailCanvas.getContext('2d');
+        let dragPoint = null;
+
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            trailCanvas.width = canvas.width;
+            trailCanvas.height = canvas.height;
+            
+            resetView();
+            resetSim();
+        }
+        window.addEventListener('resize', resize);
+
+        function resetView() {
+            view.x = canvas.width / 2;
+            view.y = 100;
+            view.zoom = 1.0;
+            updateZoomDisplay();
+        }
+
+        function initSim() {
+            points = [];
+            constraints = [];
+            targetTotalEnergy = null; // Reset energii
+            
+            const anchor = new Point(0, 0, true);
+            points.push(anchor);
+
+            let prevPoint = anchor;
+            
+            for (let i = 0; i < config.bodyCount; i++) {
+                const offsetX = config.mode === 'pendulum' ? Math.random() * 50 - 25 : 0;
+                const p = new Point(offsetX + (i * 20), (i + 1) * config.restLength);
+                points.push(p);
+                
+                const c = new Constraint(prevPoint, p, config.restLength, config.mode === 'pendulum' ? 'rod' : 'spring');
+                constraints.push(c);
+                
+                prevPoint = p;
+            }
+
+            trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+        }
+
+        // --- ENERGIA KINETICZA I POTENCJALNA ---
+        function calculateSystemEnergy() {
+            let ke = 0;
+            let pe = 0;
+            for (let p of points) {
+                if (p.pinned) continue;
+                ke += 0.5 * p.mass * p.getVelocitySq(); // v^2, masa=1
+                pe += -p.mass * config.gravity * p.y; 
+            }
+            return ke + pe;
+        }
+
+        // --- UPDATE LOOP ---
+        function update() {
+            // Fizyka
+            for (let p of points) p.resetForces();
+            for (let c of constraints) c.applyForce();
+            for (let p of points) p.update();
+
+            const iterations = config.mode === 'pendulum' ? 80 : 1; 
+            for (let i = 0; i < iterations; i++) {
+                for (let c of constraints) c.resolve();
+                points[0].x = 0; points[0].y = 0;
+                
+                if (dragPoint) {
+                    const worldMx = (mouse.x - view.x) / view.zoom;
+                    const worldMy = (mouse.y - view.y) / view.zoom;
+                    const worldLastMx = (mouse.lastX - view.x) / view.zoom;
+                    const worldLastMy = (mouse.lastY - view.y) / view.zoom;
+
+                    dragPoint.x = worldMx;
+                    dragPoint.y = worldMy;
+                    dragPoint.oldx = worldMx - (worldMx - worldLastMx);
+                    dragPoint.oldy = worldMy - (worldMy - worldLastMy);
+                    
+                    targetTotalEnergy = null; // Resetujemy target, bo user dodaje energię
+                }
+            }
+
+            // --- KOREKCJA ENERGII (Nuclear Option) ---
+            if (config.mode === 'pendulum' && config.drag === 0 && !dragPoint) {
+                const currentEnergy = calculateSystemEnergy();
+                
+                if (targetTotalEnergy === null) {
+                    // Pierwsza klatka po puszczeniu - ustalamy target
+                    targetTotalEnergy = currentEnergy;
+                } else {
+                    // Sprawdzamy odchylenie
+                    // E = KE + PE.
+                    // Chcemy, żeby KE + PE = target.
+                    // KE_new = target - PE.
+                    // velocity_scale = sqrt(KE_new / KE_curr)
+                    
+                    let currentKE = 0;
+                    let currentPE = 0;
+                    for(let p of points) {
+                        if(p.pinned) continue;
+                        currentKE += 0.5 * p.getVelocitySq();
+                        currentPE += -config.gravity * p.y;
+                    }
+
+                    const desiredKE = targetTotalEnergy - currentPE;
+                    
+                    if (desiredKE > 0.00001 && currentKE > 0.00001) {
+                        const scale = Math.sqrt(desiredKE / currentKE);
+                        // Aplikujemy scale do prędkości (vx = x - oldx)
+                        // x_new = x, v_new = v * scale => oldx_new = x - v * scale
+                        
+                        for (let p of points) {
+                            if (p.pinned) continue;
+                            const vx = p.x - p.oldx;
+                            const vy = p.y - p.oldy;
+                            p.oldx = p.x - (vx * scale);
+                            p.oldy = p.y - (vy * scale);
+                        }
+                    }
+                }
+            } else {
+                targetTotalEnergy = null; // Jeśli opór włączony, nie korygujemy
+            }
+
+            // Ślad
+            if (config.showTrails) {
+                const lastP = points[points.length - 1];
+                if (!lastP.pinned) {
+                    if (!window.trailHistory) window.trailHistory = [];
+                    if (window.trailHistory.length > 2000) window.trailHistory.shift();
+                    window.trailHistory.push({x: lastP.x, y: lastP.y});
+                }
+            } else {
+                window.trailHistory = [];
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(view.x, view.y);
+            ctx.scale(view.zoom, view.zoom);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1 / view.zoom;
+            ctx.beginPath();
+            ctx.moveTo(-5000, 0); ctx.lineTo(5000, 0);
+            ctx.moveTo(0, -5000); ctx.lineTo(0, 5000);
+            ctx.stroke();
+
+            if (window.trailHistory && window.trailHistory.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = config.mode === 'pendulum' ? 'rgba(244, 63, 94, 0.5)' : 'rgba(14, 165, 233, 0.5)';
+                ctx.lineWidth = 2 / view.zoom; 
+                ctx.moveTo(window.trailHistory[0].x, window.trailHistory[0].y);
+                for (let i = 1; i < window.trailHistory.length; i++) {
+                    ctx.lineTo(window.trailHistory[i].x, window.trailHistory[i].y);
+                }
+                ctx.stroke();
+            }
+
+            for (let c of constraints) c.draw(ctx);
+
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                ctx.beginPath();
+                const radius = (p.pinned ? 5 : 10) / Math.sqrt(view.zoom); 
+                
+                if (p.pinned) {
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillRect(p.x - radius, p.y - radius/2, radius*2, radius);
+                } else {
+                    ctx.fillStyle = i === points.length - 1 ? '#f43f5e' : '#e2e8f0';
+                    if (config.mode === 'springs') ctx.fillStyle = '#e2e8f0';
+                    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                }
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // --- UI HANDLERS ---
+
+        function bindSlider(id, configKey, displayId, scale = 1, fixed = 2) {
+            const el = document.getElementById(id);
+            const disp = document.getElementById(displayId);
+            
+            const updateVal = () => {
+                let val = parseFloat(el.value);
+                config[configKey] = val;
+                
+                if (configKey === 'restLength') {
+                    constraints.forEach(c => c.length = val);
+                }
+                
+                // Toggle energy status icon
+                const statusDiv = document.getElementById('energy-status');
+                if (configKey === 'drag' || configKey === 'mode') { // check context
+                    const isCorrecting = (config.mode === 'pendulum' && config.drag === 0);
+                    if (isCorrecting) statusDiv.classList.remove('hidden');
+                    else statusDiv.classList.add('hidden');
+                }
+
+                disp.innerText = val.toFixed(fixed);
+            };
+            
+            el.addEventListener('input', updateVal);
+            updateVal();
+        }
+
+        bindSlider('inp-g', 'gravity', 'val-g');
+        bindSlider('inp-drag', 'drag', 'val-drag', 1, 0); 
+        bindSlider('inp-k', 'stiffness', 'val-k', 1, 4);
+        bindSlider('inp-len-s', 'restLength', 'val-len-s', 1, 0);
+        bindSlider('inp-len-p', 'restLength', 'val-len-p', 1, 0);
+
+        document.getElementById('chk-trails').addEventListener('change', (e) => {
+            config.showTrails = e.target.checked;
+            window.trailHistory = [];
+        });
+
+        function setMode(mode) {
+            config.mode = mode;
+            window.trailHistory = [];
+            
+            const btnS = document.getElementById('btn-springs');
+            const btnP = document.getElementById('btn-pendulum');
+            const ctrlS = document.getElementById('controls-spring');
+            const ctrlP = document.getElementById('controls-pendulum');
+            const statusDiv = document.getElementById('energy-status');
+
+            if (mode === 'springs') {
+                btnS.className = 'tab-btn tab-active';
+                btnP.className = 'tab-btn tab-inactive';
+                ctrlS.classList.remove('hidden');
+                ctrlP.classList.add('hidden');
+                config.restLength = parseFloat(document.getElementById('inp-len-s').value);
+                
+                document.getElementById('inp-drag').value = 10; 
+                config.drag = 10;
+                document.getElementById('val-drag').innerText = "10";
+                statusDiv.classList.add('hidden');
+            } else {
+                btnP.className = 'tab-btn tab-active';
+                btnS.className = 'tab-btn tab-inactive';
+                ctrlP.classList.remove('hidden');
+                ctrlS.classList.add('hidden');
+                config.restLength = parseFloat(document.getElementById('inp-len-p').value);
+                
+                document.getElementById('inp-drag').value = 0;
+                config.drag = 0;
+                document.getElementById('val-drag').innerText = "0";
+                statusDiv.classList.remove('hidden');
+            }
+            
+            resetSim();
+        }
+
+        function setBodyCount(n) {
+            config.bodyCount = n;
+            window.trailHistory = [];
+            for(let i=1; i<=3; i++) {
+                const btn = document.getElementById(`count-${i}`);
+                if(i === n) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+            resetSim();
+        }
+
+        function resetSim() {
+            initSim();
+            window.trailHistory = [];
+        }
+
+        // --- MOUSE & CAMERA INTERACTIONS ---
+        const mouse = { x: 0, y: 0, lastX: 0, lastY: 0 };
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+            mouse.lastX = mouse.x;
+            mouse.lastY = mouse.y;
+
+            const worldMx = (mouse.x - view.x) / view.zoom;
+            const worldMy = (mouse.y - view.y) / view.zoom;
+            
+            let closest = null;
+            let minDist = 30 / view.zoom; 
+
+            for (let p of points) {
+                if (p.pinned) continue;
+                const dx = p.x - worldMx;
+                const dy = p.y - worldMy;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = p;
+                }
+            }
+
+            if (closest) {
+                dragPoint = closest;
+                canvas.style.cursor = 'grabbing';
+            } else {
+                view.isPanning = true;
+                canvas.style.cursor = 'move';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            
+            const dx = mx - mouse.x;
+            const dy = my - mouse.y;
+
+            if (view.isPanning) {
+                view.x += dx;
+                view.y += dy;
+            }
+
+            mouse.lastX = mouse.x;
+            mouse.lastY = mouse.y;
+            mouse.x = mx;
+            mouse.y = my;
+        });
+
+        window.addEventListener('mouseup', () => {
+            dragPoint = null;
+            view.isPanning = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        function changeZoom(factor) {
+            const newZoom = view.zoom * factor;
+            if (newZoom < 0.05 || newZoom > 20) return;
+            
+            // Zoom to center
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            view.x = cx - (cx - view.x) * factor;
+            view.y = cy - (cy - view.y) * factor;
+            view.zoom = newZoom;
+            updateZoomDisplay();
+        }
+
+        function updateZoomDisplay() {
+            document.getElementById('zoom-level').innerText = `Zoom: ${Math.round(view.zoom * 100)}%`;
+        }
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomIntensity = 0.1;
+            const direction = e.deltaY < 0 ? 1 : -1;
+            const factor = 1 + (direction * zoomIntensity);
+            
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            const newZoom = view.zoom * factor;
+            if (newZoom < 0.05 || newZoom > 20) return;
+
+            view.x = mx - (mx - view.x) * factor;
+            view.y = my - (my - view.y) * factor;
+            view.zoom = newZoom;
+
+            updateZoomDisplay();
+        }, { passive: false });
+
+        resize(); 
+        setTimeout(initSim, 100); 
+        loop();
+
+    </script>
+</body>
+</html>
