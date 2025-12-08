@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Ułamków - Krok po Kroku</title>
+    <!-- Tailwind CSS do stylowania -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Ikony Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Dodatkowe style dla wyglądu zeszytowego */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .font-serif {
+            font-family: 'Georgia', 'Times New Roman', Times, serif;
+        }
+        .notebook-bg {
+            background-image: url('https://www.transparenttextures.com/patterns/graphy.png');
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        
+        /* Kolory funkcjonalne */
+        .c-whole { color: #ea580c; } /* orange-600 */
+        .c-num { color: #1d4ed8; }   /* blue-700 */
+        .c-den { color: #b91c1c; }   /* red-700 */
+        .c-mul { color: #059669; font-weight: bold; } /* emerald-600 */
+
+        /* Input styling to look like blank spaces */
+        .notebook-input {
+            background-color: transparent;
+            border-bottom: 2px solid #d1d5db;
+            text-align: center;
+            font-family: 'Georgia', serif;
+            transition: border-color 0.2s;
+        }
+        .notebook-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .bg-highlight {
+            background-color: #fefce8; /* yellow-50 */
+            border: 1px solid #fef08a; /* yellow-200 */
+            border-radius: 0.25rem;
+            padding: 0.25rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 bg-gray-200">
+
+    <div class="w-full max-w-3xl bg-white shadow-xl rounded-lg overflow-hidden border border-gray-300 min-h-[600px] flex flex-col">
+        
+        <!-- NAGŁÓWEK - WEJŚCIE DANYCH -->
+        <div class="bg-slate-50 border-b border-gray-300 p-6">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
+                
+                <!-- UŁAMEK A -->
+                <div class="flex items-center gap-1">
+                    <div class="flex flex-col items-center">
+                        <label class="text-xs text-gray-500 uppercase font-bold mb-1">Cał.</label>
+                        <input type="number" id="wA" class="notebook-input w-12 h-10 text-xl c-whole" value="1">
+                    </div>
+                    <div class="flex flex-col gap-1 items-center mx-2">
+                        <input type="number" id="nA" class="notebook-input w-12 h-10 text-xl c-num" value="1">
+                        <div class="h-0.5 w-full bg-black"></div>
+                        <input type="number" id="dA" class="notebook-input w-12 h-10 text-xl c-den" value="2">
+                    </div>
+                </div>
+
+                <!-- OPERATOR -->
+                <div class="flex gap-1 bg-white border border-gray-300 rounded p-1 shadow-sm">
+                    <button class="op-btn w-8 h-8 text-xl font-bold rounded hover:bg-gray-100 text-gray-600" data-op="+">+</button>
+                    <button class="op-btn w-8 h-8 text-xl font-bold rounded hover:bg-gray-100 text-gray-600" data-op="-">-</button>
+                    <button class="op-btn w-8 h-8 text-xl font-bold rounded hover:bg-gray-100 text-gray-600" data-op="*">·</button>
+                    <button class="op-btn w-8 h-8 text-xl font-bold rounded hover:bg-gray-100 text-gray-600" data-op="/">:</button>
+                </div>
+
+                <!-- UŁAMEK B -->
+                <div class="flex items-center gap-1">
+                    <div class="flex flex-col items-center">
+                        <label class="text-xs text-gray-500 uppercase font-bold mb-1">Cał.</label>
+                        <input type="number" id="wB" class="notebook-input w-12 h-10 text-xl c-whole" value="">
+                    </div>
+                    <div class="flex flex-col gap-1 items-center mx-2">
+                        <input type="number" id="nB" class="notebook-input w-12 h-10 text-xl c-num" value="3">
+                        <div class="h-0.5 w-full bg-black"></div>
+                        <input type="number" id="dB" class="notebook-input w-12 h-10 text-xl c-den" value="4">
+                    </div>
+                </div>
+            </div>
+
+            <!-- LEGENDA KOLORÓW -->
+            <div class="text-center mt-4 flex justify-center gap-4 text-sm text-gray-500">
+                <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-orange-600"></div> Całości</span>
+                <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-blue-700"></div> Licznik</span>
+                <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-red-700"></div> Mianownik</span>
+            </div>
+        </div>
+
+        <!-- CZĘŚĆ ROBOCZA (EKRAN Z KROKAMI) -->
+        <div class="flex-1 flex flex-col p-8 relative notebook-bg">
+            
+            <div class="flex justify-between items-center mb-6 border-b border-gray-300 pb-2">
+                <h2 id="step-title" class="text-xl font-bold text-gray-700 font-serif">Krok 1</h2>
+                <button id="reset-btn" class="text-gray-400 hover:text-gray-600" title="Resetuj">
+                    <i data-lucide="rotate-ccw"></i>
+                </button>
+            </div>
+
+            <div id="step-content" class="flex-1 flex flex-col items-center justify-center min-h-[200px] text-2xl font-serif">
+                <!-- Tutaj wstrzykiwana będzie treść kroku -->
+            </div>
+
+            <div id="step-desc" class="mt-8 bg-white/90 p-4 border border-blue-100 rounded-lg shadow-sm text-center font-serif text-lg text-slate-700">
+                <!-- Tutaj opis kroku -->
+            </div>
+
+        </div>
+
+        <!-- NAWIGACJA -->
+        <div class="bg-white border-t border-gray-200 p-4 flex justify-between items-center">
+            <button id="prev-btn" class="px-6 py-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-serif text-gray-700">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i> Wstecz
+            </button>
+
+            <!-- Kropki postępu -->
+            <div id="progress-dots" class="flex gap-1"></div>
+
+            <button id="next-btn" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-serif shadow-sm">
+                Dalej <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- SKRYPT APLIKACJI -->
+    <script>
+        // --- STAN APLIKACJI ---
+        let state = {
+            wA: 1, nA: 1, dA: 2,
+            wB: 0, nB: 3, dB: 4,
+            op: '+',
+            stepIndex: 0
+        };
+
+        let stepsData = [];
+
+        // --- FUNKCJE MATEMATYCZNE ---
+        const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+        const lcm = (a, b) => (a * b) / gcd(a, b);
+
+        // --- POMOCNIKI RENDEROWANIA ---
+        // Generuje HTML dla ułamka
+        function renderMathFrac(w, n, d, mul = null, highlight = false) {
+            const baseClass = highlight ? "bg-highlight" : "";
+            const wholeHtml = w > 0 ? `<span class="mr-1 c-whole">${w}</span>` : '';
+            
+            // Jeśli licznik 0 i mianownik 1 (i brak całości), wyświetl 0. Ale jeśli są całości, to po prostu całości.
+            if (n === 0 && d === 1 && w === 0) return `<span class="${baseClass} mx-1">0</span>`;
+            if (n === 0 && d === 1) return `<div class="inline-flex items-center align-middle mx-1 font-serif ${baseClass}">${wholeHtml}</div>`;
+
+            // Mnożnik (do rozszerzania)
+            const mulHtml = mul ? `<span class="ml-1 text-sm c-mul">• ${mul}</span>` : '';
+
+            return `
+                <div class="inline-flex items-center align-middle mx-1 font-serif ${baseClass}">
+                    ${wholeHtml}
+                    <div class="flex flex-col items-center leading-none mx-0.5">
+                        <div class="border-b border-black w-full text-center px-1 pb-0.5 mb-0.5">
+                            <span class="c-num">${n}</span>${mulHtml}
+                        </div>
+                        <div class="text-center px-1 c-den">
+                            ${d}${mulHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- GENEROWANIE KROKÓW (SILNIK) ---
+        function calculateSteps() {
+            const steps = [];
+            const wA = state.wA || 0; const nA = state.nA || 0; const dA = state.dA || 1;
+            const wB = state.wB || 0; const nB = state.nB || 0; const dB = state.dB || 1;
+            const op = state.op;
+
+            // Krok 0: Zadanie
+            const opDisplay = op === '*' ? '·' : op === '/' ? ':' : op;
+            steps.push({
+                title: "Zadanie",
+                html: `
+                    <div class="flex items-center justify-center gap-2">
+                        ${renderMathFrac(wA, nA, dA)}
+                        <span class="mx-2 font-bold">${opDisplay}</span>
+                        ${renderMathFrac(wB, nB, dB)}
+                        <span class="mx-2">= ?</span>
+                    </div>
+                `,
+                desc: "Mamy do wykonania takie działanie."
+            });
+
+            // Zamiana na niewłaściwe
+            const impNA = wA * dA + nA;
+            const impNB = wB * dB + nB;
+            
+            if (wA > 0 || wB > 0) {
+                let htmlA = wA > 0 ? `
+                    <div class="flex items-center gap-2 text-gray-500 mb-2">
+                        ${renderMathFrac(wA, nA, dA)}
+                        <span>→</span>
+                        <span class="text-sm">(${wA} · ${dA} + ${nA})</span>
+                        <span>→</span>
+                        ${renderMathFrac(0, impNA, dA, null, true)}
+                    </div>` : '';
+                
+                let htmlB = wB > 0 ? `
+                    <div class="flex items-center gap-2 text-gray-500">
+                        ${renderMathFrac(wB, nB, dB)}
+                        <span>→</span>
+                        <span class="text-sm">(${wB} · ${dB} + ${nB})</span>
+                        <span>→</span>
+                        ${renderMathFrac(0, impNB, dB, null, true)}
+                    </div>` : '';
+
+                steps.push({
+                    title: "Zamiana na ułamki niewłaściwe",
+                    html: `
+                        <div class="flex flex-col items-center">
+                            ${htmlA}
+                            ${htmlB}
+                            <div class="mt-4 border-t border-gray-400 pt-4 flex items-center">
+                                <span class="text-gray-500 mr-2 text-base">Otrzymujemy:</span>
+                                ${renderMathFrac(0, impNA, dA)}
+                                <span class="mx-2 font-bold">${opDisplay}</span>
+                                ${renderMathFrac(0, impNB, dB)}
+                            </div>
+                        </div>
+                    `,
+                    desc: "Wciągamy całości do licznika: mnożymy całość przez mianownik i dodajemy licznik."
+                });
+            }
+
+            let resultN, resultD;
+
+            // --- Logika Operacji ---
+            if (op === '+' || op === '-') {
+                const commonD = lcm(dA, dB);
+                const mulA = commonD / dA;
+                const mulB = commonD / dB;
+                const extNA = impNA * mulA;
+                const extNB = impNB * mulB;
+
+                if (dA !== dB) {
+                    steps.push({
+                        title: "Wspólny mianownik",
+                        html: `
+                            <div class="flex flex-col items-center gap-6">
+                                <div class="text-gray-600 text-base">NWW(${dA}, ${dB}) = <strong>${commonD}</strong></div>
+                                <div class="flex flex-wrap justify-center items-center gap-8">
+                                    <div class="text-center">
+                                        <div class="text-sm text-gray-500 mb-1">x <span class="c-mul">${mulA}</span></div>
+                                        ${renderMathFrac(0, impNA, dA, mulA, true)}
+                                        <div class="my-1">↓</div>
+                                        ${renderMathFrac(0, extNA, commonD)}
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-sm text-gray-500 mb-1">x <span class="c-mul">${mulB}</span></div>
+                                        ${renderMathFrac(0, impNB, dB, mulB, true)}
+                                        <div class="my-1">↓</div>
+                                        ${renderMathFrac(0, extNB, commonD)}
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-xl flex items-center">
+                                    ${renderMathFrac(0, extNA, commonD)}
+                                    <span class="mx-2">${op}</span>
+                                    ${renderMathFrac(0, extNB, commonD)}
+                                </div>
+                            </div>
+                        `,
+                        desc: `Sprowadzamy ułamki do wspólnego mianownika (${commonD}).`
+                    });
+                }
+
+                resultN = op === '+' ? extNA + extNB : extNA - extNB;
+                resultD = commonD;
+
+                steps.push({
+                    title: "Obliczenie licznika",
+                    html: `
+                        <div class="flex flex-col items-center text-xl">
+                            <div class="flex items-center border-b border-black px-4 pb-2">
+                                <span class="c-num">${extNA}</span>
+                                <span class="mx-2">${op}</span>
+                                <span class="c-num">${extNB}</span>
+                            </div>
+                            <div class="pt-2 c-den">${commonD}</div>
+                            <div class="mt-4 flex items-center">
+                                <span class="mr-2">=</span>
+                                ${renderMathFrac(0, resultN, commonD, null, true)}
+                            </div>
+                        </div>
+                    `,
+                    desc: "Mianownik przepisujemy, a na licznikach wykonujemy działanie."
+                });
+
+            } else if (op === '*') {
+                resultN = impNA * impNB;
+                resultD = dA * dB;
+                steps.push({
+                    title: "Mnożenie",
+                    html: `
+                        <div class="flex flex-wrap items-center justify-center text-xl gap-2">
+                            ${renderMathFrac(0, impNA, dA)}
+                            <span>·</span>
+                            ${renderMathFrac(0, impNB, dB)}
+                            <span>=</span>
+                            <div class="flex flex-col items-center mx-2">
+                                <div class="border-b border-black w-full text-center c-num">${impNA} · ${impNB}</div>
+                                <div class="w-full text-center c-den">${dA} · ${dB}</div>
+                            </div>
+                            <span>=</span>
+                            ${renderMathFrac(0, resultN, resultD, null, true)}
+                        </div>
+                    `,
+                    desc: "Mnożymy licznik razy licznik, a mianownik razy mianownik."
+                });
+
+            } else if (op === '/') {
+                steps.push({
+                    title: "Dzielenie to mnożenie przez odwrotność",
+                    html: `
+                        <div class="flex flex-col items-center gap-4 text-xl">
+                            <div class="flex items-center opacity-50 grayscale">
+                                ${renderMathFrac(0, impNA, dA)}
+                                <span class="mx-2">:</span>
+                                ${renderMathFrac(0, impNB, dB)}
+                            </div>
+                            <div class="text-2xl">↓</div>
+                            <div class="flex items-center p-2 bg-yellow-50 rounded border border-yellow-200">
+                                ${renderMathFrac(0, impNA, dA)}
+                                <span class="mx-2 font-bold text-green-600">·</span>
+                                ${renderMathFrac(0, dB, impNB, null, true)}
+                            </div>
+                        </div>
+                    `,
+                    desc: "Zamieniamy dzielenie na mnożenie, a drugi ułamek odwracamy."
+                });
+
+                resultN = impNA * dB;
+                resultD = dA * impNB;
+
+                steps.push({
+                    title: "Wykonanie mnożenia",
+                    html: `
+                        <div class="flex items-center text-xl">
+                            <div class="flex flex-col items-center mx-2">
+                                <div class="border-b border-black w-full text-center c-num">${impNA} · ${dB}</div>
+                                <div class="w-full text-center c-den">${dA} · ${impNB}</div>
+                            </div>
+                            <span class="mx-2">=</span>
+                            ${renderMathFrac(0, resultN, resultD, null, true)}
+                        </div>
+                    `,
+                    desc: "Teraz wykonujemy mnożenie (Góra razy góra, dół razy dół)."
+                });
+            }
+
+            // Skracanie
+            const absN = Math.abs(resultN);
+            const gcdVal = gcd(absN, resultD);
+            const simpleN = resultN / gcdVal;
+            const simpleD = resultD / gcdVal;
+
+            if (gcdVal > 1) {
+                steps.push({
+                    title: "Skracanie",
+                    html: `
+                        <div class="flex items-center text-xl">
+                            ${renderMathFrac(0, resultN, resultD)}
+                            <span class="mx-4 text-gray-400 text-base">(: ${gcdVal})</span>
+                            <span>=</span>
+                            ${renderMathFrac(0, simpleN, simpleD, null, true)}
+                        </div>
+                    `,
+                    desc: `Licznik i mianownik dzielą się przez ${gcdVal}. Skracamy ułamek.`
+                });
+            }
+
+            // Wyciąganie całości
+            const finalW = Math.floor(Math.abs(simpleN) / simpleD) * (simpleN < 0 ? -1 : 1);
+            const finalRemN = Math.abs(simpleN) % simpleD;
+
+            if (Math.abs(simpleN) >= simpleD && simpleD !== 1) {
+                steps.push({
+                    title: "Wyciąganie całości",
+                    html: `
+                        <div class="flex items-center text-xl">
+                            ${renderMathFrac(0, simpleN, simpleD)}
+                            <span class="mx-2">=</span>
+                            ${renderMathFrac(finalW, finalRemN, simpleD, null, true)}
+                        </div>
+                    `,
+                    desc: "Licznik jest większy od mianownika, więc wyciągamy całości."
+                });
+            } else if (simpleD === 1) {
+                steps.push({
+                    title: "Wynik",
+                    html: `
+                        <div class="flex items-center text-3xl font-bold text-emerald-700">
+                            <span>= ${simpleN}</span>
+                        </div>
+                    `,
+                    desc: "Wynikiem jest liczba całkowita."
+                });
+            } else {
+                 steps.push({
+                    title: "Wynik",
+                    html: `
+                        <div class="flex items-center text-2xl">
+                            ${renderMathFrac(0, simpleN, simpleD, null, true)}
+                        </div>
+                    `,
+                    desc: "To jest wynik ostateczny."
+                });
+            }
+
+            return steps;
+        }
+
+        // --- AKTUALIZACJA UI ---
+        function updateUI() {
+            // Oblicz kroki na podstawie inputów
+            stepsData = calculateSteps();
+            
+            // Zabezpieczenie indeksu
+            if (state.stepIndex >= stepsData.length) state.stepIndex = stepsData.length - 1;
+            if (state.stepIndex < 0) state.stepIndex = 0;
+
+            const currentStep = stepsData[state.stepIndex];
+
+            // Renderowanie treści
+            document.getElementById('step-title').innerText = `Krok ${state.stepIndex + 1}/${stepsData.length}: ${currentStep.title}`;
+            document.getElementById('step-content').innerHTML = currentStep.html;
+            document.getElementById('step-desc').innerText = currentStep.desc;
+
+            // Przyciski nawigacji
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            prevBtn.disabled = state.stepIndex === 0;
+            nextBtn.disabled = state.stepIndex === stepsData.length - 1;
+
+            // Kropki
+            const dotsContainer = document.getElementById('progress-dots');
+            dotsContainer.innerHTML = '';
+            stepsData.forEach((_, idx) => {
+                const dot = document.createElement('div');
+                dot.className = `w-2 h-2 rounded-full ${idx === state.stepIndex ? 'bg-blue-600' : 'bg-gray-300'}`;
+                dotsContainer.appendChild(dot);
+            });
+            
+            // Aktualizacja przycisków operatorów
+            document.querySelectorAll('.op-btn').forEach(btn => {
+                const op = btn.dataset.op;
+                if(op === state.op) {
+                    btn.className = "op-btn w-8 h-8 sm:w-10 sm:h-10 text-xl font-bold rounded bg-blue-100 text-blue-700 border border-blue-200 shadow-sm";
+                } else {
+                    btn.className = "op-btn w-8 h-8 sm:w-10 sm:h-10 text-xl font-bold rounded hover:bg-gray-100 text-gray-600";
+                }
+            });
+        }
+
+        // --- OBSŁUGA ZDARZEŃ ---
+        function handleInput(key, valStr) {
+            const val = valStr === '' ? 0 : parseInt(valStr);
+            state[key] = isNaN(val) ? 0 : val;
+            state.stepIndex = 0; // Reset kroków po zmianie danych
+            updateUI();
+        }
+
+        document.getElementById('wA').addEventListener('input', (e) => handleInput('wA', e.target.value));
+        document.getElementById('nA').addEventListener('input', (e) => handleInput('nA', e.target.value));
+        document.getElementById('dA').addEventListener('input', (e) => handleInput('dA', e.target.value));
+        
+        document.getElementById('wB').addEventListener('input', (e) => handleInput('wB', e.target.value));
+        document.getElementById('nB').addEventListener('input', (e) => handleInput('nB', e.target.value));
+        document.getElementById('dB').addEventListener('input', (e) => handleInput('dB', e.target.value));
+
+        // Operatory
+        document.querySelectorAll('.op-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.op = btn.dataset.op;
+                state.stepIndex = 0;
+                updateUI();
+            });
+        });
+
+        // Nawigacja
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            if (state.stepIndex > 0) {
+                state.stepIndex--;
+                updateUI();
+            }
+        });
+
+        document.getElementById('next-btn').addEventListener('click', () => {
+            if (state.stepIndex < stepsData.length - 1) {
+                state.stepIndex++;
+                updateUI();
+            }
+        });
+
+        // Reset
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            state.wA = 1; state.nA = 1; state.dA = 2;
+            state.wB = 0; state.nB = 3; state.dB = 4;
+            state.op = '+';
+            
+            // Aktualizacja inputów w DOM
+            document.getElementById('wA').value = 1; document.getElementById('nA').value = 1; document.getElementById('dA').value = 2;
+            document.getElementById('wB').value = ''; document.getElementById('nB').value = 3; document.getElementById('dB').value = 4;
+            
+            state.stepIndex = 0;
+            updateUI();
+        });
+
+        // Inicjalizacja Ikon i UI
+        lucide.createIcons();
+        updateUI();
+
+    </script>
+</body>
+</html>
