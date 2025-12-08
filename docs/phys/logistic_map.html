@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Równanie Logistyczne</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            margin-bottom: 20px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .canvas-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            margin-bottom: 20px;
+        }
+        canvas {
+            display: block;
+            border-radius: 10px;
+            background: #0a0a0a;
+            cursor: crosshair;
+        }
+        .controls {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid transparent;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .tab.active {
+            background: rgba(255,255,255,0.3);
+            border-color: #fff;
+        }
+        .tab:hover {
+            background: rgba(255,255,255,0.25);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .control-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        label {
+            flex: 1;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            flex: 2;
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .value {
+            min-width: 80px;
+            text-align: right;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        button {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .info-box {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .info-box strong {
+            color: #ffd700;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 Równanie Logistyczne</h1>
+    <div class="subtitle">x<sub>n+1</sub> = r · x<sub>n</sub> · (1 - x<sub>n</sub>)</div>
+    
+    <div class="canvas-container">
+        <canvas id="canvas" width="900" height="600"></canvas>
+    </div>
+    
+    <div class="controls">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('bifurcation')">🌳 Diagram Bifurkacji</div>
+            <div class="tab" onclick="switchTab('timeseries')">📈 Szereg Czasowy</div>
+            <div class="tab" onclick="switchTab('cobweb')">🕸️ Diagram Cobweb</div>
+        </div>
+        
+        <div id="bifurcation-content" class="tab-content active">
+            <div class="control-group">
+                <label>Zakres r (min):</label>
+                <input type="range" id="r-min" min="0" max="4" step="0.01" value="2.5">
+                <span class="value" id="r-min-val">2.50</span>
+            </div>
+            <div class="control-group">
+                <label>Zakres r (max):</label>
+                <input type="range" id="r-max" min="0" max="4" step="0.01" value="4">
+                <span class="value" id="r-max-val">4.00</span>
+            </div>
+            <div class="control-group">
+                <label>Rozdzielczość:</label>
+                <input type="range" id="resolution" min="500" max="3000" step="100" value="1500">
+                <span class="value" id="resolution-val">1500</span>
+            </div>
+            <div class="button-group">
+                <button onclick="drawBifurcation()">🔄 Przelicz</button>
+                <button onclick="resetBifurcation()">↩️ Reset widoku</button>
+            </div>
+            <div class="info-box">
+                <strong>Wskazówka:</strong> Kliknij na wykresie, aby zobaczyć szczegóły dla wybranej wartości r w zakładce "Szereg Czasowy"
+            </div>
+        </div>
+        
+        <div id="timeseries-content" class="tab-content">
+            <div class="control-group">
+                <label>Parametr r:</label>
+                <input type="range" id="r-value" min="0" max="4" step="0.001" value="3.5">
+                <span class="value" id="r-value-val">3.500</span>
+            </div>
+            <div class="control-group">
+                <label>Wartość początkowa x₀:</label>
+                <input type="range" id="x0" min="0.01" max="0.99" step="0.01" value="0.5">
+                <span class="value" id="x0-val">0.50</span>
+            </div>
+            <div class="control-group">
+                <label>Liczba iteracji:</label>
+                <input type="range" id="iterations" min="50" max="500" step="10" value="100">
+                <span class="value" id="iterations-val">100</span>
+            </div>
+            <div class="button-group">
+                <button onclick="drawTimeseries()">🔄 Przelicz</button>
+                <button onclick="animateTimeseries()">▶️ Animuj</button>
+            </div>
+            <div class="info-box">
+                <strong>Ciekawe wartości r:</strong> 2.0 (stabilny), 3.0 (oscylacje), 3.5 (chaos), 3.83 (chaos z oknem)
+            </div>
+        </div>
+        
+        <div id="cobweb-content" class="tab-content">
+            <div class="control-group">
+                <label>Parametr r:</label>
+                <input type="range" id="r-cobweb" min="0" max="4" step="0.01" value="3.2">
+                <span class="value" id="r-cobweb-val">3.20</span>
+            </div>
+            <div class="control-group">
+                <label>Wartość początkowa x₀:</label>
+                <input type="range" id="x0-cobweb" min="0.01" max="0.99" step="0.01" value="0.1">
+                <span class="value" id="x0-cobweb-val">0.10</span>
+            </div>
+            <div class="control-group">
+                <label>Liczba iteracji:</label>
+                <input type="range" id="iterations-cobweb" min="10" max="200" step="10" value="50">
+                <span class="value" id="iterations-cobweb-val">50</span>
+            </div>
+            <div class="button-group">
+                <button onclick="drawCobweb()">🔄 Przelicz</button>
+                <button onclick="animateCobweb()">▶️ Animuj</button>
+            </div>
+            <div class="info-box">
+                <strong>Diagram Cobweb:</strong> Pokazuje jak wartości x dążą do atraktora (lub nie!)
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let currentTab = 'bifurcation';
+        let animationFrame = null;
+        let clickedR = null;
+        
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab:nth-child(${tab === 'bifurcation' ? 1 : tab === 'timeseries' ? 2 : 3})`).classList.add('active');
+            document.getElementById(`${tab}-content`).classList.add('active');
+            
+            if (tab === 'bifurcation') drawBifurcation();
+            else if (tab === 'timeseries') drawTimeseries();
+            else if (tab === 'cobweb') drawCobweb();
+        }
+        
+        function logistic(r, x) {
+            return r * x * (1 - x);
+        }
+        
+        function drawBifurcation() {
+            const rMin = parseFloat(document.getElementById('r-min').value);
+            const rMax = parseFloat(document.getElementById('r-max').value);
+            const resolution = parseInt(document.getElementById('resolution').value);
+            
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const y = canvas.height * i / 10;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            const step = (rMax - rMin) / resolution;
+            
+            for (let i = 0; i < resolution; i++) {
+                const r = rMin + i * step;
+                let x = 0.5;
+                
+                for (let j = 0; j < 500; j++) {
+                    x = logistic(r, x);
+                }
+                
+                for (let j = 0; j < 200; j++) {
+                    x = logistic(r, x);
+                    const px = (r - rMin) / (rMax - rMin) * canvas.width;
+                    const py = canvas.height - x * canvas.height;
+                    
+                    const hue = (x * 360) % 360;
+                    ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.4)`;
+                    ctx.fillRect(px, py, 1, 1);
+                }
+            }
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.font = '12px monospace';
+            ctx.fillStyle = '#fff';
+            
+            for (let i = 0; i <= 10; i++) {
+                const r = rMin + (rMax - rMin) * i / 10;
+                const x = canvas.width * i / 10;
+                ctx.fillText(r.toFixed(2), x - 15, canvas.height - 5);
+            }
+            
+            for (let i = 0; i <= 10; i++) {
+                const val = i / 10;
+                const y = canvas.height - val * canvas.height;
+                ctx.fillText(val.toFixed(1), 5, y + 5);
+            }
+        }
+        
+        function drawTimeseries() {
+            const r = parseFloat(document.getElementById('r-value').value);
+            const x0 = parseFloat(document.getElementById('x0').value);
+            const iterations = parseInt(document.getElementById('iterations').value);
+            
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const y = canvas.height * i / 10;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            const values = [];
+            let x = x0;
+            values.push(x);
+            
+            for (let i = 0; i < iterations; i++) {
+                x = logistic(r, x);
+                values.push(x);
+            }
+            
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let i = 0; i < values.length; i++) {
+                const px = i / values.length * canvas.width;
+                const py = canvas.height - values[i] * canvas.height;
+                
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            
+            ctx.fillStyle = '#ff0088';
+            for (let i = 0; i < values.length; i++) {
+                const px = i / values.length * canvas.width;
+                const py = canvas.height - values[i] * canvas.height;
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.font = '14px monospace';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`r = ${r.toFixed(3)}, x₀ = ${x0.toFixed(2)}`, 10, 25);
+        }
+        
+        function drawCobweb() {
+            const r = parseFloat(document.getElementById('r-cobweb').value);
+            const x0 = parseFloat(document.getElementById('x0-cobweb').value);
+            const iterations = parseInt(document.getElementById('iterations-cobweb').value);
+            
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const margin = 50;
+            const w = canvas.width - 2 * margin;
+            const h = canvas.height - 2 * margin;
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(margin, margin, w, h);
+            
+            ctx.strokeStyle = '#666';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(margin, margin + h);
+            ctx.lineTo(margin + w, margin);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.strokeStyle = '#00aaff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i <= 100; i++) {
+                const x = i / 100;
+                const y = logistic(r, x);
+                const px = margin + x * w;
+                const py = margin + h - y * h;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            
+            let x = x0;
+            ctx.strokeStyle = '#ff0088';
+            ctx.lineWidth = 2;
+            
+            let px = margin + x * w;
+            let py = margin + h;
+            
+            for (let i = 0; i < iterations; i++) {
+                const nextX = logistic(r, x);
+                const nextPx = margin + nextX * w;
+                const nextPy = margin + h - nextX * h;
+                
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px, margin + h - nextX * h);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(px, margin + h - nextX * h);
+                ctx.lineTo(nextPx, nextPy);
+                ctx.stroke();
+                
+                x = nextX;
+                px = nextPx;
+                py = nextPy;
+            }
+            
+            ctx.font = '14px monospace';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`r = ${r.toFixed(2)}`, 10, 25);
+            ctx.fillText('x', canvas.width - 20, canvas.height - 10);
+            ctx.fillText('f(x)', 10, 40);
+        }
+        
+        function animateTimeseries() {
+            let iter = 0;
+            const maxIter = parseInt(document.getElementById('iterations').value);
+            const r = parseFloat(document.getElementById('r-value').value);
+            let x = parseFloat(document.getElementById('x0').value);
+            
+            const values = [x];
+            
+            function step() {
+                if (iter >= maxIter) return;
+                
+                x = logistic(r, x);
+                values.push(x);
+                iter++;
+                
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < values.length; i++) {
+                    const px = i / maxIter * canvas.width;
+                    const py = canvas.height - values[i] * canvas.height;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ff0088';
+                for (let i = 0; i < values.length; i++) {
+                    const px = i / maxIter * canvas.width;
+                    const py = canvas.height - values[i] * canvas.height;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                animationFrame = requestAnimationFrame(step);
+            }
+            
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+            step();
+        }
+        
+        function animateCobweb() {
+            let iter = 0;
+            const maxIter = parseInt(document.getElementById('iterations-cobweb').value);
+            const r = parseFloat(document.getElementById('r-cobweb').value);
+            let x = parseFloat(document.getElementById('x0-cobweb').value);
+            
+            const margin = 50;
+            const w = canvas.width - 2 * margin;
+            const h = canvas.height - 2 * margin;
+            
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(margin, margin, w, h);
+            
+            ctx.strokeStyle = '#666';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(margin, margin + h);
+            ctx.lineTo(margin + w, margin);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.strokeStyle = '#00aaff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i <= 100; i++) {
+                const xi = i / 100;
+                const y = logistic(r, xi);
+                const px = margin + xi * w;
+                const py = margin + h - y * h;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            
+            let px = margin + x * w;
+            let py = margin + h;
+            
+            function step() {
+                if (iter >= maxIter) return;
+                
+                const nextX = logistic(r, x);
+                const nextPx = margin + nextX * w;
+                const nextPy = margin + h - nextX * h;
+                
+                ctx.strokeStyle = '#ff0088';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px, margin + h - nextX * h);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(px, margin + h - nextX * h);
+                ctx.lineTo(nextPx, nextPy);
+                ctx.stroke();
+                
+                x = nextX;
+                px = nextPx;
+                py = nextPy;
+                iter++;
+                
+                animationFrame = setTimeout(step, 100);
+            }
+            
+            if (animationFrame) clearTimeout(animationFrame);
+            step();
+        }
+        
+        function resetBifurcation() {
+            document.getElementById('r-min').value = 2.5;
+            document.getElementById('r-max').value = 4;
+            updateValues();
+            drawBifurcation();
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (currentTab !== 'bifurcation') return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            
+            const rMin = parseFloat(document.getElementById('r-min').value);
+            const rMax = parseFloat(document.getElementById('r-max').value);
+            const r = rMin + (x / canvas.width) * (rMax - rMin);
+            
+            document.getElementById('r-value').value = r.toFixed(3);
+            updateValues();
+            switchTab('timeseries');
+        });
+        
+        function updateValues() {
+            document.getElementById('r-min-val').textContent = parseFloat(document.getElementById('r-min').value).toFixed(2);
+            document.getElementById('r-max-val').textContent = parseFloat(document.getElementById('r-max').value).toFixed(2);
+            document.getElementById('resolution-val').textContent = document.getElementById('resolution').value;
+            document.getElementById('r-value-val').textContent = parseFloat(document.getElementById('r-value').value).toFixed(3);
+            document.getElementById('x0-val').textContent = parseFloat(document.getElementById('x0').value).toFixed(2);
+            document.getElementById('iterations-val').textContent = document.getElementById('iterations').value;
+            document.getElementById('r-cobweb-val').textContent = parseFloat(document.getElementById('r-cobweb').value).toFixed(2);
+            document.getElementById('x0-cobweb-val').textContent = parseFloat(document.getElementById('x0-cobweb').value).toFixed(2);
+            document.getElementById('iterations-cobweb-val').textContent = document.getElementById('iterations-cobweb').value;
+        }
+        
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            input.addEventListener('input', updateValues);
+        });
+        
+        document.getElementById('r-value').addEventListener('input', drawTimeseries);
+        document.getElementById('x0').addEventListener('input', drawTimeseries);
+        document.getElementById('iterations').addEventListener('input', drawTimeseries);
+        document.getElementById('r-cobweb').addEventListener('input', drawCobweb);
+        document.getElementById('x0-cobweb').addEventListener('input', drawCobweb);
+        document.getElementById('iterations-cobweb').addEventListener('input', drawCobweb);
+        
+        updateValues();
+        drawBifurcation();
+    </script>
+</body>
+</html>
