@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trener Kolejności Działań</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Nunito:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0fdf4; /* green-50 */
+        }
+
+        .math-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Tokeny wyrażenia */
+        .token {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            margin: 0.2rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            font-size: 1.5rem;
+            font-weight: 700;
+            min-height: 3.5rem;
+        }
+
+        /* Liczby */
+        .token-num {
+            color: #1e293b; /* slate-800 */
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 0 #cbd5e1;
+        }
+
+        /* Operatory (klikalne) */
+        .token-op {
+            background-color: #e0e7ff; /* indigo-100 */
+            color: #4338ca; /* indigo-700 */
+            cursor: pointer;
+            border: 2px solid #c7d2fe;
+            min-width: 3rem;
+            box-shadow: 0 4px 0 #a5b4fc;
+            transform: translateY(0);
+        }
+        
+        .token-op:hover:not(.disabled) {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #818cf8;
+        }
+
+        .token-op:active:not(.disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 #818cf8;
+        }
+
+        .token-op.disabled {
+            cursor: default;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Potęga */
+        .token-pow {
+            background-color: #fce7f3; /* pink-100 */
+            color: #be185d; /* pink-700 */
+            cursor: pointer;
+            border: 2px solid #fbcfe8;
+            font-size: 1rem;
+            align-self: flex-start;
+            margin-top: 0;
+            padding: 0.2rem 0.5rem;
+            box-shadow: 0 4px 0 #f9a8d4;
+        }
+        
+        .token-pow:hover:not(.disabled) {
+            background-color: #db2777;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Nawiasy */
+        .token-paren {
+            color: #94a3b8; /* slate-400 */
+            font-weight: 400;
+            font-size: 2rem;
+        }
+
+        /* Animacje */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            background-color: #fee2e2 !important; /* red-100 */
+            color: #b91c1c !important; /* red-700 */
+            border-color: #f87171 !important;
+        }
+
+        /* Stan aktywny (obliczanie) */
+        .calculating {
+            background-color: #dcfce7 !important; /* green-100 */
+            color: #15803d !important; /* green-700 */
+            border-color: #86efac !important;
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Zakładki */
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            font-weight: 700;
+            border-bottom: 4px solid transparent;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            color: #2563eb; /* blue-600 */
+            border-bottom-color: #2563eb;
+            background-color: #eff6ff;
+        }
+
+        /* Historia */
+        .history-item {
+            animation: slideIn 0.3s ease-out;
+            border-left: 4px solid #22c55e;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 bg-green-50">
+
+    <!-- Kontener Główny -->
+    <div class="w-full max-w-6xl flex flex-col lg:flex-row gap-6">
+        
+        <!-- Główny Panel Gry -->
+        <div class="flex-1 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            
+            <!-- Header -->
+            <div class="bg-slate-800 p-6 text-white text-center">
+                <h1 class="text-3xl font-black mb-2 flex items-center justify-center gap-3">
+                    <i data-lucide="layers" class="w-8 h-8 text-yellow-400"></i>
+                    Mistrz Kolejności
+                </h1>
+                <p class="text-slate-300">Kliknij działanie, które należy wykonać TERAZ!</p>
+            </div>
+
+            <!-- Zakładki Poziomów -->
+            <div class="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
+                <button class="tab-btn active flex-1 min-w-[120px]" onclick="setLevel('natural')">
+                    1. Naturalne
+                    <span class="block text-xs font-normal mt-1">Podstawy</span>
+                </button>
+                <button class="tab-btn flex-1 min-w-[120px]" onclick="setLevel('integer')">
+                    2. Całkowite
+                    <span class="block text-xs font-normal mt-1">+ Liczby ujemne</span>
+                </button>
+                <button class="tab-btn flex-1 min-w-[120px]" onclick="setLevel('fraction')">
+                    3. Ułamki
+                    <span class="block text-xs font-normal mt-1">Dla ekspertów</span>
+                </button>
+            </div>
+
+            <!-- Obszar Gry -->
+            <div class="p-8 sm:p-12 flex-1 flex flex-col items-center justify-center relative min-h-[500px]">
+                
+                <!-- Pasek Postępu / Info -->
+                <div id="feedback-area" class="mb-8 h-8 text-center font-bold text-lg text-indigo-600 transition-opacity">
+                    <!-- Tu pojawiają się komunikaty -->
+                </div>
+
+                <!-- Wyrażenie Matematyczne -->
+                <div id="expression-container" class="flex flex-wrap items-center justify-center gap-3 math-font text-2xl sm:text-3xl bg-slate-50 p-8 rounded-3xl border-2 border-dashed border-slate-300 w-full min-h-[180px] transition-all duration-500">
+                    <!-- Tokeny generowane przez JS -->
+                </div>
+
+                <!-- Przycisk Dalej / Start -->
+                <div class="mt-12">
+                    <button id="next-btn" onclick="generateExpression()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105 flex items-center gap-2">
+                        <i data-lucide="play"></i> Losuj Nowe Wyrażenie
+                    </button>
+                </div>
+
+                <!-- Konfetti Success (ukryte) -->
+                <div id="success-msg" class="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-20 hidden backdrop-blur-sm rounded-b-3xl">
+                    <i data-lucide="trophy" class="w-32 h-32 text-yellow-500 mb-6 animate-bounce"></i>
+                    <h2 class="text-5xl font-black text-slate-800 mb-4">Brawo!</h2>
+                    <p class="text-xl text-slate-600 mb-8">Rozwiązałeś całe, trudne wyrażenie!</p>
+                    <button onclick="generateExpression()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-10 rounded-full shadow-xl text-xl transition hover:scale-110">
+                        Jeszcze raz
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Panel Historii -->
+        <div class="lg:w-80 bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[600px] lg:h-auto">
+            <div class="bg-slate-100 p-4 border-b border-slate-200 font-bold text-slate-700 flex items-center gap-2">
+                <i data-lucide="history"></i> Historia Obliczeń
+            </div>
+            <div id="history-container" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                <div class="text-center text-slate-400 text-sm mt-10 italic" id="empty-history-msg">
+                    Tutaj pojawią się Twoje obliczenia...
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Skrypty Logiki -->
+    <script>
+        lucide.createIcons();
+
+        // --- KLASA UŁAMKÓW (do poziomu 3) ---
+        class Fraction {
+            constructor(n, d) {
+                if (d === 0) throw new Error("Division by zero");
+                if (d < 0) { n = -n; d = -d; }
+                this.n = n;
+                this.d = d;
+                this.simplify();
+            }
+
+            gcd(a, b) { return b === 0 ? a : this.gcd(b, a % b); }
+
+            simplify() {
+                const common = this.gcd(Math.abs(this.n), this.d);
+                this.n /= common;
+                this.d /= common;
+            }
+
+            add(f) { return new Fraction(this.n * f.d + f.n * this.d, this.d * f.d); }
+            sub(f) { return new Fraction(this.n * f.d - f.n * this.d, this.d * f.d); }
+            mul(f) { return new Fraction(this.n * f.n, this.d * f.d); }
+            div(f) { return new Fraction(this.n * f.d, this.d * f.n); }
+            pow(p) { return new Fraction(Math.pow(this.n, p), Math.pow(this.d, p)); }
+            
+            toString() {
+                if (this.d === 1) return `${this.n}`;
+                return `${this.n}/${this.d}`;
+            }
+
+            toLatex() {
+                if (this.d === 1) return `${this.n}`;
+                return `<div class="inline-flex flex-col items-center align-middle mx-1" style="vertical-align: middle;">
+                    <span class="border-b border-current leading-none px-1 text-sm">${this.n}</span>
+                    <span class="leading-none text-sm">${this.d}</span>
+                </div>`;
+            }
+        }
+
+        // --- STAN APLIKACJI ---
+        let currentLevel = 'natural';
+        let tokens = []; // { type: 'num'|'op'|'paren'|'pow', value: ..., id: ... }
+        let isAnimating = false; // Blokada klikania podczas animacji
+
+        // --- KONFIGURACJA POZIOMÓW ---
+        function setLevel(level) {
+            currentLevel = level;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            generateExpression();
+        }
+
+        // --- GENERATOR WYRAŻEŃ ---
+        function generateExpression() {
+            document.getElementById('success-msg').classList.add('hidden');
+            document.getElementById('feedback-area').innerText = "Znajdź działanie o najwyższym priorytecie";
+            document.getElementById('feedback-area').className = "mb-8 h-8 text-center font-bold text-lg text-indigo-600";
+            document.getElementById('history-container').innerHTML = '<div class="text-center text-slate-400 text-sm mt-10 italic" id="empty-history-msg">Tutaj pojawią się Twoje obliczenia...</div>';
+            
+            tokens = [];
+            isAnimating = false;
+            
+            // Szablony: n=liczba, o=operator, ^=potęga
+            const templates = [
+                ['n', 'o', 'n', 'o', 'n', 'o', 'n'], // Długie proste
+                ['(', 'n', 'o', 'n', ')', '^', 'o', 'n'], // Nawias + Potęga
+                ['n', 'o', '(', 'n', 'o', 'n', ')', '^'], // Liczba + (Nawias)^2
+                ['(', 'n', 'o', 'n', ')', 'o', '(', 'n', 'o', 'n', ')'], // Dwa nawiasy
+                ['n', 'o', 'n', 'o', '(', 'n', 'o', 'n', ')'], // Mieszane
+                ['(', 'n', 'o', 'n', 'o', 'n', ')', 'o', 'n'] // Długi nawias
+            ];
+
+            const template = templates[Math.floor(Math.random() * templates.length)];
+            let idCounter = 0;
+            
+            const getNum = () => {
+                if (currentLevel === 'fraction') {
+                    const dens = [2, 3, 4, 5];
+                    const d = dens[Math.floor(Math.random() * dens.length)];
+                    const n = Math.floor(Math.random() * (d * 2)) + 1;
+                    return new Fraction(n, d);
+                } else if (currentLevel === 'integer') {
+                    return Math.floor(Math.random() * 16) - 8; // -8 do 8
+                } else {
+                    return Math.floor(Math.random() * 10) + 1;
+                }
+            };
+
+            const getOp = () => {
+                const ops = ['+', '-'];
+                if (Math.random() > 0.3) ops.push('*');
+                // Unikamy dzielenia w prostym generatorze liczb całkowitych, bo rzadko wychodzi całkowite
+                if (currentLevel === 'fraction') ops.push(':'); 
+                return ops[Math.floor(Math.random() * ops.length)];
+            };
+
+            for (let t of template) {
+                if (t === 'n') {
+                    tokens.push({ type: 'num', value: getNum(), id: idCounter++ });
+                } else if (t === 'o') {
+                    tokens.push({ type: 'op', value: getOp(), id: idCounter++ });
+                } else if (t === '^') {
+                    tokens.push({ type: 'pow', value: 2, id: idCounter++ }); // Tylko kwadraty dla prostoty
+                } else {
+                    tokens.push({ type: 'paren', value: t, id: idCounter++ });
+                }
+            }
+
+            renderTokens();
+        }
+
+        // --- RENDEROWANIE ---
+        function renderTokens() {
+            const container = document.getElementById('expression-container');
+            container.innerHTML = '';
+
+            if (tokens.length === 1 && tokens[0].type === 'num') {
+                showSuccess();
+                return;
+            }
+
+            tokens.forEach((token, index) => {
+                const el = document.createElement('div');
+                el.className = 'token';
+                // Przypisz ID do elementu DOM, żeby łatwo go znaleźć przy animacji
+                el.dataset.index = index; 
+                
+                if (token.type === 'num') {
+                    el.classList.add('token-num');
+                    if (token.value instanceof Fraction) {
+                        el.innerHTML = token.value.toLatex();
+                    } else {
+                        if (token.value < 0 && index > 0 && (tokens[index-1].type === 'op' || tokens[index-1].type === 'pow')) {
+                             el.innerText = `(${token.value})`;
+                        } else {
+                             el.innerText = token.value;
+                        }
+                    }
+                } else if (token.type === 'op') {
+                    el.classList.add('token-op');
+                    if (isAnimating) el.classList.add('disabled');
+                    el.innerText = token.value === '*' ? '·' : token.value;
+                    el.onclick = () => handleOpClick(index);
+                } else if (token.type === 'pow') {
+                    el.classList.add('token-pow');
+                    if (isAnimating) el.classList.add('disabled');
+                    el.innerHTML = `<sup>${token.value}</sup>`;
+                    el.onclick = () => handleOpClick(index);
+                } else {
+                    el.classList.add('token-paren');
+                    el.innerText = token.value;
+                }
+
+                container.appendChild(el);
+            });
+        }
+
+        // --- LOGIKA GRY (NOWA - WIELOWĄTKOWA) ---
+        
+        // Zwraca tablicę indeksów wszystkich poprawnych ruchów
+        function getValidOpIndices() {
+            // KROK 1: Mapowanie poziomów zagnieżdżenia
+            // Obliczamy poziom dla każdego operatora.
+            // Operator jest na tym poziomie, w którym się znajduje.
+            // ( 2 + 3 ) -> nawiasy to poziom 0->1 i 1->0. Plus jest w środku, więc poziom 1.
+            
+            let levels = [];
+            let currentDepth = 0;
+            
+            for (let i = 0; i < tokens.length; i++) {
+                if (tokens[i].type === 'paren' && tokens[i].value === '(') {
+                    currentDepth++;
+                }
+                
+                // Przypisujemy poziom. Dla operatorów ważny jest currentDepth.
+                levels[i] = currentDepth;
+                
+                if (tokens[i].type === 'paren' && tokens[i].value === ')') {
+                    currentDepth--;
+                    // Fix: nawias zamykający kończy poziom, ale operator wewnątrz był na poziomie wyższym
+                    // W tej pętli, jeśli mamy ( A + B ), to przy + depth jest 1. Przy ) depth spada do 0.
+                }
+            }
+
+            // KROK 2: Znalezienie maksymalnego poziomu WŚRÓD OPERATORÓW
+            // Ignorujemy poziomy samych nawiasów, szukamy tylko tam gdzie są działania
+            let maxOpLevel = -1;
+            tokens.forEach((t, i) => {
+                if (t.type === 'op' || t.type === 'pow') {
+                    if (levels[i] > maxOpLevel) maxOpLevel = levels[i];
+                }
+            });
+
+            if (maxOpLevel === -1) return []; // Brak operatorów
+
+            // KROK 3: Wybranie kandydatów z najgłębszego poziomu
+            let candidates = []; // { index, token }
+            tokens.forEach((t, i) => {
+                if ((t.type === 'op' || t.type === 'pow') && levels[i] === maxOpLevel) {
+                    candidates.push({ index: i, token: t });
+                }
+            });
+
+            // KROK 4: Filtracja według hierarchii działań (Precedence) wewnątrz poziomu
+            // 1. Potęgi
+            const hasPow = candidates.some(c => c.token.type === 'pow');
+            if (hasPow) {
+                return candidates.filter(c => c.token.type === 'pow').map(c => c.index);
+            }
+
+            // 2. Mnożenie / Dzielenie
+            const hasMulDiv = candidates.some(c => c.token.value === '*' || c.token.value === ':');
+            if (hasMulDiv) {
+                return candidates
+                    .filter(c => c.token.value === '*' || c.token.value === ':')
+                    .map(c => c.index);
+            }
+
+            // 3. Dodawanie / Odejmowanie
+            return candidates.map(c => c.index);
+        }
+
+        function handleOpClick(clickedIndex) {
+            if (isAnimating) return;
+
+            // Pobieramy listę wszystkich poprawnych ruchów
+            const validIndices = getValidOpIndices();
+            const feedback = document.getElementById('feedback-area');
+
+            // Walidacja kliknięcia
+            if (tokens[clickedIndex].type === 'num' || tokens[clickedIndex].type === 'paren') return;
+
+            if (validIndices.includes(clickedIndex)) {
+                feedback.innerText = getRandomPraise();
+                feedback.className = "mb-8 h-8 text-center font-bold text-lg text-green-600";
+                performOperation(clickedIndex);
+            } else {
+                feedback.innerText = "Nie to działanie! Sprawdź nawiasy lub kolejność działań.";
+                feedback.className = "mb-8 h-8 text-center font-bold text-lg text-red-600";
+                
+                const domEl = document.querySelector(`.token[data-index="${clickedIndex}"]`);
+                if(domEl) {
+                    domEl.classList.add('shake');
+                    setTimeout(() => domEl.classList.remove('shake'), 500);
+                }
+            }
+        }
+
+        function performOperation(opIndex) {
+            isAnimating = true;
+            const opToken = tokens[opIndex];
+            
+            // Identyfikacja operandów
+            let leftIdx, rightIdx, elementsToHighlight = [];
+            let resultVal, v1, v2, opSymbol;
+            let histText = "";
+
+            // Przypadek POTĘGA (unary-like postfix)
+            if (opToken.type === 'pow') {
+                leftIdx = opIndex - 1;
+                
+                v1 = tokens[leftIdx].value;
+                if (currentLevel === 'fraction') {
+                    resultVal = v1.pow(opToken.value);
+                } else {
+                    resultVal = Math.pow(v1, opToken.value);
+                }
+                
+                opSymbol = `^${opToken.value}`;
+                histText = `${v1 instanceof Fraction ? '('+v1.toString()+')' : v1}<sup>${opToken.value}</sup>`;
+                
+                elementsToHighlight = [leftIdx, opIndex];
+                
+                // Animacja
+                highlightElements(elementsToHighlight);
+
+                // Opóźnienie przed zmianą danych
+                setTimeout(() => {
+                    tokens.splice(leftIdx, 2, { type: 'num', value: resultVal, id: Date.now() });
+                    finishOperation(histText, resultVal);
+                }, 1000); // 1 sekunda czekania
+                
+                return;
+            }
+
+            // Przypadek ZWYKŁY OPERATOR BINARNY
+            leftIdx = opIndex - 1;
+            rightIdx = opIndex + 1;
+            v1 = tokens[leftIdx].value;
+            v2 = tokens[rightIdx].value;
+
+            if (currentLevel === 'fraction') {
+                switch (opToken.value) {
+                    case '+': resultVal = v1.add(v2); break;
+                    case '-': resultVal = v1.sub(v2); break;
+                    case '*': resultVal = v1.mul(v2); break;
+                    case ':': resultVal = v1.div(v2); break;
+                }
+            } else {
+                switch (opToken.value) {
+                    case '+': resultVal = v1 + v2; break;
+                    case '-': resultVal = v1 - v2; break;
+                    case '*': resultVal = v1 * v2; break;
+                    case ':': resultVal = v1 / v2; break; // Tu może wyjść ułamek w JS, ale w grze staramy się unikać
+                }
+                // Zaokrąglenie do 2 miejsc po przecinku w razie czego
+                if (typeof resultVal === 'number' && !Number.isInteger(resultVal)) {
+                    resultVal = Math.round(resultVal * 100) / 100;
+                }
+            }
+
+            opSymbol = opToken.value === '*' ? '·' : opToken.value;
+            let v1Str = v1.toString();
+            let v2Str = v2.toString();
+            if (v2 < 0 && (opSymbol === '·' || opSymbol === '-' || opSymbol === '+')) v2Str = `(${v2})`;
+            
+            histText = `${v1Str} ${opSymbol} ${v2Str}`;
+            elementsToHighlight = [leftIdx, opIndex, rightIdx];
+
+            highlightElements(elementsToHighlight);
+
+            setTimeout(() => {
+                tokens.splice(leftIdx, 3, { type: 'num', value: resultVal, id: Date.now() });
+                // Sprawdź czy usunąć nawiasy otaczające wynik: ( 5 ) -> 5
+                // Po splice, nowy token jest pod leftIdx.
+                if (leftIdx > 0 && leftIdx < tokens.length - 1) {
+                    if (tokens[leftIdx - 1].value === '(' && tokens[leftIdx + 1].value === ')') {
+                        tokens.splice(leftIdx + 1, 1); // usuń )
+                        tokens.splice(leftIdx - 1, 1); // usuń (
+                    }
+                }
+                finishOperation(histText, resultVal);
+            }, 1000);
+        }
+
+        function highlightElements(indices) {
+            indices.forEach(idx => {
+                const el = document.querySelector(`.token[data-index="${idx}"]`);
+                if (el) el.classList.add('calculating');
+            });
+        }
+
+        function finishOperation(equationLeft, result) {
+            // Dodaj do historii
+            const historyContainer = document.getElementById('history-container');
+            const emptyMsg = document.getElementById('empty-history-msg');
+            if (emptyMsg) emptyMsg.remove();
+
+            const item = document.createElement('div');
+            item.className = 'history-item bg-white p-3 rounded-lg shadow-sm text-sm flex justify-between items-center';
+            item.innerHTML = `
+                <span class="font-mono text-slate-600">${equationLeft}</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-green-500 mx-2"></i>
+                <span class="font-bold text-slate-800 text-lg">${result.toString()}</span>
+            `;
+            historyContainer.prepend(item); // Nowe na górze
+            lucide.createIcons();
+
+            isAnimating = false;
+            renderTokens();
+        }
+
+        function showSuccess() {
+            document.getElementById('success-msg').classList.remove('hidden');
+        }
+
+        function getRandomPraise() {
+            const praises = ["Dobrze!", "Tak jest!", "Ekstra!", "Dokładnie!", "Lecisz z tym!"];
+            return praises[Math.floor(Math.random() * praises.length)];
+        }
+
+        // Start
+        generateExpression();
+
+    </script>
+</body>
+</html>
