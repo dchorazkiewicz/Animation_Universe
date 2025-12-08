@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chaos Explorer - Podwójne Wahadło</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            background-color: #09090b; /* Zinc 950 */
+            color: #e4e4e7;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .panel {
+            background-color: rgba(24, 24, 27, 0.95); /* Zinc 900 */
+            backdrop-filter: blur(12px);
+            border-right: 1px solid #27272a;
+        }
+
+        .slider-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #a1a1aa;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Stylizacja suwaków */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #f43f5e; /* Rose 500 */
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #3f3f46;
+            border-radius: 2px;
+        }
+
+        .mono-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: #fb7185; /* Rose 400 */
+        }
+
+        .btn-primary {
+            @apply w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-rose-900/20 transition-all active:scale-95 flex items-center justify-center gap-2;
+        }
+        
+        .btn-secondary {
+            @apply w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2 px-4 rounded-lg border border-zinc-700 transition-all active:scale-95 flex items-center justify-center gap-2;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+
+    <!-- Panel Sterowania -->
+    <div class="panel w-80 flex-shrink-0 flex flex-col h-full z-20 shadow-2xl relative overflow-y-auto">
+        <div class="p-6 border-b border-zinc-800">
+            <h1 class="text-2xl font-bold flex items-center gap-2 text-rose-500 tracking-tight">
+                <i data-lucide="infinity" class="w-8 h-8"></i>
+                Chaos
+            </h1>
+            <p class="text-xs text-zinc-500 mt-1 font-mono">Symulacja Wrażliwości RK4</p>
+        </div>
+
+        <div class="p-6 space-y-8 flex-1">
+            
+            <!-- Konfiguracja Wiązki -->
+            <div>
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">
+                    Wiązka Symulacji
+                </h3>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Liczba Wahadeł</span>
+                        <span class="mono-val" id="val-count">20</span>
+                    </div>
+                    <input type="range" id="inp-count" min="1" max="100" step="1" value="20">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Rozrzut (Delta)</span>
+                        <span class="mono-val" id="val-delta">0.0001 rad</span>
+                    </div>
+                    <input type="range" id="inp-delta" min="0.000001" max="0.01" step="0.000001" value="0.0001">
+                    <p class="text-[10px] text-zinc-500 mt-1">
+                        Każde wahadło ma swój unikalny kolor i pozycję startową.
+                    </p>
+                </div>
+
+                <!-- Nowe suwaki kątów początkowych -->
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Kąt Początkowy 1 (Góra)</span>
+                        <span class="mono-val" id="val-theta1">90°</span>
+                    </div>
+                    <input type="range" id="inp-theta1" min="0" max="360" step="1" value="90">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Kąt Początkowy 2 (Dół)</span>
+                        <span class="mono-val" id="val-theta2">90°</span>
+                    </div>
+                    <input type="range" id="inp-theta2" min="0" max="360" step="1" value="90">
+                </div>
+            </div>
+
+            <!-- Fizyka -->
+            <div>
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 border-b border-zinc-800 pb-2">
+                    Parametry Fizyczne
+                </h3>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Grawitacja (g)</span>
+                        <span class="mono-val" id="val-g">9.81</span>
+                    </div>
+                    <input type="range" id="inp-g" min="0" max="20" step="0.1" value="9.81">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Masa 1 / Masa 2</span>
+                        <span class="mono-val" id="val-mass">1.0</span>
+                    </div>
+                    <input type="range" id="inp-mass" min="0.1" max="5.0" step="0.1" value="1.0">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Długość 1 / Długość 2</span>
+                        <span class="mono-val" id="val-len">1.0</span>
+                    </div>
+                    <input type="range" id="inp-len" min="0.1" max="2.0" step="0.1" value="1.0">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Szybkość Symulacji</span>
+                        <span class="mono-val" id="val-speed">1.0x</span>
+                    </div>
+                    <input type="range" id="inp-speed" min="0.1" max="5.0" step="0.1" value="1.0">
+                </div>
+            </div>
+
+            <!-- Sterowanie -->
+            <div class="space-y-3 pt-4">
+                <button id="btn-restart" class="btn-primary">
+                    <i data-lucide="rotate-ccw"></i> Restartuj Wiązkę
+                </button>
+                <button id="btn-clear" class="btn-secondary">
+                    <i data-lucide="eraser"></i> Wyczyść Ślady
+                </button>
+            </div>
+
+            <div class="bg-zinc-900/50 p-3 rounded border border-zinc-800 text-[10px] text-zinc-500 text-center leading-relaxed">
+                Obserwuj, jak mikroskopijna zmiana warunków początkowych prowadzi do całkowicie różnych trajektorii. Każdy kolor to osobna symulacja.
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="flex-1 relative bg-black overflow-hidden cursor-crosshair" id="canvas-wrapper">
+        <canvas id="simCanvas"></canvas>
+        
+        <!-- Overlay Info -->
+        <div class="absolute top-6 right-6 text-right pointer-events-none">
+            <div class="text-3xl font-bold text-rose-500 font-mono" id="time-display">T: 0.00s</div>
+            <div class="text-xs text-zinc-600 font-mono mt-1">RK4 Integrator</div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- KONFIGURACJA ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optymalizacja
+        const container = document.getElementById('canvas-wrapper');
+
+        const config = {
+            count: 20,
+            delta: 0.0001,
+            g: 9.81,
+            m1: 10,
+            m2: 10,
+            l1: 150,
+            l2: 150,
+            // trailFade usunięte, bo czyścimy ekran całkowicie
+            timeScale: 1.0,
+            stepsPerFrame: 10,
+            // Nowe parametry kątów (w radianach)
+            baseTheta1: Math.PI / 2,
+            baseTheta2: Math.PI / 2
+        };
+
+        let pendulums = [];
+        let time = 0;
+        let animationId;
+        
+        // --- KLASA WAHADŁA ---
+        class DoublePendulum {
+            constructor(theta1, theta2, index, total) {
+                // Stan: [theta1, theta2, omega1, omega2]
+                this.state = {
+                    t1: theta1,
+                    t2: theta2,
+                    w1: 0,
+                    w2: 0
+                };
+                
+                this.index = index;
+                this.total = total;
+                
+                // Pozycja końcówki (do rysowania)
+                this.x1 = 0; this.y1 = 0;
+                this.x2 = 0; this.y2 = 0;
+                
+                // Inicjalizacja pozycji
+                this.updatePosition();
+                this.prevX2 = this.x2;
+                this.prevY2 = this.y2;
+            }
+
+            // Oblicza pochodne dla metody RK4
+            getDerivatives(state) {
+                const { t1, t2, w1, w2 } = state;
+                const { g, m1, m2, l1, l2 } = config;
+                
+                const num1 = -g * (2 * m1 + m2) * Math.sin(t1);
+                const num2 = -m2 * g * Math.sin(t1 - 2 * t2);
+                const num3 = -2 * Math.sin(t1 - t2) * m2 * (w2 * w2 * l2 + w1 * w1 * l1 * Math.cos(t1 - t2));
+                const den1 = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * t1 - 2 * t2));
+                
+                const dw1_dt = (num1 + num2 + num3) / den1;
+
+                const num4 = 2 * Math.sin(t1 - t2);
+                const num5 = (w1 * w1 * l1 * (m1 + m2));
+                const num6 = g * (m1 + m2) * Math.cos(t1);
+                const num7 = w2 * w2 * l2 * m2 * Math.cos(t1 - t2);
+                const den2 = l2 * (2 * m1 + m2 - m2 * Math.cos(2 * t1 - 2 * t2));
+
+                const dw2_dt = (num4 * (num5 + num6 + num7)) / den2;
+
+                return {
+                    dt1: w1,
+                    dt2: w2,
+                    dw1: dw1_dt,
+                    dw2: dw2_dt
+                };
+            }
+
+            // Integrator RK4
+            update(dt) {
+                const s = this.state;
+
+                const k1 = this.getDerivatives(s);
+
+                const s2 = {
+                    t1: s.t1 + k1.dt1 * dt * 0.5,
+                    t2: s.t2 + k1.dt2 * dt * 0.5,
+                    w1: s.w1 + k1.dw1 * dt * 0.5,
+                    w2: s.w2 + k1.dw2 * dt * 0.5
+                };
+                const k2 = this.getDerivatives(s2);
+
+                const s3 = {
+                    t1: s.t1 + k2.dt1 * dt * 0.5,
+                    t2: s.t2 + k2.dt2 * dt * 0.5,
+                    w1: s.w1 + k2.dw1 * dt * 0.5,
+                    w2: s.w2 + k2.dw2 * dt * 0.5
+                };
+                const k3 = this.getDerivatives(s3);
+
+                const s4 = {
+                    t1: s.t1 + k3.dt1 * dt,
+                    t2: s.t2 + k3.dt2 * dt,
+                    w1: s.w1 + k3.dw1 * dt,
+                    w2: s.w2 + k3.dw2 * dt
+                };
+                const k4 = this.getDerivatives(s4);
+
+                this.state.t1 += (dt / 6) * (k1.dt1 + 2 * k2.dt1 + 2 * k3.dt1 + k4.dt1);
+                this.state.t2 += (dt / 6) * (k1.dt2 + 2 * k2.dt2 + 2 * k3.dt2 + k4.dt2);
+                this.state.w1 += (dt / 6) * (k1.dw1 + 2 * k2.dw1 + 2 * k3.dw1 + k4.dw1);
+                this.state.w2 += (dt / 6) * (k1.dw2 + 2 * k2.dw2 + 2 * k3.dw2 + k4.dw2);
+
+                this.updatePosition();
+            }
+
+            updatePosition() {
+                this.prevX2 = this.x2;
+                this.prevY2 = this.y2;
+
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 3; 
+
+                this.x1 = cx + config.l1 * Math.sin(this.state.t1);
+                this.y1 = cy + config.l1 * Math.cos(this.state.t1);
+
+                this.x2 = this.x1 + config.l2 * Math.sin(this.state.t2);
+                this.y2 = this.y1 + config.l2 * Math.cos(this.state.t2);
+            }
+
+            // Metoda pomocnicza do koloru - PEŁNE SPEKTRUM
+            getColor(alpha = 1.0) {
+                // Stałe, pełne spektrum barw (0-360) rozłożone po indeksach
+                const hue = (this.index / Math.max(this.total - 1, 1)) * 360;
+                return `hsla(${hue}, 100%, 50%, ${alpha})`;
+            }
+
+            draw(ctx) {
+                // Ślad
+                if (this.prevX2 !== null) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.prevX2, this.prevY2);
+                    ctx.lineTo(this.x2, this.y2);
+                    ctx.strokeStyle = this.getColor(0.8); // Wyraźny ślad
+                    ctx.lineWidth = 1.5; 
+                    ctx.stroke();
+                }
+            }
+            
+            drawStructure(ctx) {
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 3;
+                const color = this.getColor(1.0); 
+                
+                // Cienkie linie ramion (delikatne)
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(this.x1, this.y1);
+                ctx.lineTo(this.x2, this.y2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; 
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Kulki (Masy)
+                ctx.fillStyle = color;
+                
+                // Masa 1
+                ctx.beginPath();
+                ctx.arc(this.x1, this.y1, 3, 0, Math.PI*2);
+                ctx.fill();
+
+                // Masa 2 (Główna)
+                ctx.beginPath();
+                ctx.arc(this.x2, this.y2, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // --- ZARZĄDZANIE SYMULACJĄ ---
+
+        function initSimulation() {
+            pendulums = [];
+            time = 0;
+            
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Używamy kątów z konfiguracji
+            for (let i = 0; i < config.count; i++) {
+                const angleOffset = i * config.delta;
+                // Przekazujemy indeks i całkowitą liczbę do konstruktora
+                const p = new DoublePendulum(config.baseTheta1 + angleOffset, config.baseTheta2 + angleOffset, i, config.count);
+                pendulums.push(p);
+            }
+        }
+
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            initSimulation();
+        }
+        window.addEventListener('resize', resize);
+
+        function loop() {
+            // CZYSZCZENIE EKRANU (Brak śladów, tylko aktualny stan)
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const dt = 0.016 * config.timeScale; 
+            const subDt = dt / config.stepsPerFrame;
+
+            for (let step = 0; step < config.stepsPerFrame; step++) {
+                for (let p of pendulums) {
+                    p.update(subDt);
+                }
+            }
+            time += dt;
+
+            // Rysowanie - Standardowy blending
+            ctx.globalCompositeOperation = 'source-over'; 
+            
+            // W tej wersji rysujemy tylko strukturę (ramiona + kulki)
+            for (let p of pendulums) {
+                p.drawStructure(ctx);
+            }
+
+            document.getElementById('time-display').innerText = `T: ${time.toFixed(2)}s`;
+
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // --- OBSŁUGA UI ---
+
+        function updateVal(id, val, suffix='') {
+            document.getElementById(`val-${id}`).innerText = val + suffix;
+        }
+
+        // Sliders
+        document.getElementById('inp-count').addEventListener('input', (e) => {
+            config.count = parseInt(e.target.value);
+            updateVal('count', config.count);
+        });
+
+        document.getElementById('inp-delta').addEventListener('input', (e) => {
+            config.delta = parseFloat(e.target.value);
+            updateVal('delta', config.delta.toFixed(7), ' rad');
+        });
+
+        // Listenery dla nowych kątów
+        document.getElementById('inp-theta1').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            config.baseTheta1 = (val * Math.PI) / 180; // Konwersja na radiany
+            updateVal('theta1', val, '°');
+        });
+
+        document.getElementById('inp-theta2').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            config.baseTheta2 = (val * Math.PI) / 180;
+            updateVal('theta2', val, '°');
+        });
+
+        document.getElementById('inp-g').addEventListener('input', (e) => {
+            config.g = parseFloat(e.target.value);
+            updateVal('g', config.g.toFixed(2));
+        });
+
+        document.getElementById('inp-mass').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            config.m2 = 10 * val;
+            updateVal('mass', val.toFixed(1));
+        });
+
+        document.getElementById('inp-len').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            config.l2 = 150 * val;
+            updateVal('len', val.toFixed(1));
+        });
+
+        document.getElementById('inp-speed').addEventListener('input', (e) => {
+            config.timeScale = parseFloat(e.target.value);
+            updateVal('speed', config.timeScale.toFixed(1), 'x');
+        });
+
+        // Buttons
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            initSimulation();
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Start
+        resize();
+        loop();
+
+    </script>
+</body>
+</html>

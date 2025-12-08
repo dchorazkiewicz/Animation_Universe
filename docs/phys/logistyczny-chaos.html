@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorium Równania Logistycznego</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            background-color: #09090b; /* Zinc 950 */
+            color: #e4e4e7; /* Zinc 200 */
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Stylizacja suwaków */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -5px;
+            transition: transform 0.1s;
+        }
+        
+        /* Kolory suwaków w zależności od klasy */
+        .range-rose::-webkit-slider-thumb { background: #f43f5e; box-shadow: 0 0 10px rgba(244, 63, 94, 0.5); }
+        .range-cyan::-webkit-slider-thumb { background: #22d3ee; box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); }
+        .range-zinc::-webkit-slider-thumb { background: #71717a; box-shadow: 0 0 10px rgba(113, 113, 122, 0.5); }
+
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #3f3f46; /* Zinc 700 */
+            border-radius: 2px;
+        }
+
+        .mono-val {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Selection box styling */
+        #selection-box {
+            position: absolute;
+            border: 1px solid white;
+            background-color: rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            display: none;
+        }
+
+        /* Zakładki */
+        .tab-btn {
+            @apply flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all;
+        }
+        .tab-active {
+            background-color: #27272a; /* Zinc 800 */
+            color: #22d3ee; /* Cyan 400 */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .tab-inactive {
+            color: #71717a; /* Zinc 500 */
+        }
+        .tab-inactive:hover {
+            color: #d4d4d8; /* Zinc 300 */
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen p-4">
+
+    <!-- Header -->
+    <header class="mb-4 flex flex-col gap-4 border-b border-zinc-800 pb-4 shrink-0">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-rose-400">
+                    Laboratorium Równania Logistycznego
+                </h1>
+                <p class="text-xs text-zinc-500 font-mono mt-1">xₙ₊₁ = r · xₙ · (1 - xₙ)</p>
+            </div>
+            
+            <!-- Zakładki -->
+            <div class="flex bg-zinc-900 p-1 rounded-lg border border-zinc-800">
+                <button onclick="switchTab('explore')" id="btn-explore" class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all bg-zinc-800 text-cyan-400 shadow">
+                    <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Eksploracja
+                </button>
+                <button onclick="switchTab('theory')" id="btn-theory" class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all text-zinc-500 hover:text-zinc-300">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> Teoria
+                </button>
+            </div>
+        </div>
+        
+        <!-- Kontrolki (Widoczne tylko w Eksploracji) -->
+        <div id="controls-panel" class="flex flex-wrap gap-4 items-center bg-zinc-900 px-4 py-3 rounded-lg border border-zinc-800">
+            <div class="flex flex-col w-48">
+                <label class="text-[10px] uppercase text-zinc-500 font-bold flex justify-between">
+                    <span>Parametr r</span>
+                    <span class="text-rose-400 mono-val" id="disp-r">3.2000</span>
+                </label>
+                <input type="range" id="inp-r" min="0" max="4" step="0.0001" value="3.2" class="range-rose">
+            </div>
+            
+            <div class="w-px h-8 bg-zinc-800 mx-2"></div>
+
+            <div class="flex flex-col w-32">
+                <label class="text-[10px] uppercase text-zinc-500 font-bold flex justify-between">
+                    <span>Start x₀</span>
+                    <span class="text-cyan-400 mono-val" id="disp-x0">0.50</span>
+                </label>
+                <input type="range" id="inp-x0" min="0" max="1" step="0.01" value="0.5" class="range-cyan">
+            </div>
+
+            <div class="w-px h-8 bg-zinc-800 mx-2"></div>
+
+            <div class="flex flex-col w-40">
+                <label class="text-[10px] uppercase text-zinc-500 font-bold flex justify-between">
+                    <span>Gęstość (Iteracje)</span>
+                    <span class="text-zinc-300 mono-val" id="disp-density">200</span>
+                </label>
+                <input type="range" id="inp-density" min="50" max="2000" step="50" value="200" class="range-zinc">
+            </div>
+
+            <div class="flex flex-col w-40">
+                <label class="text-[10px] uppercase text-zinc-500 font-bold flex justify-between">
+                    <span>Stabilizacja (Skip)</span>
+                    <span class="text-zinc-300 mono-val" id="disp-skip">100</span>
+                </label>
+                <input type="range" id="inp-skip" min="0" max="1000" step="50" value="100" class="range-zinc">
+            </div>
+        </div>
+    </header>
+
+    <!-- Content: EKSPLORACJA -->
+    <div id="tab-explore" class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
+        
+        <!-- LEWA KOLUMNA: DIAGRAM BIFURKACJI -->
+        <div class="lg:col-span-2 bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col relative overflow-hidden shadow-2xl">
+            <!-- Info o zoomie -->
+            <div class="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur px-3 py-1 rounded text-xs font-mono border border-zinc-700 pointer-events-none">
+                <span class="text-zinc-400">Oś X (r):</span> <span class="text-rose-400" id="info-r-range">2.400 - 4.000</span><br/>
+                <span class="text-zinc-400">Oś Y (x):</span> <span class="text-cyan-400" id="info-x-range">0.000 - 1.000</span>
+            </div>
+            
+            <!-- Przycisk Reset Zoom -->
+            <div class="absolute top-4 right-4 z-10">
+                <button onclick="resetZoom()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 p-2 rounded-lg border border-zinc-700 transition-colors shadow-lg" title="Resetuj Zoom">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 relative cursor-crosshair group" id="bifurcation-container">
+                <canvas id="bifurcation-canvas" class="w-full h-full block"></canvas>
+                <div id="selection-box"></div>
+                <div class="absolute bottom-4 right-4 text-zinc-600 text-xs pointer-events-none opacity-50 group-hover:opacity-0 transition-opacity">
+                    Zaznacz obszar myszką, aby powiększyć
+                </div>
+            </div>
+        </div>
+
+        <!-- PRAWA KOLUMNA: PAJĘCZYNA I SZEREG CZASOWY -->
+        <div class="flex flex-col gap-4">
+            
+            <!-- Wykres Pajęczynowy -->
+            <div class="flex-1 bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col overflow-hidden">
+                <div class="px-4 py-2 border-b border-zinc-800 bg-zinc-900/50 flex justify-between items-center shrink-0">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex gap-2 items-center">
+                        <i data-lucide="activity" class="w-3 h-3"></i> Wykres Pajęczynowy
+                    </h3>
+                </div>
+                <div class="flex-1 relative" id="cobweb-container">
+                    <canvas id="cobweb-canvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Szereg Czasowy -->
+            <div class="flex-1 bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col overflow-hidden">
+                <div class="px-4 py-2 border-b border-zinc-800 bg-zinc-900/50 flex justify-between items-center shrink-0">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex gap-2 items-center">
+                        <i data-lucide="activity" class="w-3 h-3"></i> Przebieg Czasowy (150)
+                    </h3>
+                </div>
+                <div class="flex-1 relative" id="timeseries-container">
+                    <canvas id="timeseries-canvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Content: TEORIA -->
+    <div id="tab-theory" class="hidden flex-1 bg-zinc-900 rounded-xl border border-zinc-800 p-8 overflow-y-auto text-zinc-300">
+        <div class="max-w-3xl mx-auto space-y-8">
+            <header class="border-b border-zinc-800 pb-6">
+                <h2 class="text-3xl font-bold text-rose-400 mb-2">Odwzorowanie Logistyczne</h2>
+                <p class="text-lg text-zinc-400">Jak prosta matematyka prowadzi do chaosu.</p>
+            </header>
+
+            <section>
+                <h3 class="text-xl font-bold text-cyan-400 mb-4">Równanie</h3>
+                <div class="bg-black/50 p-6 rounded-lg border border-zinc-800 font-mono text-center text-xl mb-4">
+                    xₙ₊₁ = r · xₙ · (1 - xₙ)
+                </div>
+                <p class="leading-relaxed mb-4">
+                    Jest to model wzrostu populacji w środowisku o ograniczonych zasobach.
+                </p>
+                <ul class="list-disc list-inside space-y-2 text-zinc-400 ml-4">
+                    <li><strong class="text-zinc-200">xₙ</strong>: Populacja w roku n (wartość od 0 do 1, gdzie 1 to maksymalna pojemność środowiska).</li>
+                    <li><strong className="text-rose-400">r</strong>: Parametr wzrostu (rozrodczość). Określa jak szybko populacja rośnie, gdy jest mała.</li>
+                    <li><strong class="text-zinc-200">(1 - xₙ)</strong>: Czynnik ograniczający (śmiertelność z powodu braku zasobów). Działa jak hamulec, gdy populacja zbliża się do 1.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h3 class="text-xl font-bold text-cyan-400 mb-4">Bifurkacje (Rozwidlenia)</h3>
+                <p class="leading-relaxed mb-4">
+                    Kluczową cechą tego równania jest to, jak zmienia się jego zachowanie w zależności od parametru <strong class="text-rose-400">r</strong>:
+                </p>
+                <div class="space-y-4">
+                    <div class="flex gap-4">
+                        <div class="w-24 font-bold text-rose-400 shrink-0">r &lt; 1</div>
+                        <div>Populacja zawsze wymiera (dąży do 0).</div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div class="w-24 font-bold text-rose-400 shrink-0">1 &lt; r &lt; 3</div>
+                        <div>Populacja stabilizuje się na jednej, stałej wartości (punkt stały).</div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="w-24 font-bold text-rose-400 shrink-0">3 &lt; r &lt; 3.45</div>
+                        <div>Populacja zaczyna oscylować między dwiema wartościami (cykl o okresie 2). Jeden rok jest tłusty, drugi chudy.</div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="w-24 font-bold text-rose-400 shrink-0">r ≈ 3.57</div>
+                        <div>
+                            Następuje kaskada podwajania okresu (4, 8, 16...). W końcu okres staje się nieskończony. 
+                            To jest granica <strong class="text-cyan-400">CHAOSU</strong>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3 class="text-xl font-bold text-cyan-400 mb-4">Samopodobieństwo</h3>
+                <p class="leading-relaxed">
+                    Diagram bifurkacyjny jest fraktalem. Jeśli powiększysz fragment "bałaganu" (chaosu), zobaczysz w nim małe "okna" stabilności, które wyglądają jak miniaturowe kopie całego diagramu. To zjawisko nazywa się samopodobieństwem.
+                </p>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- STAN APLIKACJI ---
+        const state = {
+            r: 3.2,
+            x0: 0.5,
+            density: 200,
+            skip: 100,
+            bounds: { minR: 2.4, maxR: 4.0, minX: 0.0, maxX: 1.0 }
+        };
+
+        // --- REFERENCJE DOM ---
+        const bifCanvas = document.getElementById('bifurcation-canvas');
+        const bifCtx = bifCanvas.getContext('2d');
+        const bifContainer = document.getElementById('bifurcation-container');
+        
+        const cobCanvas = document.getElementById('cobweb-canvas');
+        const cobCtx = cobCanvas.getContext('2d');
+        const cobContainer = document.getElementById('cobweb-container');
+
+        const timeCanvas = document.getElementById('timeseries-canvas');
+        const timeCtx = timeCanvas.getContext('2d');
+        const timeContainer = document.getElementById('timeseries-container');
+
+        const selectionBox = document.getElementById('selection-box');
+
+        // --- LOGIKA ---
+        const logistic = (r, x) => r * x * (1 - x);
+
+        // --- RENDEROWANIE ---
+
+        function resizeCanvases() {
+            bifCanvas.width = bifContainer.clientWidth;
+            bifCanvas.height = bifContainer.clientHeight;
+            
+            cobCanvas.width = cobContainer.clientWidth;
+            cobCanvas.height = cobContainer.clientHeight;
+            
+            timeCanvas.width = timeContainer.clientWidth;
+            timeCanvas.height = timeContainer.clientHeight;
+            
+            renderAll();
+        }
+
+        function renderBifurcation() {
+            const w = bifCanvas.width;
+            const h = bifCanvas.height;
+            
+            bifCtx.fillStyle = '#09090b';
+            bifCtx.fillRect(0, 0, w, h);
+
+            // Obliczamy opacity
+            const opacity = Math.max(0.05, Math.min(0.5, 20 / state.density));
+            bifCtx.fillStyle = `rgba(34, 211, 238, ${opacity})`;
+
+            // Rysowanie diagramu
+            // Optymalizacja: rysowanie piksel po pikselu w szerokości
+            for (let i = 0; i < w; i++) {
+                const currentR = state.bounds.minR + (i / w) * (state.bounds.maxR - state.bounds.minR);
+                let x = 0.5;
+
+                // Skip
+                for (let n = 0; n < state.skip; n++) x = logistic(currentR, x);
+
+                // Draw
+                for (let n = 0; n < state.density; n++) {
+                    x = logistic(currentR, x);
+                    if (x >= state.bounds.minX && x <= state.bounds.maxX) {
+                        const y = h - ((x - state.bounds.minX) / (state.bounds.maxX - state.bounds.minX)) * h;
+                        bifCtx.fillRect(i, y, 1, 1);
+                    }
+                }
+            }
+
+            // Wskaźnik R
+            if (state.r >= state.bounds.minR && state.r <= state.bounds.maxR) {
+                const rX = ((state.r - state.bounds.minR) / (state.bounds.maxR - state.bounds.minR)) * w;
+                bifCtx.beginPath();
+                bifCtx.strokeStyle = '#f43f5e';
+                bifCtx.lineWidth = 1;
+                bifCtx.setLineDash([5, 5]);
+                bifCtx.moveTo(rX, 0);
+                bifCtx.lineTo(rX, h);
+                bifCtx.stroke();
+                bifCtx.setLineDash([]);
+            }
+        }
+
+        function renderCobweb() {
+            const w = cobCanvas.width;
+            const h = cobCanvas.height;
+            cobCtx.fillStyle = '#18181b';
+            cobCtx.fillRect(0, 0, w, h);
+
+            const toScreen = (val) => ({
+                x: val * w,
+                y: h - val * h
+            });
+
+            // 1. Parabola
+            cobCtx.beginPath();
+            cobCtx.strokeStyle = '#a1a1aa';
+            cobCtx.lineWidth = 2;
+            for (let i = 0; i <= w; i+=5) {
+                const simX = i / w;
+                const simY = logistic(state.r, simX);
+                const pos = toScreen(simY);
+                if (i === 0) cobCtx.moveTo(i, pos.y);
+                else cobCtx.lineTo(i, pos.y);
+            }
+            cobCtx.stroke();
+
+            // 2. Linia y=x
+            cobCtx.beginPath();
+            cobCtx.strokeStyle = '#52525b';
+            cobCtx.setLineDash([5, 5]);
+            cobCtx.moveTo(0, h);
+            cobCtx.lineTo(w, 0);
+            cobCtx.stroke();
+            cobCtx.setLineDash([]);
+
+            // 3. Pajęczyna
+            cobCtx.beginPath();
+            cobCtx.strokeStyle = '#f472b6';
+            cobCtx.lineWidth = 1;
+            
+            let currX = state.x0;
+            let startPos = toScreen(currX);
+            cobCtx.moveTo(startPos.x, h);
+
+            for (let i = 0; i < 100; i++) {
+                const nextX = logistic(state.r, currX);
+                const p1 = toScreen(currX);
+                const p2 = { x: p1.x, y: toScreen(nextX).y };
+                const p3 = { x: toScreen(nextX).x, y: toScreen(nextX).y };
+
+                cobCtx.lineTo(p2.x, p2.y);
+                cobCtx.lineTo(p3.x, p3.y);
+                currX = nextX;
+            }
+            cobCtx.stroke();
+
+            // Punkt startowy
+            const sPos = toScreen(state.x0);
+            cobCtx.beginPath();
+            cobCtx.fillStyle = '#f43f5e';
+            cobCtx.arc(sPos.x, h, 4, 0, Math.PI*2);
+            cobCtx.fill();
+        }
+
+        function renderTimeSeries() {
+            const w = timeCanvas.width;
+            const h = timeCanvas.height;
+            timeCtx.fillStyle = '#18181b';
+            timeCtx.fillRect(0, 0, w, h);
+
+            // Oś środkowa
+            timeCtx.strokeStyle = '#27272a';
+            timeCtx.lineWidth = 1;
+            timeCtx.beginPath();
+            timeCtx.moveTo(0, h/2); timeCtx.lineTo(w, h/2);
+            timeCtx.stroke();
+
+            const steps = 150;
+            const data = [];
+            let val = state.x0;
+            for(let i=0; i<steps; i++) {
+                data.push(val);
+                val = logistic(state.r, val);
+            }
+
+            timeCtx.beginPath();
+            timeCtx.strokeStyle = '#38bdf8';
+            timeCtx.lineWidth = 2;
+            
+            const stepW = w / steps;
+            
+            data.forEach((val, i) => {
+                const x = i * stepW;
+                const y = h - (val * h);
+                if (i===0) timeCtx.moveTo(x, y);
+                else timeCtx.lineTo(x, y);
+                
+                timeCtx.fillStyle = '#38bdf8';
+                timeCtx.fillRect(x-1, y-1, 2, 2);
+            });
+            timeCtx.stroke();
+        }
+
+        function renderAll() {
+            // Renderujemy tylko jeśli canvasy są widoczne (tab explore)
+            if (document.getElementById('tab-explore').classList.contains('hidden')) return;
+            
+            // Bifurkacje są kosztowne, renderujmy je tylko gdy zmienią się bounds lub parametry wpływające na renderowanie
+            renderBifurcation();
+            renderCobweb();
+            renderTimeSeries();
+        }
+
+        // --- ZOOM INTERACTION ---
+        let isSelecting = false;
+        let selectionStart = null;
+
+        bifCanvas.addEventListener('mousedown', (e) => {
+            const rect = bifCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            isSelecting = true;
+            selectionStart = { x, y };
+            selectionBox.style.display = 'block';
+            selectionBox.style.left = x + 'px';
+            selectionBox.style.top = y + 'px';
+            selectionBox.style.width = '0px';
+            selectionBox.style.height = '0px';
+        });
+
+        bifCanvas.addEventListener('mousemove', (e) => {
+            if (!isSelecting) return;
+            const rect = bifCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const x = Math.min(selectionStart.x, mouseX);
+            const y = Math.min(selectionStart.y, mouseY);
+            const w = Math.abs(mouseX - selectionStart.x);
+            const h = Math.abs(mouseY - selectionStart.y);
+
+            selectionBox.style.left = x + 'px';
+            selectionBox.style.top = y + 'px';
+            selectionBox.style.width = w + 'px';
+            selectionBox.style.height = h + 'px';
+        });
+
+        bifCanvas.addEventListener('mouseup', (e) => {
+            if (!isSelecting) return;
+            isSelecting = false;
+            selectionBox.style.display = 'none';
+
+            const rect = bifCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const x1 = Math.min(selectionStart.x, mouseX);
+            const x2 = Math.max(selectionStart.x, mouseX);
+            const y1 = Math.min(selectionStart.y, mouseY);
+            const y2 = Math.max(selectionStart.y, mouseY);
+
+            if (x2 - x1 < 10 || y2 - y1 < 10) return;
+
+            const w = bifCanvas.width;
+            const h = bifCanvas.height;
+
+            const rRange = state.bounds.maxR - state.bounds.minR;
+            const xRange = state.bounds.maxX - state.bounds.minX;
+
+            const newMinR = state.bounds.minR + (x1 / w) * rRange;
+            const newMaxR = state.bounds.minR + (x2 / w) * rRange;
+            
+            const newMinX = state.bounds.minX + ((h - y2) / h) * xRange;
+            const newMaxX = state.bounds.minX + ((h - y1) / h) * xRange;
+
+            state.bounds = { minR: newMinR, maxR: newMaxR, minX: newMinX, maxX: newMaxX };
+            updateZoomInfo();
+            renderBifurcation();
+        });
+
+        function resetZoom() {
+            state.bounds = { minR: 2.4, maxR: 4.0, minX: 0.0, maxX: 1.0 };
+            updateZoomInfo();
+            renderBifurcation();
+        }
+
+        function updateZoomInfo() {
+            document.getElementById('info-r-range').innerText = `${state.bounds.minR.toFixed(3)} - ${state.bounds.maxR.toFixed(3)}`;
+            document.getElementById('info-x-range').innerText = `${state.bounds.minX.toFixed(3)} - ${state.bounds.maxX.toFixed(3)}`;
+        }
+
+        // --- OBSŁUGA UI ---
+        function switchTab(tab) {
+            const btnExplore = document.getElementById('btn-explore');
+            const btnTheory = document.getElementById('btn-theory');
+            const tabExplore = document.getElementById('tab-explore');
+            const tabTheory = document.getElementById('tab-theory');
+            const controlsPanel = document.getElementById('controls-panel');
+
+            if (tab === 'explore') {
+                btnExplore.classList.add('bg-zinc-800', 'text-cyan-400', 'shadow');
+                btnExplore.classList.remove('text-zinc-500', 'hover:text-zinc-300');
+                btnTheory.classList.remove('bg-zinc-800', 'text-rose-400', 'shadow');
+                btnTheory.classList.add('text-zinc-500', 'hover:text-zinc-300');
+                
+                tabExplore.classList.remove('hidden');
+                tabTheory.classList.add('hidden');
+                controlsPanel.classList.remove('invisible'); // Hide controls visually but keep layout? No, just hide
+                controlsPanel.style.display = 'flex';
+
+                // Musimy odczekać na layout, żeby poprawnie pobrać wymiary canvasów
+                setTimeout(resizeCanvases, 10);
+            } else {
+                btnTheory.classList.add('bg-zinc-800', 'text-rose-400', 'shadow');
+                btnTheory.classList.remove('text-zinc-500', 'hover:text-zinc-300');
+                btnExplore.classList.remove('bg-zinc-800', 'text-cyan-400', 'shadow');
+                btnExplore.classList.add('text-zinc-500', 'hover:text-zinc-300');
+
+                tabExplore.classList.add('hidden');
+                tabTheory.classList.remove('hidden');
+                controlsPanel.style.display = 'none';
+            }
+        }
+
+        // INPUTY
+        document.getElementById('inp-r').addEventListener('input', (e) => {
+            state.r = parseFloat(e.target.value);
+            document.getElementById('disp-r').innerText = state.r.toFixed(4);
+            renderAll();
+        });
+        document.getElementById('inp-x0').addEventListener('input', (e) => {
+            state.x0 = parseFloat(e.target.value);
+            document.getElementById('disp-x0').innerText = state.x0.toFixed(2);
+            renderCobweb();
+            renderTimeSeries();
+        });
+        document.getElementById('inp-density').addEventListener('input', (e) => {
+            state.density = parseInt(e.target.value);
+            document.getElementById('disp-density').innerText = state.density;
+            renderBifurcation();
+        });
+        document.getElementById('inp-skip').addEventListener('input', (e) => {
+            state.skip = parseInt(e.target.value);
+            document.getElementById('disp-skip').innerText = state.skip;
+            renderBifurcation();
+        });
+
+        // INIT
+        window.addEventListener('resize', resizeCanvases);
+        // Start after layout
+        setTimeout(resizeCanvases, 50);
+
+    </script>
+</body>
+</html>
