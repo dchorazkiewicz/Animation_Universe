@@ -30,6 +30,10 @@ extra_javascript:
 nav:
   - Home: index.md
   - Matematyka:
-    - Kalkulator Ułamków Krok po Kroku: math/kalkulator_ulamkow_krok_po_kroku.html
+    - Kalkulator Ułamków 1: math/kalkulator_ulamkow_krok_po_kroku.html
     - Kalkulator Ułamków 2: math/kalkulator_ulamkow_2.html
-    - Kolejność Działań: math/kolejnosc_dzialan.html
+    - Kolejność Działań 1: math/kolejnosc_dzialan.html
+    - Kolejność Działań 2: math/kolejnosc_dzialan_2.html
+  - Fizyka:
+    - Rzut Ukośny: phys/rzut_ukosny.html
+    - Wahadła i Sprężyny: phys/wahadla_i_sprezyny.html

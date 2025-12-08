@@ -1,17 +1,15 @@
-# Welcome to MkDocs
+# Witaj w Animation Universe! 🚀
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+Witaj w fascynującym świecie Animation Universe – miejscu, gdzie matematyka łączy się z kreatywnością i animacją! Ta strona to Twoja brama do interaktywnych narzędzi edukacyjnych, zaprojektowanych z myślą o entuzjastach animacji, studentach matematyki i wszystkich, którzy chcą zgłębić tajniki obliczeń.
 
-## Commands
+## Co znajdziesz na naszej stronie? 🌟
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+- **Interaktywne Kalkulatory Ułamków**: Przeprowadź krok po kroku obliczenia ułamków, idealne do pracy z proporcjami w animacji, grafice komputerowej i nie tylko.
+- **Narzędzia Kolejności Działań**: Naucz się prawidłowej kolejności operacji matematycznych z wizualnymi przykładami.
+- **Więcej wkrótce**: Rozwijamy kolekcję narzędzi, aby wspierać Twoją kreatywność i naukę!
 
-## Project layout
+Wszystkie narzędzia są zbudowane z myślą o łatwości użytkowania, z obsługą trybu jasnego i ciemnego, abyś mógł komfortowo pracować o każdej porze dnia.
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+Zacznij swoją przygodę z matematyką w animacji już teraz – wybierz sekcję z menu nawigacyjnego!
+
+*Jeśli masz pomysły na nowe narzędzia lub chcesz podzielić się swoją opinią, skontaktuj się z nami!*
