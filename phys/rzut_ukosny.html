@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symulator Rzutu Ukośnego PRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            background-color: #0f172a; /* Slate 950 */
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            cursor: crosshair;
+            display: block;
+        }
+
+        .panel {
+            background-color: rgba(30, 41, 59, 0.95); /* Slate 800 */
+            backdrop-filter: blur(10px);
+            border-right: 1px solid #334155;
+        }
+
+        .slider-container {
+            margin-bottom: 1rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 0.25rem;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #6366f1; /* Indigo 500 */
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        .mono-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: #38bdf8; /* Sky 400 */
+        }
+        
+        .stat-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Style dla zakładki Teoria */
+        .math-block {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid #334155;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+            color: #a5b4fc; /* Indigo 300 */
+            overflow-x: auto;
+            line-height: 1.8;
+        }
+
+        .variable {
+            color: #f472b6; /* Pink 400 */
+            font-weight: bold;
+        }
+        
+        /* Wektory CSS */
+        .vec {
+            display: inline-block;
+            position: relative;
+            font-style: italic;
+        }
+        .vec::after {
+            content: "→";
+            position: absolute;
+            top: -0.7em;
+            left: 50%;
+            transform: translateX(-50%) scale(0.7);
+            font-family: sans-serif;
+            font-style: normal;
+            opacity: 0.8;
+        }
+
+        /* Indeksy dolne */
+        .sub {
+            font-size: 0.7em;
+            vertical-align: sub;
+            color: #94a3b8;
+        }
+
+        .tab-active {
+            background-color: #4f46e5; /* Indigo 600 */
+            color: white;
+        }
+        
+        .tab-inactive {
+            background-color: transparent;
+            color: #94a3b8;
+        }
+        .tab-inactive:hover {
+            background-color: #334155;
+            color: white;
+        }
+
+        /* Presety grawitacji */
+        .preset-btn {
+            font-size: 0.65rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            background-color: #334155;
+            color: #94a3b8;
+            border: 1px solid #475569;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        .preset-btn:hover {
+            background-color: #475569;
+            color: white;
+            border-color: #64748b;
+        }
+        .preset-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+
+    <!-- Lewy Panel Sterowania -->
+    <div class="panel w-96 flex-shrink-0 flex flex-col h-full overflow-y-auto z-20 shadow-2xl">
+        <div class="p-6 border-b border-slate-700">
+            <h1 class="text-xl font-bold flex items-center gap-2 text-indigo-400 mb-4">
+                <i data-lucide="crosshair" class="w-6 h-6"></i>
+                Balistyka PRO
+            </h1>
+            
+            <!-- Nawigacja Zakładek -->
+            <div class="flex p-1 bg-slate-900 rounded-lg">
+                <button onclick="switchTab('sim')" id="tab-btn-sim" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors tab-active">
+                    SYMULACJA
+                </button>
+                <button onclick="switchTab('theory')" id="tab-btn-theory" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-colors tab-inactive">
+                    TEORIA & WZORY
+                </button>
+            </div>
+        </div>
+
+        <!-- ZAKŁADKA: KONTROLKI (SYMULACJA) -->
+        <div id="panel-sim" class="p-6 flex-1 space-y-6">
+            
+            <!-- Grupa: Wyrzutnia -->
+            <div>
+                <h3 class="text-xs uppercase tracking-widest font-bold text-slate-500 mb-4 border-b border-slate-700 pb-1">Parametry Wyrzutu</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Prędkość początkowa (v₀)</span>
+                        <span class="mono-val" id="val-v0">80 m/s</span>
+                    </div>
+                    <input type="range" id="inp-v0" min="1" max="200" value="80" step="1">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Kąt wyrzutu (α)</span>
+                        <span class="mono-val" id="val-angle">45°</span>
+                    </div>
+                    <input type="range" id="inp-angle" min="0" max="90" value="45" step="1">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Wysokość początkowa (h)</span>
+                        <span class="mono-val" id="val-height">0 m</span>
+                    </div>
+                    <input type="range" id="inp-height" min="0" max="100" value="0" step="1">
+                </div>
+            </div>
+
+            <!-- Grupa: Środowisko -->
+            <div>
+                <h3 class="text-xs uppercase tracking-widest font-bold text-slate-500 mb-4 border-b border-slate-700 pb-1">Środowisko</h3>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Opór powietrza (C)</span>
+                        <span class="mono-val" id="val-drag">0.05</span>
+                    </div>
+                    <input type="range" id="inp-drag" min="0" max="0.5" value="0.05" step="0.001">
+                    <p class="text-[10px] text-slate-500 mt-1">Wartość przeskalowana (x0.1) dla realizmu.</p>
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Grawitacja (g)</span>
+                        <span class="mono-val" id="val-gravity">9.81 m/s²</span>
+                    </div>
+                    <input type="range" id="inp-gravity" min="1" max="25" value="9.81" step="0.1">
+                    
+                    <!-- Presety Grawitacyjne -->
+                    <div class="grid grid-cols-3 gap-1.5 mt-3">
+                        <button class="preset-btn" onclick="setGravity(3.7)">Merkury</button>
+                        <button class="preset-btn" onclick="setGravity(8.87)">Wenus</button>
+                        <button class="preset-btn" onclick="setGravity(9.81)">Ziemia</button>
+                        
+                        <button class="preset-btn" onclick="setGravity(1.62)">Księżyc</button>
+                        <button class="preset-btn" onclick="setGravity(3.71)">Mars</button>
+                        <button class="preset-btn" onclick="setGravity(24.79)">Jowisz</button>
+                        
+                        <button class="preset-btn" onclick="setGravity(10.44)">Saturn</button>
+                        <button class="preset-btn" onclick="setGravity(8.69)">Uran</button>
+                        <button class="preset-btn" onclick="setGravity(11.15)">Neptun</button>
+                    </div>
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>Prędkość czasu</span>
+                        <span class="mono-val" id="val-speed">1.0x</span>
+                    </div>
+                    <input type="range" id="inp-speed" min="0.1" max="5.0" value="1.0" step="0.1">
+                </div>
+            </div>
+
+            <!-- Kontrolki -->
+            <div class="flex flex-col gap-3 pt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-sm text-slate-300 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="chk-trails" checked class="accent-indigo-500 w-4 h-4">
+                        Zachowaj ścieżki (Duchy)
+                    </label>
+                </div>
+
+                <button id="btn-fire" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-indigo-500/30 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i data-lucide="play"></i> WYSTRZEL
+                </button>
+                
+                <button id="btn-clear" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="trash-2"></i> Wyczyść planszę
+                </button>
+            </div>
+
+        </div>
+
+        <!-- ZAKŁADKA: TEORIA (Opis w panelu bocznym) -->
+        <div id="panel-theory" class="hidden p-6 flex-1 space-y-6 text-sm text-slate-300 overflow-y-auto">
+            <div class="bg-indigo-900/20 border border-indigo-500/20 p-4 rounded-lg mb-4">
+                <h3 class="text-indigo-400 font-bold mb-2 flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4"></i> O Symulacji
+                </h3>
+                <p>Ten program używa numerycznego całkowania metodą Eulera, aby symulować ruch pocisku w czasie rzeczywistym, uwzględniając siły zewnętrzne.</p>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-white mb-2">1. Rzut Ukośny (Próżnia)</h3>
+                <p class="mb-2">W idealnych warunkach (brak oporu), ruch można opisać prostymi funkcjami czasu:</p>
+                
+                <div class="math-block">
+                    x(t) = <span class="variable">v</span><span class="sub">0x</span> · t<br>
+                    y(t) = <span class="variable">h</span> + <span class="variable">v</span><span class="sub">0y</span> · t - 0.5·<span class="variable">g</span>·t²
+                </div>
+                <ul class="list-disc list-inside text-slate-400 text-xs ml-2 space-y-1">
+                    <li><span class="variable">v</span><span class="sub">0</span>: Prędkość początkowa</li>
+                    <li><span class="variable">α</span>: Kąt wyrzutu</li>
+                    <li><span class="variable">h</span>: Wysokość początkowa</li>
+                    <li><span class="variable">g</span>: Przyspieszenie ziemskie</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-white mb-2">2. Opór Powietrza</h3>
+                <p class="mb-2">Siła oporu aerodynamicznego skierowana jest przeciwnie do wektora prędkości.</p>
+                <p class="mb-2 text-xs text-slate-400">Model uproszczony (proporcjonalny do v²):</p>
+                
+                <div class="math-block">
+                    <span class="vec variable">F</span><span class="sub">opór</span> = -<span class="variable">C</span> · v · <span class="vec variable">v</span>
+                </div>
+                
+                <p class="mt-2 text-xs">Składowe przyspieszenia (dla m=1):</p>
+                <div class="math-block">
+                    a<span class="sub">x</span> = -(<span class="variable">C</span> · v · v<span class="sub">x</span>)<br>
+                    a<span class="sub">y</span> = -<span class="variable">g</span> - (<span class="variable">C</span> · v · v<span class="sub">y</span>)
+                </div>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-white mb-2">3. Metoda Numeryczna</h3>
+                <p class="mb-2">Obliczanie pozycji w pętli (dt ≈ 0.016s):</p>
+                <div class="math-block">
+                    <span class="vec">v</span><span class="sub">nowe</span> = <span class="vec">v</span><span class="sub">stare</span> + <span class="vec">a</span> · dt<br>
+                    <span class="vec">pos</span><span class="sub">nowa</span> = <span class="vec">pos</span><span class="sub">stara</span> + <span class="vec">v</span> · dt
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Statystyki Ostatniego Rzutu -->
+        <div class="p-6 border-t border-slate-700 bg-slate-900/50">
+            <h4 class="text-xs font-bold text-slate-500 mb-2 uppercase">Ostatni Strzał</h4>
+            <div class="stat-card">
+                <div class="flex justify-between">
+                    <span class="text-slate-400 text-xs">Zasięg:</span>
+                    <span class="mono-val text-sm" id="stat-dist">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400 text-xs">Max Wys.:</span>
+                    <span class="mono-val text-sm" id="stat-height">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400 text-xs">Czas lotu:</span>
+                    <span class="mono-val text-sm" id="stat-time">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prawy Panel: Canvas -->
+    <div class="flex-1 relative bg-slate-950 overflow-hidden cursor-move" id="canvas-container">
+        
+        <!-- CANVAS -->
+        <canvas id="simCanvas" class="block"></canvas>
+
+        <!-- WIDOK TEORII (Overlay na canvasie) -->
+        <div id="theory-overlay" class="hidden absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-12 overflow-y-auto">
+            <div class="max-w-4xl w-full">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-sky-400 mb-4">Fizyka Rzutu Ukośnego</h2>
+                    <p class="text-slate-400 text-lg">Matematyka stojąca za ruchem pocisku w polu grawitacyjnym.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Karta 1 -->
+                    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl hover:border-indigo-500/30 transition-colors">
+                        <div class="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-6 text-indigo-400">
+                            <i data-lucide="rocket" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-4">Kinematyka Idealna</h3>
+                        <p class="text-slate-400 mb-6 leading-relaxed">
+                            W próżni jedyną siłą działającą na ciało jest grawitacja. Ruch w poziomie jest jednostajny, a w pionie jednostajnie zmienny.
+                        </p>
+                        <div class="math-block text-lg">
+                            x(t) = v<span class="sub">0x</span> · t<br>
+                            y(t) = h + v<span class="sub">0y</span> · t - 0.5·g·t²
+                        </div>
+                    </div>
+
+                    <!-- Karta 2 -->
+                    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl hover:border-pink-500/30 transition-colors">
+                        <div class="w-12 h-12 bg-pink-500/20 rounded-lg flex items-center justify-center mb-6 text-pink-400">
+                            <i data-lucide="wind" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-4">Dynamika z Oporem</h3>
+                        <p class="text-slate-400 mb-6 leading-relaxed">
+                            Powietrze stawia opór zależny od prędkości (zazwyczaj od jej kwadratu). To równanie różniczkowe nieliniowe.
+                        </p>
+                        <div class="math-block text-lg">
+                            <span class="vec">F</span> = m·<span class="vec">g</span> - C·v·<span class="vec">v</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 bg-slate-900 border border-slate-800 p-8 rounded-2xl">
+                     <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                        <i data-lucide="code-2" class="text-sky-400"></i>
+                        Jak to liczy komputer?
+                    </h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Zamiast podstawiać do wzoru "na odległość", symulator dzieli czas na malutkie kawałki (np. 0.016 sekundy).
+                        W każdym kawałku oblicza aktualną siłę oporu (która ciągle się zmienia!), aktualizuje przyspieszenie, potem prędkość, a na końcu pozycję. 
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Overlay (Tylko dla symulacji) -->
+        <div id="simulation-info" class="absolute top-4 right-4 pointer-events-none text-right z-10 opacity-70">
+            <p class="text-xs text-slate-500">Sterowanie myszą:</p>
+            <p class="text-xs text-slate-400 font-bold">Rolka: Zoom | Przeciągnij: Przesuń</p>
+            <p class="text-xs text-slate-500 mt-1" id="scale-info">Skala: 1.0x</p>
+        </div>
+        
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- KONFIGURACJA ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // --- ZARZĄDZANIE ZAKŁADKAMI ---
+        function switchTab(tabName) {
+            const simBtn = document.getElementById('tab-btn-sim');
+            const theoryBtn = document.getElementById('tab-btn-theory');
+            
+            const simPanel = document.getElementById('panel-sim');
+            const theoryPanel = document.getElementById('panel-theory');
+            
+            const theoryOverlay = document.getElementById('theory-overlay');
+            const simInfo = document.getElementById('simulation-info');
+
+            if (tabName === 'sim') {
+                simBtn.classList.replace('tab-inactive', 'tab-active');
+                theoryBtn.classList.replace('tab-active', 'tab-inactive');
+                
+                simPanel.classList.remove('hidden');
+                theoryPanel.classList.add('hidden');
+                
+                theoryOverlay.classList.add('hidden');
+                canvas.classList.remove('hidden');
+                simInfo.classList.remove('hidden');
+                
+                state.paused = false; 
+
+            } else {
+                theoryBtn.classList.replace('tab-inactive', 'tab-active');
+                simBtn.classList.replace('tab-active', 'tab-inactive');
+                
+                theoryPanel.classList.remove('hidden');
+                simPanel.classList.add('hidden');
+                
+                theoryOverlay.classList.remove('hidden');
+                simInfo.classList.add('hidden');
+            }
+        }
+
+        // Stan Symulacji
+        const state = {
+            projectiles: [],
+            lastShotId: null,
+            paused: false,
+            // Kamera
+            camera: {
+                x: 50,
+                y: 50,
+                zoom: 1.0,
+                isDragging: false,
+                lastMouseX: 0,
+                lastMouseY: 0
+            },
+            // Fizyka
+            physics: {
+                v0: 80,
+                angle: 45,
+                h0: 0,
+                drag: 0.05,
+                gravity: 9.81,
+                timeStep: 0.016, 
+                subSteps: 5,
+                timeScale: 1.0 // Mnożnik czasu
+            },
+            ui: {
+                keepTrails: true
+            }
+        };
+
+        // --- KLASA POCISKU ---
+        class Projectile {
+            constructor(x, y, v0, angleDeg, drag, gravity, color) {
+                this.id = Date.now();
+                this.x = x;
+                this.y = y;
+                
+                const angleRad = (angleDeg * Math.PI) / 180;
+                this.vx = v0 * Math.cos(angleRad);
+                this.vy = v0 * Math.sin(angleRad);
+                
+                this.dragCoeff = drag; 
+                this.gravity = gravity;
+                this.color = color;
+                
+                this.path = [{x: this.x, y: this.y}];
+                this.active = true;
+                this.time = 0;
+                
+                this.maxHeight = y;
+                this.distance = 0;
+            }
+
+            update(dt) {
+                if (!this.active) return;
+
+                this.time += dt;
+
+                const v = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                
+                const dragForce = this.dragCoeff * v; 
+                const ax = -(dragForce * this.vx);
+                const ay = -(dragForce * this.vy) - this.gravity;
+
+                this.vx += ax * dt;
+                this.vy += ay * dt;
+
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                const lastP = this.path[this.path.length - 1];
+                const dx = this.x - lastP.x;
+                const dy = this.y - lastP.y;
+                if (dx*dx + dy*dy > 1) { 
+                    this.path.push({x: this.x, y: this.y});
+                }
+
+                if (this.y > this.maxHeight) this.maxHeight = this.y;
+
+                if (this.y <= 0) {
+                    this.y = 0;
+                    this.active = false;
+                    this.distance = this.x;
+                    this.path.push({x: this.x, y: this.y});
+                    
+                    if (this.id === state.lastShotId) {
+                        updateStatsUI(this);
+                    }
+                }
+            }
+
+            draw(ctx) {
+                if (this.path.length < 2) return;
+
+                ctx.beginPath();
+                ctx.lineWidth = 3 / state.camera.zoom; 
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                ctx.moveTo(this.path[0].x, this.path[0].y);
+                for (let i = 1; i < this.path.length; i++) {
+                    ctx.lineTo(this.path[i].x, this.path[i].y);
+                }
+                ctx.stroke();
+
+                if (this.active) {
+                    ctx.beginPath();
+                    const radius = 6 / state.camera.zoom;
+                    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fff';
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, radius * 1.5, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = 0.4;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                }
+            }
+        }
+
+        // --- OBSŁUGA UI ---
+
+        function updateSlider(id, targetId, suffix = '') {
+            const el = document.getElementById(id);
+            const target = document.getElementById(targetId);
+            target.innerText = el.value + suffix;
+            
+            el.addEventListener('input', () => {
+                target.innerText = el.value + suffix;
+                if(id === 'inp-v0') state.physics.v0 = parseFloat(el.value);
+                if(id === 'inp-angle') state.physics.angle = parseFloat(el.value);
+                if(id === 'inp-height') state.physics.h0 = parseFloat(el.value);
+                if(id === 'inp-drag') state.physics.drag = parseFloat(el.value);
+                if(id === 'inp-gravity') state.physics.gravity = parseFloat(el.value);
+                if(id === 'inp-speed') state.physics.timeScale = parseFloat(el.value);
+            });
+        }
+
+        function setGravity(g) {
+            const el = document.getElementById('inp-gravity');
+            const target = document.getElementById('val-gravity');
+            // Clamp value to slider limits
+            const val = Math.min(Math.max(g, 1), 25);
+            el.value = val;
+            target.innerText = val + ' m/s²';
+            state.physics.gravity = val;
+        }
+
+        updateSlider('inp-v0', 'val-v0', ' m/s');
+        updateSlider('inp-angle', 'val-angle', '°');
+        updateSlider('inp-height', 'val-height', ' m');
+        updateSlider('inp-drag', 'val-drag', '');
+        updateSlider('inp-gravity', 'val-gravity', ' m/s²');
+        updateSlider('inp-speed', 'val-speed', 'x');
+
+        document.getElementById('chk-trails').addEventListener('change', (e) => {
+            state.ui.keepTrails = e.target.checked;
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            state.projectiles = [];
+            state.lastShotId = null;
+            clearStatsUI();
+        });
+
+        document.getElementById('btn-fire').addEventListener('click', fireProjectile);
+
+        function updateStatsUI(proj) {
+            document.getElementById('stat-dist').innerText = proj.distance.toFixed(2) + ' m';
+            document.getElementById('stat-height').innerText = proj.maxHeight.toFixed(2) + ' m';
+            document.getElementById('stat-time').innerText = proj.time.toFixed(2) + ' s';
+        }
+
+        function clearStatsUI() {
+            document.getElementById('stat-dist').innerText = '-';
+            document.getElementById('stat-height').innerText = '-';
+            document.getElementById('stat-time').innerText = '-';
+        }
+
+        // --- LOGIKA APLIKACJI ---
+
+        function fireProjectile() {
+            if (!state.ui.keepTrails) {
+                state.projectiles = [];
+            }
+
+            const colors = ['#f472b6', '#c084fc', '#818cf8', '#38bdf8', '#4ade80', '#fbbf24', '#f87171'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            const p = new Projectile(
+                0, 
+                state.physics.h0, 
+                state.physics.v0,
+                state.physics.angle,
+                state.physics.drag / 10, 
+                state.physics.gravity,
+                color
+            );
+
+            state.projectiles.push(p);
+            state.lastShotId = p.id;
+        }
+
+        // --- RENDER I FIZYKA LOOP ---
+
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function worldToScreen(wx, wy) {
+            const sx = (wx * state.camera.zoom) + state.camera.x;
+            const sy = canvas.height - ((wy * state.camera.zoom) + state.camera.y);
+            return { x: sx, y: sy };
+        }
+
+        function screenToWorld(sx, sy) {
+            const wx = (sx - state.camera.x) / state.camera.zoom;
+            const wy = (canvas.height - sy - state.camera.y) / state.camera.zoom;
+            return { x: wx, y: wy };
+        }
+
+        function drawGrid(ctx) {
+            const zoom = state.camera.zoom;
+            let step = 1;
+            if (zoom < 20) step = 10;
+            if (zoom < 2) step = 50;
+            if (zoom < 0.5) step = 100;
+            if (zoom < 0.1) step = 500;
+
+            const viewLeftTop = screenToWorld(0, 0);
+            const viewRightBottom = screenToWorld(canvas.width, canvas.height);
+
+            const startX = Math.floor(viewLeftTop.x / step) * step;
+            const endX = Math.ceil(viewRightBottom.x / step) * step;
+            
+            const startY = Math.floor(viewRightBottom.y / step) * step;
+            const endY = Math.ceil(viewLeftTop.y / step) * step;
+
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#1e293b'; // Slate 800
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.font = '10px Inter';
+            ctx.fillStyle = '#475569'; // Slate 600
+
+            for (let x = startX; x <= endX; x += step) {
+                const s = worldToScreen(x, 0);
+                ctx.beginPath();
+                ctx.moveTo(s.x, 0);
+                ctx.lineTo(s.x, canvas.height);
+                ctx.stroke();
+
+                const axisY = worldToScreen(0, 0).y;
+                if (axisY > 0 && axisY < canvas.height) {
+                    ctx.fillText(x + 'm', s.x, axisY + 4);
+                } else {
+                    ctx.fillText(x + 'm', s.x, canvas.height - 15);
+                }
+            }
+
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            for (let y = startY; y <= endY; y += step) {
+                const s = worldToScreen(0, y);
+                ctx.beginPath();
+                ctx.moveTo(0, s.y);
+                ctx.lineTo(canvas.width, s.y);
+                ctx.stroke();
+
+                const axisX = worldToScreen(0, 0).x;
+                if (axisX > 0 && axisX < canvas.width) {
+                    ctx.fillText(y + 'm', axisX - 4, s.y);
+                } else {
+                    ctx.fillText(y + 'm', 40, s.y);
+                }
+            }
+
+            const origin = worldToScreen(0, 0);
+            ctx.strokeStyle = '#64748b'; // Slate 500
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, origin.y);
+            ctx.lineTo(canvas.width, origin.y);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(origin.x, 0);
+            ctx.lineTo(origin.x, canvas.height);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, origin.y, canvas.width, canvas.height - origin.y);
+            ctx.beginPath();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.moveTo(0, origin.y);
+            ctx.lineTo(canvas.width, origin.y);
+            ctx.stroke();
+        }
+
+        function loop() {
+            if (!state.paused) {
+                const dt = (state.physics.timeStep * state.physics.timeScale) / state.physics.subSteps;
+                for (let i = 0; i < state.physics.subSteps; i++) {
+                    state.projectiles.forEach(p => p.update(dt));
+                }
+            }
+
+            if (!canvas.classList.contains('hidden')) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawGrid(ctx);
+
+                const startPos = worldToScreen(0, state.physics.h0);
+                ctx.beginPath();
+                ctx.arc(startPos.x, startPos.y, 6, 0, Math.PI*2);
+                ctx.fillStyle = '#6366f1';
+                ctx.fill();
+                
+                state.projectiles.forEach(p => {
+                    if (p.path.length < 2) return;
+
+                    ctx.beginPath();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = p.color;
+                    
+                    if (!p.active) ctx.globalAlpha = 0.5;
+                    else ctx.globalAlpha = 1.0;
+
+                    const p0 = worldToScreen(p.path[0].x, p.path[0].y);
+                    ctx.moveTo(p0.x, p0.y);
+
+                    for (let i = 1; i < p.path.length; i++) {
+                        const ps = worldToScreen(p.path[i].x, p.path[i].y);
+                        if (ps.x > -100 && ps.x < canvas.width + 100) {
+                            ctx.lineTo(ps.x, ps.y);
+                        } else {
+                            ctx.moveTo(ps.x, ps.y);
+                        }
+                    }
+                    ctx.stroke();
+
+                    if (p.active) {
+                        const head = worldToScreen(p.x, p.y);
+                        ctx.beginPath();
+                        ctx.arc(head.x, head.y, 4, 0, Math.PI*2);
+                        ctx.fillStyle = '#fff';
+                        ctx.fill();
+                    }
+                    ctx.globalAlpha = 1.0;
+                });
+            }
+
+            const activeP = state.projectiles.find(p => p.id === state.lastShotId);
+            if(activeP && activeP.active) {
+                updateStatsUI(activeP);
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- OBSŁUGA MYSZY (ZOOM / PAN) ---
+
+        container.addEventListener('mousedown', (e) => {
+            state.camera.isDragging = true;
+            state.camera.lastMouseX = e.clientX;
+            state.camera.lastMouseY = e.clientY;
+            container.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mouseup', () => {
+            state.camera.isDragging = false;
+            container.style.cursor = 'grab';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (state.camera.isDragging) {
+                const dx = e.clientX - state.camera.lastMouseX;
+                const dy = e.clientY - state.camera.lastMouseY;
+                
+                state.camera.x += dx;
+                state.camera.y -= dy; 
+
+                state.camera.lastMouseX = e.clientX;
+                state.camera.lastMouseY = e.clientY;
+            }
+        });
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSensitivity = 0.001;
+            const delta = -e.deltaY * zoomSensitivity;
+            const oldZoom = state.camera.zoom;
+            let newZoom = oldZoom * (1 + delta);
+            if (newZoom < 0.05) newZoom = 0.05;
+            if (newZoom > 50) newZoom = 50;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const wx = (mouseX - state.camera.x) / oldZoom;
+            const wy = (canvas.height - mouseY - state.camera.y) / oldZoom;
+
+            state.camera.x = mouseX - wx * newZoom;
+            state.camera.y = canvas.height - mouseY - wy * newZoom;
+            state.camera.zoom = newZoom;
+            
+            document.getElementById('scale-info').innerText = `Skala: ${newZoom.toFixed(2)}x`;
+        }, { passive: false });
+
+        loop();
+
+    </script>
+</body>
+</html>
