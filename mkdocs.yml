@@ -39,6 +39,7 @@ nav:
     - Conway's Game of Life: math/conway_life.html
     - Mandelbrot Set: math/maldenbrot.html
     - Fraktale: math/fraktale.html
+    - Równania Liniowe: math/rownania_liniowe.html
   - Fizyka:
     - Rzut Ukośny: phys/rzut_ukosny.html
     - Wahadła i Sprężyny: phys/wahadla_i_sprezyny.html
