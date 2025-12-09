@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gra w Życie Conwaya</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        
+        canvas {
+            image-rendering: pixelated; /* Ostry obraz */
+        }
+
+        /* Custom scrollbar dla zasad */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .tab-active {
+            border-bottom: 2px solid #3b82f6;
+            color: #fff;
+        }
+        .tab-inactive {
+            border-bottom: 2px solid transparent;
+            color: #94a3b8;
+        }
+        .tab-inactive:hover { color: #cbd5e1; }
+
+        /* Style dla mini-siatek w zasadach */
+        .rule-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 48px;
+            height: 48px;
+        }
+        .rule-cell {
+            border-radius: 2px;
+        }
+        .rule-cell.alive { background-color: #3b82f6; } /* Blue-500 */
+        .rule-cell.dead { background-color: #1e293b; }  /* Slate-800 */
+        .rule-cell.center { border: 1px solid rgba(255,255,255,0.5); } /* Wyróżnienie środka */
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header & Navigation -->
+    <header class="bg-slate-900 border-b border-slate-800 shrink-0">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="grid" class="text-blue-500 w-6 h-6"></i>
+                <h1 class="text-lg font-bold tracking-tight">Game of Life</h1>
+            </div>
+            
+            <nav class="flex gap-6 text-sm font-medium h-full">
+                <button id="tab-game-btn" onclick="switchTab('game')" class="tab-active px-2 h-full transition-colors flex items-center gap-2">
+                    <i data-lucide="play-circle" class="w-4 h-4"></i> Symulacja
+                </button>
+                <button id="tab-rules-btn" onclick="switchTab('rules')" class="tab-inactive px-2 h-full transition-colors flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> Zasady i Teoria
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Content Area -->
+    <main class="flex-1 relative overflow-hidden">
+        
+        <!-- TAB 1: GAME -->
+        <div id="tab-game" class="absolute inset-0 flex flex-col">
+            <!-- Canvas Container -->
+            <div class="flex-1 relative bg-black cursor-crosshair" id="canvas-container">
+                <canvas id="game-canvas" class="block w-full h-full"></canvas>
+                
+                <!-- Overlay Info -->
+                <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-700 p-3 rounded text-xs font-mono text-slate-400 pointer-events-none select-none">
+                    <div>Populacja: <span id="stat-pop" class="text-white font-bold">0</span></div>
+                    <div>Generacja: <span id="stat-gen" class="text-white font-bold">0</span></div>
+                </div>
+            </div>
+
+            <!-- Controls Toolbar -->
+            <div class="h-20 bg-slate-900 border-t border-slate-800 p-2 flex items-center justify-between gap-4 shrink-0 overflow-x-auto">
+                
+                <div class="flex items-center gap-2 border-r border-slate-800 pr-4">
+                    <button id="btn-play" class="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg transition-all active:scale-95" title="Start/Stop">
+                        <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+                    </button>
+                    <button id="btn-next" class="p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors" title="Jeden krok">
+                        <i data-lucide="step-forward" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btn-clear" class="p-3 bg-slate-800 hover:bg-red-900/50 text-red-400 hover:text-red-300 rounded-lg border border-slate-700 transition-colors" title="Wyczyść">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btn-random" class="p-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors" title="Losuj chaos">
+                        <i data-lucide="shuffle" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="flex flex-col gap-1 min-w-[150px]">
+                    <label class="text-xs text-slate-500 font-bold uppercase">Prędkość</label>
+                    <input type="range" id="speed-range" min="1" max="60" value="30" class="w-full accent-blue-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="flex items-center gap-2 border-l border-slate-800 pl-4">
+                    <span class="text-xs text-slate-500 font-bold uppercase mr-2 hidden sm:inline">Wstaw:</span>
+                    <button onclick="insertPattern('glider')" class="px-3 py-2 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-slate-300">Szybowiec</button>
+                    <button onclick="insertPattern('pulsar')" class="px-3 py-2 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-slate-300">Pulsar</button>
+                    <button onclick="insertPattern('gosper')" class="px-3 py-2 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-slate-300 hidden sm:block">Działo Gospera</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: RULES -->
+        <div id="tab-rules" class="absolute inset-0 bg-slate-950 overflow-y-auto hidden">
+            <div class="max-w-5xl mx-auto p-8">
+                
+                <section class="mb-12">
+                    <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-6">
+                        Wizualizacja Zasad
+                    </h2>
+                    <p class="text-lg text-slate-400 leading-relaxed mb-8">
+                        W każdej turze, każda komórka sprawdza swoich <strong>8 sąsiadów</strong> i decyduje o swoim losie w następnym kroku. Oto jak to wygląda graficznie (analizujemy środkową komórkę):
+                    </p>
+
+                    <div class="grid lg:grid-cols-2 gap-8">
+                        
+                        <!-- RULE 1: NARODZINY -->
+                        <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl hover:border-blue-500/30 transition-colors">
+                            <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <i data-lucide="sparkles" class="text-green-500"></i> 1. Narodziny
+                            </h3>
+                            <div class="flex items-center gap-4 mb-4 bg-slate-950/50 p-4 rounded-lg">
+                                <!-- BEFORE -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Teraz</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell alive"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead center"></div><div class="rule-cell alive"></div>
+                                        <div class="rule-cell alive"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">3 sąsiadów</span>
+                                </div>
+                                <!-- ARROW -->
+                                <i data-lucide="arrow-right" class="text-slate-600 w-8 h-8"></i>
+                                <!-- AFTER -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Potem</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell alive"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell alive center ring-2 ring-green-500"></div><div class="rule-cell alive"></div>
+                                        <div class="rule-cell alive"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                    </div>
+                                    <span class="text-xs text-green-400 font-bold">Ożywa!</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-400">Jeśli pusta (martwa) komórka ma dokładnie <strong>3 żywych sąsiadów</strong>, staje się żywa w następnej turze.</p>
+                        </div>
+
+                        <!-- RULE 2: PRZEŻYCIE -->
+                        <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl hover:border-blue-500/30 transition-colors">
+                            <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <i data-lucide="shield-check" class="text-blue-500"></i> 2. Stabilność (Przeżycie)
+                            </h3>
+                            <div class="flex items-center gap-4 mb-4 bg-slate-950/50 p-4 rounded-lg">
+                                <!-- BEFORE -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Teraz</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell dead"></div><div class="rule-cell alive"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell alive center"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell alive"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">2 lub 3 sąsiadów</span>
+                                </div>
+                                <!-- ARROW -->
+                                <i data-lucide="arrow-right" class="text-slate-600 w-8 h-8"></i>
+                                <!-- AFTER -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Potem</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell dead"></div><div class="rule-cell alive"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell alive center ring-2 ring-blue-500"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell alive"></div>
+                                    </div>
+                                    <span class="text-xs text-blue-400 font-bold">Żyje dalej</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-400">Żywa komórka z <strong>2 lub 3 sąsiadami</strong> czuje się dobrze i pozostaje żywa.</p>
+                        </div>
+
+                        <!-- RULE 3: ŚMIERĆ - SAMOTNOŚĆ -->
+                        <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl hover:border-red-500/30 transition-colors">
+                            <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <i data-lucide="user-minus" class="text-red-400"></i> 3. Śmierć (Samotność)
+                            </h3>
+                            <div class="flex items-center gap-4 mb-4 bg-slate-950/50 p-4 rounded-lg">
+                                <!-- BEFORE -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Teraz</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell alive center"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell alive"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">0 lub 1 sąsiad</span>
+                                </div>
+                                <!-- ARROW -->
+                                <i data-lucide="arrow-right" class="text-slate-600 w-8 h-8"></i>
+                                <!-- AFTER -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Potem</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead center ring-2 ring-red-500"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell alive"></div>
+                                    </div>
+                                    <span class="text-xs text-red-400 font-bold">Umiera</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-400">Żywa komórka mająca <strong>mniej niż 2 sąsiadów</strong> umiera z osamotnienia.</p>
+                        </div>
+
+                        <!-- RULE 4: ŚMIERĆ - PRZELUDNIENIE -->
+                        <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl hover:border-red-500/30 transition-colors">
+                            <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                <i data-lucide="users" class="text-red-400"></i> 4. Śmierć (Przeludnienie)
+                            </h3>
+                            <div class="flex items-center gap-4 mb-4 bg-slate-950/50 p-4 rounded-lg">
+                                <!-- BEFORE -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Teraz</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell alive"></div><div class="rule-cell alive"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell alive"></div><div class="rule-cell alive center"></div><div class="rule-cell alive"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">4 lub więcej</span>
+                                </div>
+                                <!-- ARROW -->
+                                <i data-lucide="arrow-right" class="text-slate-600 w-8 h-8"></i>
+                                <!-- AFTER -->
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-xs uppercase text-slate-500 font-bold">Potem</span>
+                                    <div class="rule-grid">
+                                        <div class="rule-cell alive"></div><div class="rule-cell alive"></div><div class="rule-cell dead"></div>
+                                        <div class="rule-cell alive"></div><div class="rule-cell dead center ring-2 ring-red-500"></div><div class="rule-cell alive"></div>
+                                        <div class="rule-cell dead"></div><div class="rule-cell dead"></div><div class="rule-cell dead"></div>
+                                    </div>
+                                    <span class="text-xs text-red-400 font-bold">Umiera</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-400">Żywa komórka mająca <strong>więcej niż 3 sąsiadów</strong> umiera z powodu braku zasobów.</p>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-xl font-bold text-white mb-4">Ciekawe struktury</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-slate-900/50 p-4 rounded border border-slate-800 hover:border-blue-500/50 transition-colors cursor-pointer" onclick="switchTab('game'); insertPattern('glider')">
+                            <div class="text-purple-400 font-bold mb-1 flex items-center gap-2"><i data-lucide="plane" class="w-4 h-4"></i> Statki</div>
+                            <p class="text-sm text-slate-500">Struktury, które "płyną" po planszy. Kliknij, aby zobaczyć <strong>Szybowiec</strong>.</p>
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded border border-slate-800 hover:border-blue-500/50 transition-colors cursor-pointer" onclick="switchTab('game'); insertPattern('pulsar')">
+                            <div class="text-cyan-400 font-bold mb-1 flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4"></i> Oscylatory</div>
+                            <p class="text-sm text-slate-500">Struktury pulsujące w cyklach. Kliknij, aby zobaczyć <strong>Pulsar</strong>.</p>
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded border border-slate-800 hover:border-blue-500/50 transition-colors cursor-pointer" onclick="switchTab('game'); insertPattern('gosper')">
+                            <div class="text-emerald-400 font-bold mb-1 flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4"></i> Działa</div>
+                            <p class="text-sm text-slate-500">Fabryki, które produkują statki. Kliknij, aby zobaczyć <strong>Działo Gospera</strong>.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- LOGIKA GRY ---
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const statPop = document.getElementById('stat-pop');
+        const statGen = document.getElementById('stat-gen');
+        const btnPlay = document.getElementById('btn-play');
+        const btnPlayIcon = btnPlay.querySelector('i');
+
+        // Konfiguracja
+        let CELL_SIZE = 5; // Pixels
+        let COLS, ROWS;
+        let grid = [];
+        let nextGrid = [];
+        let isPlaying = false;
+        let animationId;
+        let generation = 0;
+        let fps = 30;
+        let lastFrameTime = 0;
+
+        // Kolory
+        const COLOR_BG = '#000000';
+        const COLOR_CELL = '#3b82f6'; // Blue-500
+        const COLOR_CELL_OLD = '#1d4ed8'; // Blue-700 (starsze komórki)
+
+        // Inicjalizacja
+        function resize() {
+            const container = document.getElementById('canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            COLS = Math.floor(canvas.width / CELL_SIZE);
+            ROWS = Math.floor(canvas.height / CELL_SIZE);
+            
+            // Zachowaj stan jeśli to możliwe, w przeciwnym razie nowy grid
+            if (grid.length === 0) {
+                grid = createGrid();
+                nextGrid = createGrid();
+            } else {
+                // Prosty reset przy zmianie rozmiaru dla uproszczenia
+                // W pełnej wersji można by kopiować dane
+                resetGame(); 
+            }
+            draw();
+        }
+
+        function createGrid() {
+            return new Array(COLS).fill(null).map(() => new Array(ROWS).fill(0));
+        }
+
+        function resetGame() {
+            grid = createGrid();
+            nextGrid = createGrid();
+            generation = 0;
+            updateStats();
+            draw();
+            if (isPlaying) togglePlay();
+        }
+
+        function randomize() {
+            for (let i = 0; i < COLS; i++) {
+                for (let j = 0; j < ROWS; j++) {
+                    grid[i][j] = Math.random() > 0.85 ? 1 : 0; // 15% szansy na życie
+                }
+            }
+            generation = 0;
+            updateStats();
+            draw();
+        }
+
+        // Logika Conwaya
+        function computeNextGen() {
+            let population = 0;
+
+            for (let col = 0; col < COLS; col++) {
+                for (let row = 0; row < ROWS; row++) {
+                    const cell = grid[col][row];
+                    let numNeighbors = 0;
+
+                    // Sąsiedzi (z zawijaniem krawędzi - Torus)
+                    for (let i = -1; i < 2; i++) {
+                        for (let j = -1; j < 2; j++) {
+                            if (i === 0 && j === 0) continue;
+                            
+                            const x_cell = (col + i + COLS) % COLS;
+                            const y_cell = (row + j + ROWS) % ROWS;
+
+                            if (grid[x_cell][y_cell] > 0) numNeighbors++;
+                        }
+                    }
+
+                    // Zasady
+                    if (cell > 0 && (numNeighbors < 2 || numNeighbors > 3)) {
+                        nextGrid[col][row] = 0; // Śmierć
+                    } else if (cell === 0 && numNeighbors === 3) {
+                        nextGrid[col][row] = 1; // Narodziny
+                    } else {
+                        // Przeżycie - zwiększamy "wiek" dla efektu wizualnego (max 2)
+                        nextGrid[col][row] = cell > 0 ? Math.min(cell + 1, 2) : 0;
+                    }
+
+                    if (nextGrid[col][row] > 0) population++;
+                }
+            }
+
+            // Swap grids
+            let temp = grid;
+            grid = nextGrid;
+            nextGrid = temp;
+            
+            generation++;
+            updateStats(population);
+        }
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+
+            // Kontrola FPS
+            const interval = 1000 / fps;
+            const delta = timestamp - lastFrameTime;
+
+            if (delta > interval) {
+                lastFrameTime = timestamp - (delta % interval);
+                computeNextGen();
+                draw();
+            }
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function draw() {
+            ctx.fillStyle = COLOR_BG;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Rysowanie komórek (bez obrysów dla wydajności)
+            for (let col = 0; col < COLS; col++) {
+                for (let row = 0; row < ROWS; row++) {
+                    const cell = grid[col][row];
+                    if (cell > 0) {
+                        ctx.fillStyle = cell === 1 ? COLOR_CELL : COLOR_CELL_OLD;
+                        ctx.fillRect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+        }
+
+        function updateStats(pop = null) {
+            statGen.innerText = generation;
+            if (pop !== null) {
+                statPop.innerText = pop;
+            } else {
+                // Policz jeśli nie podano (np. przy starcie)
+                let p = 0;
+                for(let c=0; c<COLS; c++) for(let r=0; r<ROWS; r++) if(grid[c][r]) p++;
+                statPop.innerText = p;
+            }
+        }
+
+        // --- INTERAKCJA I UI ---
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                btnPlay.innerHTML = '<i data-lucide="pause" class="w-5 h-5 fill-current"></i>';
+                btnPlay.classList.replace('bg-blue-600', 'bg-amber-500');
+                btnPlay.classList.replace('hover:bg-blue-500', 'hover:bg-amber-400');
+                lastFrameTime = performance.now();
+                gameLoop(lastFrameTime);
+            } else {
+                btnPlay.innerHTML = '<i data-lucide="play" class="w-5 h-5 fill-current"></i>';
+                btnPlay.classList.replace('bg-amber-500', 'bg-blue-600');
+                btnPlay.classList.replace('hover:bg-amber-400', 'hover:bg-blue-500');
+                cancelAnimationFrame(animationId);
+            }
+            lucide.createIcons();
+        }
+
+        function step() {
+            if (isPlaying) togglePlay();
+            computeNextGen();
+            draw();
+        }
+
+        // Rysowanie myszką
+        let isDrawing = false;
+        
+        function getCursorPosition(canvas, event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            return {
+                col: Math.floor(x / CELL_SIZE),
+                row: Math.floor(y / CELL_SIZE)
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const pos = getCursorPosition(canvas, e);
+            if(pos.col >= 0 && pos.col < COLS && pos.row >= 0 && pos.row < ROWS) {
+                // Toggle state
+                grid[pos.col][pos.row] = grid[pos.col][pos.row] ? 0 : 1;
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const pos = getCursorPosition(canvas, e);
+            if(pos.col >= 0 && pos.col < COLS && pos.row >= 0 && pos.row < ROWS) {
+                grid[pos.col][pos.row] = 1; // W trybie ciągłym tylko rysujemy (ożywiamy)
+                draw();
+            }
+        });
+
+        window.addEventListener('mouseup', () => isDrawing = false);
+
+        // Obsługa kontrolek
+        document.getElementById('btn-play').onclick = togglePlay;
+        document.getElementById('btn-next').onclick = step;
+        document.getElementById('btn-clear').onclick = () => {
+            if (isPlaying) togglePlay();
+            resetGame();
+        };
+        document.getElementById('btn-random').onclick = randomize;
+        
+        document.getElementById('speed-range').addEventListener('input', (e) => {
+            fps = parseInt(e.target.value);
+        });
+
+        // Wstawianie wzorów
+        function insertPattern(type) {
+            const cx = Math.floor(COLS / 2);
+            const cy = Math.floor(ROWS / 2);
+            
+            // Wyczyść kawałek pod wzór (opcjonalne, ale czytelniejsze)
+            
+            const setCell = (dx, dy) => {
+                if(cx+dx < COLS && cy+dy < ROWS) grid[cx+dx][cy+dy] = 1;
+            };
+
+            if (type === 'glider') {
+                // Szybowiec
+                setCell(0, -1);
+                setCell(1, 0);
+                setCell(-1, 1); setCell(0, 1); setCell(1, 1);
+            } else if (type === 'pulsar') {
+                // Mały uproszczony oscylator (Blinker) żeby nie komplikować kodu milionem współrzędnych
+                // Wstawimy "Blinker" (prosty oscylator) w kilku miejscach dla efektu
+                setCell(-1, 0); setCell(0, 0); setCell(1, 0);
+            } else if (type === 'gosper') {
+                // Gosper Glider Gun (uproszczona tablica offsetów)
+                const coords = [
+                    [0, 4], [0, 5], [1, 4], [1, 5],
+                    [10, 4], [10, 5], [10, 6],
+                    [11, 3], [11, 7],
+                    [12, 2], [12, 8],
+                    [13, 2], [13, 8],
+                    [14, 5],
+                    [15, 3], [15, 7],
+                    [16, 4], [16, 5], [16, 6],
+                    [17, 5],
+                    [20, 2], [20, 3], [20, 4],
+                    [21, 2], [21, 3], [21, 4],
+                    [22, 1], [22, 5],
+                    [24, 0], [24, 1], [24, 5], [24, 6],
+                    [34, 2], [34, 3], [35, 2], [35, 3]
+                ];
+                // Przesunięcie żeby było widać strzelanie
+                const offsetX = -15; 
+                const offsetY = -5;
+                coords.forEach(([x, y]) => setCell(x + offsetX, y + offsetY));
+            }
+            draw();
+            updateStats();
+        }
+        
+        // Expose to window for HTML buttons
+        window.insertPattern = insertPattern;
+
+        // --- TAB LOGIC ---
+        function switchTab(tabId) {
+            const gameTab = document.getElementById('tab-game');
+            const rulesTab = document.getElementById('tab-rules');
+            const gameBtn = document.getElementById('tab-game-btn');
+            const rulesBtn = document.getElementById('tab-rules-btn');
+
+            if (tabId === 'game') {
+                gameTab.classList.remove('hidden');
+                rulesTab.classList.add('hidden');
+                
+                gameBtn.classList.replace('tab-inactive', 'tab-active');
+                rulesBtn.classList.replace('tab-active', 'tab-inactive');
+                
+                // Refresh canvas size in case of window resize while in other tab
+                resize();
+            } else {
+                gameTab.classList.add('hidden');
+                rulesTab.classList.remove('hidden');
+                
+                rulesBtn.classList.replace('tab-inactive', 'tab-active');
+                gameBtn.classList.replace('tab-active', 'tab-inactive');
+                
+                if (isPlaying) togglePlay(); // Pauza przy wyjściu
+            }
+        }
+        window.switchTab = switchTab;
+
+        // Start
+        window.addEventListener('resize', resize);
+        lucide.createIcons();
+        resize(); // Init canvas size
+        randomize(); // Start with something interesting
+
+    </script>
+</body>
+</html>
