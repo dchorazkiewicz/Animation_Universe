@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mistrz Równań</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 4px;
+        }
+        .numerator {
+            border-bottom: 2px solid #94a3b8;
+            padding: 0 4px;
+            width: 100%;
+            text-align: center;
+        }
+        .denominator {
+            padding: 0 4px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .fade-enter {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        .fade-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: all 0.5s ease;
+        }
+        
+        .var-x {
+            color: #fbbf24;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 flex flex-col items-center p-4 min-h-screen">
+
+    <header class="mb-8 text-center max-w-4xl">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
+            Mechanika Równań
+        </h1>
+        <p class="text-slate-400 text-sm md:text-base">Odkręcamy działania, żeby uwolnić <span class="var-x">x</span>!</p>
+    </header>
+
+    <div class="flex flex-wrap gap-2 justify-center mb-8 w-full max-w-3xl">
+        <button onclick="newEquation('basic')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm transition-colors">ax + b = c</button>
+        <button onclick="newEquation('fraction_num')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm transition-colors">ułamki (x/a)</button>
+        <button onclick="newEquation('fraction_den')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm transition-colors">x w mianowniku</button>
+        <button onclick="newEquation('both_sides')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm transition-colors">x po obu stronach</button>
+    </div>
+
+    <div class="w-full max-w-3xl bg-slate-800 rounded-xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col min-h-[500px]">
+        
+        <div class="bg-slate-900/50 p-4 flex justify-between items-center border-b border-slate-700">
+            <div class="flex gap-2">
+                <button onclick="resetEquation()" class="p-2 hover:bg-slate-700 rounded-full transition-colors" title="Od nowa">
+                    <i data-lucide="rotate-ccw" class="text-slate-400"></i>
+                </button>
+            </div>
+            <div class="flex gap-4 items-center">
+                <button id="btnNext" onclick="nextStep()" class="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all transform active:scale-95">
+                    Kolejny Krok <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="stepsContainer" class="flex-grow p-6 flex flex-col gap-6 overflow-y-auto">
+            <!-- Kroki dynamiczne -->
+        </div>
+
+        <div class="bg-slate-900/80 p-4 border-t border-slate-700 text-center">
+            <p id="explanationText" class="text-slate-300 text-lg font-medium min-h-[1.5em]"></p>
+        </div>
+    </div>
+
+    <script>
+        const renderX = () => `<span class="var-x">x</span>`;
+        
+        const renderFraction = (num, den) => {
+            return `<div class="fraction"><span class="numerator">${num}</span><span class="denominator">${den}</span></div>`;
+        };
+
+        const renderTerm = (coeff, variable = false) => {
+            if (!variable) return `${coeff}`;
+            if (coeff === 1) return renderX();
+            if (coeff === -1) return `-${renderX()}`;
+            return `${coeff}${renderX()}`;
+        };
+
+        let currentScenario = null;
+        let stepIndex = 0;
+
+        function getRandomInt(min, max) {
+            min = Math.ceil(min);
+            max = Math.floor(max);
+            let val = Math.floor(Math.random() * (max - min + 1)) + min;
+            return val === 0 ? 1 : val;
+        }
+
+        class EquationState {
+            constructor(leftHtml, rightHtml, operation = null, explanation = "") {
+                this.leftHtml = leftHtml;
+                this.rightHtml = rightHtml;
+                this.operation = operation;
+                this.explanation = explanation;
+            }
+        }
+
+        function generateBasic() {
+            // ax + b = c
+            const x = getRandomInt(2, 9);
+            const a = getRandomInt(2, 5) * (Math.random() > 0.5 ? 1 : -1);
+            const b = getRandomInt(1, 10) * (Math.random() > 0.5 ? 1 : -1);
+            const c = a * x + b;
+
+            const steps = [];
+
+            // Krok 0
+            const signB = b > 0 ? '+' : '-';
+            const absB = Math.abs(b);
+            steps.push(new EquationState(
+                `${renderTerm(a, true)} ${signB} ${absB}`,
+                `${c}`,
+                null,
+                `Mamy równanie. Naszym celem jest <span class="var-x">x</span>.`
+            ));
+
+            // Krok 1
+            const op1Symbol = b > 0 ? '-' : '+';
+            const op1Val = absB;
+            steps.push(new EquationState(
+                `${renderTerm(a, true)} ${signB} ${absB} <span class="text-red-400 font-bold">${op1Symbol} ${op1Val}</span>`,
+                `${c} <span class="text-red-400 font-bold">${op1Symbol} ${op1Val}</span>`,
+                `| ${op1Symbol} ${op1Val}`,
+                `Pozbywamy się wyrazu wolnego (${b > 0 ? 'odejmujemy' : 'dodajemy'} ${absB} stronami).`
+            ));
+
+            // Krok 2
+            const right2 = c + (b > 0 ? -b : -b);
+            steps.push(new EquationState(
+                `${renderTerm(a, true)}`,
+                `${right2}`,
+                null,
+                `Zostaje nam samo wyrażenie z <span class="var-x">x</span>.`
+            ));
+
+            // Krok 3
+            steps.push(new EquationState(
+                renderFraction(`${renderTerm(a, true)}`, `<span class="text-red-400 font-bold">${a}</span>`),
+                renderFraction(`${right2}`, `<span class="text-red-400 font-bold">${a}</span>`),
+                `| : ${a < 0 ? `(${a})` : a}`,
+                `Dzielimy obie strony przez to, co stoi przy <span class="var-x">x</span>.`
+            ));
+
+            // Krok 4: Uproszczenie wyniku
+            steps.push(new EquationState(
+                renderX(),
+                `<span class="text-green-400 font-bold">${x}</span>`,
+                null,
+                `Obliczamy wynik. <span class="var-x">x</span> wynosi ${x}.`
+            ));
+
+            return steps;
+        }
+
+        function generateFractionNum() {
+            // x/a + b = c
+            const a = getRandomInt(2, 6);
+            const b = getRandomInt(1, 8) * (Math.random() > 0.5 ? 1 : -1);
+            const targetX = getRandomInt(1, 5) * a; 
+            const c = (targetX / a) + b;
+
+            const steps = [];
+            const signB = b > 0 ? '+' : '-';
+            const absB = Math.abs(b);
+
+            // Krok 0
+            steps.push(new EquationState(
+                `${renderFraction(renderX(), a)} ${signB} ${absB}`,
+                `${c}`,
+                null,
+                `<span class="var-x">x</span> jest w ułamku. Najpierw uporządkujmy liczby.`
+            ));
+
+            // Krok 1
+            const op1Symbol = b > 0 ? '-' : '+';
+            steps.push(new EquationState(
+                `${renderFraction(renderX(), a)} ${signB} ${absB} <span class="text-red-400 font-bold">${op1Symbol} ${absB}</span>`,
+                `${c} <span class="text-red-400 font-bold">${op1Symbol} ${absB}</span>`,
+                `| ${op1Symbol} ${absB}`,
+                `Przenosimy wyraz wolny na drugą stronę.`
+            ));
+
+            // Krok 2
+            const right2 = c - b;
+            steps.push(new EquationState(
+                renderFraction(renderX(), a),
+                `${right2}`,
+                null,
+                `Teraz <span class="var-x">x</span> jest dzielony przez ${a}.`
+            ));
+
+            // Krok 3: Mnożenie
+            steps.push(new EquationState(
+                `${renderFraction(renderX(), a)} <span class="text-red-400 font-bold">· ${a}</span>`,
+                `${right2} <span class="text-red-400 font-bold">· ${a}</span>`,
+                `| · ${a}`,
+                `Aby usunąć mianownik, mnożymy obie strony przez ${a}.`
+            ));
+
+            // Krok 4: Wynik
+            steps.push(new EquationState(
+                renderX(),
+                `<span class="text-green-400 font-bold">${targetX}</span>`,
+                null,
+                `Po wymnożeniu otrzymujemy wynik.`
+            ));
+
+            return steps;
+        }
+
+        function generateFractionDen() {
+            // a/x + b = c
+            const x = getRandomInt(2, 10);
+            const b = getRandomInt(1, 8) * (Math.random() > 0.5 ? 1 : -1);
+            
+            const rhs_after_b = getRandomInt(2, 6) * (Math.random() > 0.5 ? 1 : -1);
+            
+            const a = x * rhs_after_b; 
+            const c = rhs_after_b + b;
+
+            const steps = [];
+            
+            const signB = b > 0 ? '+' : '-';
+            const absB = Math.abs(b);
+
+            // Krok 0
+            steps.push(new EquationState(
+                `${renderFraction(a, renderX())} ${signB} ${absB}`,
+                `${c}`,
+                null,
+                `<span class="var-x">x</span> siedzi w mianowniku. Najpierw pozbądźmy się liczb.`
+            ));
+
+            // Krok 1
+            const op1Symbol = b > 0 ? '-' : '+';
+            steps.push(new EquationState(
+                `${renderFraction(a, renderX())} ${signB} ${absB} <span class="text-red-400 font-bold">${op1Symbol} ${absB}</span>`,
+                `${c} <span class="text-red-400 font-bold">${op1Symbol} ${absB}</span>`,
+                `| ${op1Symbol} ${absB}`,
+                `Przenosimy wyraz wolny.`
+            ));
+
+            // Krok 2
+            steps.push(new EquationState(
+                renderFraction(a, renderX()),
+                `${rhs_after_b}`,
+                null,
+                `Mamy ułamek równy liczbie.`
+            ));
+
+            // Krok 3: Mnożenie przez x
+            steps.push(new EquationState(
+                `${renderFraction(a, renderX())} <span class="text-red-400 font-bold">· ${renderX()}</span>`,
+                `${rhs_after_b} <span class="text-red-400 font-bold">· ${renderX()}</span>`,
+                `| · ${renderX()}`,
+                `Mnożymy przez <span class="var-x">x</span>, żeby wyciągnąć go z mianownika.`
+            ));
+
+            // Krok 4
+            steps.push(new EquationState(
+                `${a}`,
+                `${rhs_after_b}${renderX()}`,
+                null,
+                `Teraz to proste równanie liniowe. <span class="var-x">x</span> jest po prawej, ale to nic.`
+            ));
+
+            // Krok 5: Dzielenie
+            steps.push(new EquationState(
+                renderFraction(a, `<span class="text-red-400 font-bold">${rhs_after_b}</span>`),
+                renderFraction(`${rhs_after_b}${renderX()}`, `<span class="text-red-400 font-bold">${rhs_after_b}</span>`),
+                `| : ${rhs_after_b}`,
+                `Dzielimy przez współczynnik przy <span class="var-x">x</span>.`
+            ));
+
+            // Krok 6: Uproszczenie (Najpierw wynik, potem odwrócenie)
+            steps.push(new EquationState(
+                `${x}`,
+                renderX(),
+                null,
+                `Upraszczamy ułamki. Otrzymujemy wynik.`
+            ));
+
+            // Krok 7: Odwrócenie stron (Żeby x był po lewej)
+            steps.push(new EquationState(
+                renderX(),
+                `<span class="text-green-400 font-bold">${x}</span>`,
+                null,
+                `Dla porządku zamieniamy strony: <span class="var-x">x</span> = ${x}.`
+            ));
+
+            return steps;
+        }
+
+        function generateBothSides() {
+            // ax + b = cx + d
+            // Chcemy (a-c)x > 0, czyli a > c.
+            
+            const resultX = getRandomInt(2, 8);
+            
+            // Generujemy dwa współczynniki
+            let val1 = getRandomInt(2, 6);
+            let val2 = getRandomInt(2, 6);
+            while(val1 === val2) val2 = getRandomInt(2, 6);
+            
+            // Przypisujemy tak, żeby a > c (żeby x wyszedł dodatni po lewej)
+            let a = Math.max(val1, val2);
+            let c = Math.min(val1, val2);
+
+            let b = getRandomInt(1, 10);
+            let d = (a * resultX + b) - (c * resultX); 
+
+            const steps = [];
+            const signB = b >= 0 ? '+' : '-';
+            
+            const formatSide = (coeff, cons) => {
+                 const s = cons >= 0 ? '+' : '-';
+                 return `${renderTerm(coeff, true)} ${s} ${Math.abs(cons)}`;
+            };
+
+            // Krok 0
+            steps.push(new EquationState(
+                formatSide(a, b),
+                formatSide(c, d),
+                null,
+                `<span class="var-x">x</span> po obu stronach. Przenieśmy mniejszego <span class="var-x">x</span> na lewo, żeby wynik był dodatni.`
+            ));
+
+            // Krok 1: Odejmij cx
+            const opSign = c > 0 ? '-' : '+';
+            const opVal = Math.abs(c);
+            
+            steps.push(new EquationState(
+                `${formatSide(a, b)} <span class="text-red-400 font-bold">${opSign} ${renderTerm(opVal, true)}</span>`,
+                `${formatSide(c, d)} <span class="text-red-400 font-bold">${opSign} ${renderTerm(opVal, true)}</span>`,
+                `| ${opSign} ${renderTerm(opVal, true)}`,
+                `Odejmujemy ${renderTerm(c, true)} od obu stron.`
+            ));
+
+            // Krok 2
+            const newA = a - c; // Będzie dodatnie
+            steps.push(new EquationState(
+                formatSide(newA, b),
+                `${d}`,
+                null,
+                `Po lewej mamy ${renderTerm(newA, true)}. Teraz liczby na prawo.`
+            ));
+
+            // Krok 3: Odejmij b
+            const opB = b > 0 ? '-' : '+';
+            steps.push(new EquationState(
+                `${formatSide(newA, b)} <span class="text-red-400 font-bold">${opB} ${Math.abs(b)}</span>`,
+                `${d} <span class="text-red-400 font-bold">${opB} ${Math.abs(b)}</span>`,
+                `| ${opB} ${Math.abs(b)}`,
+                `Przenosimy liczbę z lewej strony.`
+            ));
+            
+            // Krok 4
+            const newRight = d - b;
+            steps.push(new EquationState(
+                renderTerm(newA, true),
+                `${newRight}`,
+                null,
+                `Zostaje nam proste dzielenie.`
+            ));
+
+             // Krok 5: Dzielenie
+             steps.push(new EquationState(
+                renderFraction(renderTerm(newA, true), `<span class="text-red-400 font-bold">${newA}</span>`),
+                renderFraction(newRight, `<span class="text-red-400 font-bold">${newA}</span>`),
+                `| : ${newA}`,
+                `Dzielimy przez ${newA}.`
+            ));
+
+            // Krok 6
+            steps.push(new EquationState(
+                renderX(),
+                `<span class="text-green-400 font-bold">${resultX}</span>`,
+                null,
+                `Gotowe. Wynik to ${resultX}.`
+            ));
+
+            return steps;
+        }
+
+        // --- Renderowanie UI ---
+
+        function renderStep(state, index) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full text-xl md:text-2xl fade-enter";
+            
+            const eqDiv = document.createElement('div');
+            eqDiv.className = "flex items-center gap-3 bg-slate-900/50 px-4 py-3 rounded-lg border border-slate-700 w-full md:w-auto flex-grow justify-center relative";
+            
+            eqDiv.innerHTML = `
+                <div class="flex items-center">${state.leftHtml}</div>
+                <div class="font-bold text-slate-500 mx-2">=</div>
+                <div class="flex items-center">${state.rightHtml}</div>
+            `;
+
+            if (state.operation) {
+                const opDiv = document.createElement('div');
+                opDiv.className = "text-blue-400 font-bold text-base md:text-xl whitespace-nowrap pl-2 border-l-2 border-slate-600 ml-2";
+                opDiv.innerHTML = state.operation;
+                eqDiv.appendChild(opDiv); 
+            }
+
+            div.appendChild(eqDiv);
+            
+            return div;
+        }
+
+        function newEquation(type) {
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = '';
+            stepIndex = 0;
+            
+            switch(type) {
+                case 'basic': currentScenario = generateBasic(); break;
+                case 'fraction_num': currentScenario = generateFractionNum(); break;
+                case 'fraction_den': currentScenario = generateFractionDen(); break;
+                case 'both_sides': currentScenario = generateBothSides(); break;
+                default: currentScenario = generateBasic();
+            }
+
+            document.getElementById('btnNext').disabled = false;
+            document.getElementById('btnNext').innerHTML = `Kolejny Krok <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+            document.getElementById('btnNext').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            lucide.createIcons();
+            nextStep();
+        }
+
+        function nextStep() {
+            if (!currentScenario || stepIndex >= currentScenario.length) return;
+
+            const container = document.getElementById('stepsContainer');
+            const stepData = currentScenario[stepIndex];
+            
+            const stepEl = renderStep(stepData, stepIndex);
+            container.appendChild(stepEl);
+            
+            requestAnimationFrame(() => {
+                stepEl.classList.add('fade-enter-active');
+                stepEl.classList.remove('fade-enter');
+            });
+
+            const explText = document.getElementById('explanationText');
+            explText.innerHTML = stepData.explanation;
+
+            container.scrollTop = container.scrollHeight;
+
+            stepIndex++;
+
+            if (stepIndex >= currentScenario.length) {
+                const btn = document.getElementById('btnNext');
+                btn.disabled = true;
+                btn.innerHTML = `Koniec <i data-lucide="check" class="w-4 h-4"></i>`;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                lucide.createIcons();
+            }
+        }
+
+        function resetEquation() {
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = '';
+            document.getElementById('explanationText').innerHTML = "Wybierz typ równania powyżej, aby zacząć.";
+            currentScenario = null;
+            stepIndex = 0;
+        }
+
+        lucide.createIcons();
+        newEquation('basic');
+
+    </script>
+</body>
+</html>
