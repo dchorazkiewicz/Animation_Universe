@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorium Orbitalne</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Ukrywanie suwaków, ale zachowanie funkcjonalności */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        canvas {
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 shrink-0 z-20">
+        <div class="max-w-full px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="orbit" class="text-blue-500 w-6 h-6"></i>
+                <h1 class="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
+                    Orbital Lab
+                </h1>
+            </div>
+            <div class="flex items-center gap-4 text-xs font-mono text-slate-500">
+                <div class="hidden sm:block">F = G·M·m / r²</div>
+                <div class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-slate-300">
+                    Obiektów: <span id="obj-count" class="text-white font-bold">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar Controls -->
+        <nav class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-10 overflow-y-auto">
+            
+            <!-- Scenarios -->
+            <div class="p-4 border-b border-slate-800">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Scenariusz Grawitacyjny</h2>
+                <div class="space-y-2">
+                    <button onclick="window.setScenario('single')" id="btn-single" class="w-full text-left px-3 py-2 rounded border border-blue-600 bg-blue-600/10 text-blue-200 text-sm font-medium transition-colors flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-yellow-400"></span> 1 Gwiazda (Kepler)
+                    </button>
+                    <button onclick="window.setScenario('binary')" id="btn-binary" class="w-full text-left px-3 py-2 rounded border border-slate-700 hover:bg-slate-800 text-slate-400 text-sm font-medium transition-colors flex items-center gap-2">
+                        <div class="flex gap-0.5"><span class="w-2 h-2 rounded-full bg-yellow-400"></span><span class="w-2 h-2 rounded-full bg-orange-400"></span></div>
+                        2 Gwiazdy (Chaos)
+                    </button>
+                </div>
+                <p id="scenario-desc" class="text-xs text-slate-500 mt-3 leading-relaxed">
+                    Klasyczny układ słoneczny. Orbity są stabilnymi elipsami, parabolami lub hiperbolami. Przewidywalność: 100%.
+                </p>
+            </div>
+
+            <!-- Launch Mode -->
+            <div class="p-4 border-b border-slate-800">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tryb Wystrzału</h2>
+                
+                <div class="flex bg-slate-800 p-1 rounded-lg mb-4">
+                    <button onclick="window.setLaunchMode('single')" id="mode-single" class="flex-1 py-1.5 text-xs font-bold rounded shadow-sm bg-slate-600 text-white transition-all">Pojedynczy</button>
+                    <button onclick="window.setLaunchMode('beam')" id="mode-beam" class="flex-1 py-1.5 text-xs font-bold rounded text-slate-400 hover:text-white transition-all">Wiązka (50x)</button>
+                </div>
+
+                <div id="beam-info" class="hidden">
+                    <div class="p-3 bg-indigo-900/30 border border-indigo-500/30 rounded text-xs text-indigo-200 mb-2">
+                        <strong class="block mb-1 text-indigo-100"><i data-lucide="sparkles" class="inline w-3 h-3 mr-1"></i>Efekt Motyla</strong>
+                        Wystrzeliwujesz 50 obiektów z minimalnymi różnicami prędkości. Obserwuj jak ich drogi się rozchodzą.
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-[10px] uppercase font-bold text-slate-500 mb-1">
+                            <span>Prędkość Symulacji</span>
+                            <span id="speed-val">1.0x</span>
+                        </div>
+                        <input type="range" id="time-scale" min="0" max="3" step="0.1" value="1" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between text-[10px] uppercase font-bold text-slate-500 mb-1">
+                            <span>Długość śladu (Ogon)</span>
+                        </div>
+                        <input type="range" id="trail-len" min="10" max="500" step="10" value="200" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="p-4 mt-auto">
+                <button onclick="window.clearParticles()" class="w-full py-2 bg-slate-800 hover:bg-red-900/30 hover:border-red-500/50 border border-slate-700 text-slate-300 rounded text-sm font-bold transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Usuń Planety
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Viewport -->
+        <main class="flex-1 flex flex-col relative bg-black cursor-crosshair overflow-hidden">
+            <canvas id="sim-canvas" class="block w-full h-full"></canvas>
+            
+            <!-- Instructions Overlay -->
+            <div id="hint-overlay" class="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-none transition-opacity duration-500">
+                <div class="bg-slate-900/80 backdrop-blur px-6 py-3 rounded-full border border-slate-700 text-slate-200 text-sm flex items-center gap-3 shadow-2xl">
+                    <i data-lucide="mouse-pointer-click" class="w-5 h-5 text-blue-400"></i>
+                    <span>Kliknij i przeciągnij, aby wystrzelić planetę</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    {
+        // --- PHYSICS ENGINE ---
+
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Constants
+        const G = 0.5; // Stała grawitacji (skalowana dla wizualizacji)
+        
+        // State
+        let bodies = []; // Massive bodies (Stars)
+        let particles = []; // Light bodies (Planets)
+        let launchMode = 'single'; // 'single' or 'beam'
+        let scenario = 'single'; // 'single' or 'binary'
+        let timeScale = 1.0;
+        let trailLength = 200;
+        
+        // Input State
+        let isDragging = false;
+        let dragStart = {x:0, y:0};
+        let dragCurrent = {x:0, y:0};
+
+        class Body {
+            constructor(x, y, m, color, fixed = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.mass = m;
+                this.color = color;
+                this.fixed = fixed;
+                this.radius = Math.sqrt(m) * 2; // Radius based on mass
+                if(fixed) this.radius = Math.sqrt(m) * 1.5; // Make stars slightly denser visually
+            }
+
+            update() {
+                if(this.fixed) return;
+                this.x += this.vx * timeScale;
+                this.y += this.vy * timeScale;
+            }
+
+            draw(ctx) {
+                // Glow
+                const grad = ctx.createRadialGradient(this.x, this.y, this.radius*0.2, this.x, this.y, this.radius*3);
+                grad.addColorStop(0, this.color);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius*3, 0, Math.PI*2);
+                ctx.fill();
+
+                // Core
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, vx, vy, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.trail = [];
+                this.crashed = false;
+            }
+
+            update(bodies) {
+                if(this.crashed) return;
+
+                // Verlet-like integration steps or Euler for simplicity here since dt is small
+                // F = ma => a = F/m. Since m cancels out in gravity (equivalence principle), a = F_gravity.
+                
+                let ax = 0;
+                let ay = 0;
+
+                for(let b of bodies) {
+                    const dx = b.x - this.x;
+                    const dy = b.y - this.y;
+                    const distSq = dx*dx + dy*dy;
+                    const dist = Math.sqrt(distSq);
+
+                    // Collision detection
+                    if(dist < b.radius + 2) {
+                        this.crashed = true;
+                        return;
+                    }
+
+                    // F = G * M / r^2
+                    const force = (G * b.mass) / distSq;
+                    
+                    // F_vec components
+                    ax += force * (dx / dist);
+                    ay += force * (dy / dist);
+                }
+
+                this.vx += ax * timeScale;
+                this.vy += ay * timeScale;
+                
+                this.x += this.vx * timeScale;
+                this.y += this.vy * timeScale;
+
+                // Trail management
+                if(this.trail.length === 0 || 
+                   Math.abs(this.x - this.trail[this.trail.length-1].x) > 2 || 
+                   Math.abs(this.y - this.trail[this.trail.length-1].y) > 2) {
+                    
+                    this.trail.push({x: this.x, y: this.y});
+                    if(this.trail.length > trailLength) this.trail.shift();
+                }
+            }
+
+            draw(ctx) {
+                if(this.crashed) return;
+
+                // Draw Trail
+                if(this.trail.length > 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 1.5;
+                    // Draw only last N points to fade manually or just draw all with global alpha
+                    // Let's do simple line
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for(let i=1; i<this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+
+                // Draw Head
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // --- SIMULATION CONTROL ---
+
+        function initScenario() {
+            bodies = [];
+            particles = [];
+            
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            if(scenario === 'single') {
+                // One massive sun
+                bodies.push(new Body(cx, cy, 2000, 'rgba(255, 200, 0, 0.5)', true));
+            } else {
+                // Binary star system
+                // They need to orbit each other to be stable, or just be fixed for chaotic pinball
+                // Let's make them fixed for pure "restricted 3-body problem" demonstration
+                bodies.push(new Body(cx - 150, cy, 1500, 'rgba(255, 200, 0, 0.4)', true));
+                bodies.push(new Body(cx + 150, cy, 1500, 'rgba(255, 100, 50, 0.4)', true));
+            }
+            updateUI();
+        }
+
+        function spawn(x, y, vx, vy) {
+            if(launchMode === 'single') {
+                particles.push(new Particle(x, y, vx, vy, '#3b82f6'));
+            } else {
+                // Beam mode: spawn N particles with slightly perturbed velocity
+                const baseColor = {h: 200, s: 80, l: 60}; // Blueish
+                
+                for(let i=0; i<50; i++) {
+                    // Perturbation factor (random small deviation)
+                    // Spread angle slightly and speed slightly
+                    const angle = Math.atan2(vy, vx);
+                    const speed = Math.sqrt(vx*vx + vy*vy);
+                    
+                    const pAngle = angle + (Math.random() - 0.5) * 0.05; // +/- small angle
+                    const pSpeed = speed * (1 + (Math.random() - 0.5) * 0.05); // +/- 2.5% speed
+                    
+                    const pvx = Math.cos(pAngle) * pSpeed;
+                    const pvy = Math.sin(pAngle) * pSpeed;
+                    
+                    // Color variation to track them
+                    const col = `hsl(${baseColor.h + (Math.random()*40-20)}, 80%, 60%)`;
+                    
+                    particles.push(new Particle(x, y, pvx, pvy, col));
+                }
+            }
+            updateUI();
+        }
+
+        function clearParticles() {
+            particles = [];
+            updateUI();
+        }
+
+        // --- PREDICTION LOGIC (ANALYTIC FOR KEPLER) ---
+        // Rysowanie przewidywanej orbity DLA JEDNEGO CIAŁA
+        // To jest killer-feature: pokazuje elipsę ZANIM puścisz myszkę
+        function drawPrediction(ctx, startX, startY, vx, vy) {
+            if(scenario !== 'single' || bodies.length !== 1) return; // Only works for simple Kepler
+            
+            const M = bodies[0];
+            const dx = startX - M.x;
+            const dy = startY - M.y;
+            const r = Math.sqrt(dx*dx + dy*dy);
+            const v2 = vx*vx + vy*vy;
+            const mu = G * M.mass;
+            
+            // Specific Orbital Energy: E = v^2/2 - mu/r
+            const E = v2/2 - mu/r;
+            
+            // Semi-major axis: a = -mu / 2E
+            // if E >= 0, orbit is parabolic/hyperbolic (open)
+            
+            if (E >= 0) {
+                // Hyperbola prediction is hard to draw analytically simply on canvas without rotating context
+                // Fallback to numeric integration for preview line
+                drawNumericPreview(ctx, startX, startY, vx, vy, M);
+                return;
+            }
+
+            // Numeric preview is actually safer and handles visual occlusion better
+            // Let's use numeric integration for preview anyway (easier code than conic sections drawing)
+            drawNumericPreview(ctx, startX, startY, vx, vy, M);
+        }
+
+        function drawNumericPreview(ctx, x, y, vx, vy, body) {
+            let px = x;
+            let py = y;
+            let pvx = vx;
+            let pvy = vy;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(px, py);
+
+            // Simulate 500 steps
+            for(let i=0; i<1000; i++) {
+                const dx = body.x - px;
+                const dy = body.y - py;
+                const d2 = dx*dx + dy*dy;
+                const d = Math.sqrt(d2);
+                
+                if(d < body.radius) break; // Crash preview
+
+                const f = (G * body.mass) / d2;
+                const ax = f * (dx/d);
+                const ay = f * (dy/d);
+                
+                pvx += ax; // dt = 1 for preview simplicity (scaled visually)
+                pvy += ay;
+                
+                px += pvx;
+                py += pvy;
+                
+                ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+
+        // --- LOOP ---
+
+        function loop() {
+            // Clear
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // Trail fade effect for background
+            // Actually for crisp lines better full clear and redraw trails manually
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            
+            // Draw Bodies
+            bodies.forEach(b => b.draw(ctx));
+
+            // Update & Draw Particles
+            // Batch drawing for performance could be added but 50-100 particles is fine
+            particles.forEach(p => {
+                p.update(bodies);
+                p.draw(ctx);
+            });
+
+            // Cleanup crashed or far away
+            if(particles.length > 500) {
+                // remove oldest if too many to save performance
+                particles = particles.slice(particles.length - 500);
+            }
+
+            // Draw Drag Line & Prediction
+            if(isDragging) {
+                ctx.beginPath();
+                ctx.moveTo(dragStart.x, dragStart.y);
+                ctx.lineTo(dragCurrent.x, dragCurrent.y);
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Arrow head
+                // ... skipped for brevity
+
+                // Calculate Launch Velocity vector
+                // Dragging FROM planet TO direction? Or Dragging back like a slingshot?
+                // Let's do: Drag BACK like a slingshot (Angry Birds style) feels more intuitive
+                const vx = (dragStart.x - dragCurrent.x) * 0.05;
+                const vy = (dragStart.y - dragCurrent.y) * 0.05;
+
+                if(scenario === 'single') {
+                    drawPrediction(ctx, dragStart.x, dragStart.y, vx, vy);
+                }
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- INPUT HANDLERS ---
+
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            const rect = canvas.getBoundingClientRect();
+            dragStart = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+            dragCurrent = { ...dragStart };
+            
+            // Hide hint
+            document.getElementById('hint-overlay').style.opacity = '0';
+        });
+
+        window.addEventListener('mousemove', e => {
+            if(!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            dragCurrent = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        });
+
+        window.addEventListener('mouseup', e => {
+            if(!isDragging) return;
+            isDragging = false;
+            
+            // Velocity scaling (Slingshot logic)
+            // Vector is from Current to Start
+            const vx = (dragStart.x - dragCurrent.x) * 0.05;
+            const vy = (dragStart.y - dragCurrent.y) * 0.05;
+            
+            // Don't spawn if drag was too small
+            if(Math.abs(vx) < 0.1 && Math.abs(vy) < 0.1) return;
+
+            spawn(dragStart.x, dragStart.y, vx, vy);
+        });
+
+        // --- UI LOGIC ---
+
+        function updateUI() {
+            document.getElementById('obj-count').innerText = particles.length;
+        }
+
+        function setScenario(scen) {
+            scenario = scen;
+            initScenario();
+            
+            // Update buttons
+            const btnS = document.getElementById('btn-single');
+            const btnB = document.getElementById('btn-binary');
+            const desc = document.getElementById('scenario-desc');
+            
+            if(scen === 'single') {
+                btnS.className = "w-full text-left px-3 py-2 rounded border border-blue-600 bg-blue-600/10 text-blue-200 text-sm font-medium transition-colors flex items-center gap-2";
+                btnB.className = "w-full text-left px-3 py-2 rounded border border-slate-700 hover:bg-slate-800 text-slate-400 text-sm font-medium transition-colors flex items-center gap-2";
+                desc.innerHTML = "Klasyczny układ słoneczny. Orbity są stabilnymi elipsami. Przewidywalność: 100%.";
+            } else {
+                btnS.className = "w-full text-left px-3 py-2 rounded border border-slate-700 hover:bg-slate-800 text-slate-400 text-sm font-medium transition-colors flex items-center gap-2";
+                btnB.className = "w-full text-left px-3 py-2 rounded border border-orange-600 bg-orange-600/10 text-orange-200 text-sm font-medium transition-colors flex items-center gap-2";
+                desc.innerHTML = "Problem Trzech Ciał (Restricted). Nawet minimalna zmiana prędkości prowadzi do zupełnie innej trajektorii. Idealne do testowania 'Wiązki'.";
+            }
+        }
+
+        function setLaunchMode(mode) {
+            launchMode = mode;
+            const btnS = document.getElementById('mode-single');
+            const btnB = document.getElementById('mode-beam');
+            const info = document.getElementById('beam-info');
+
+            if(mode === 'single') {
+                btnS.className = "flex-1 py-1.5 text-xs font-bold rounded shadow-sm bg-slate-600 text-white transition-all";
+                btnB.className = "flex-1 py-1.5 text-xs font-bold rounded text-slate-400 hover:text-white transition-all";
+                info.classList.add('hidden');
+            } else {
+                btnB.className = "flex-1 py-1.5 text-xs font-bold rounded shadow-sm bg-indigo-600 text-white transition-all";
+                btnS.className = "flex-1 py-1.5 text-xs font-bold rounded text-slate-400 hover:text-white transition-all";
+                info.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('time-scale').addEventListener('input', e => {
+            timeScale = parseFloat(e.target.value);
+            document.getElementById('speed-val').innerText = timeScale.toFixed(1) + 'x';
+        });
+
+        document.getElementById('trail-len').addEventListener('input', e => {
+            trailLength = parseInt(e.target.value);
+        });
+
+        function resize() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            initScenario();
+        }
+
+        // Init
+        // Expose to window for HTML access
+        window.setScenario = setScenario;
+        window.setLaunchMode = setLaunchMode;
+        window.clearParticles = clearParticles;
+        
+        window.addEventListener('resize', resize);
+        lucide.createIcons();
+        resize();
+        loop();
+    }
+    </script>
+</body>
+</html>
