@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorium Rekurencji</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .math-symbol {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        .highlight-change {
+            animation: flash 1s ease-out;
+        }
+
+        @keyframes flash {
+            0% { background-color: rgba(59, 130, 246, 0.5); }
+            100% { background-color: transparent; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 flex flex-col h-screen overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+            <i data-lucide="function-square" class="text-blue-500 w-8 h-8"></i>
+            <div>
+                <h1 class="text-xl font-bold text-slate-100 tracking-tight">Laboratorium Rekurencji</h1>
+                <p class="text-xs text-slate-500">Zrozumieć mechanizm krok po kroku</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <nav class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto shrink-0">
+            <div class="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Algorytmy</div>
+            <div id="sidebar-menu" class="flex flex-col gap-1 px-2 pb-4">
+                <!-- Buttons will be injected here -->
+            </div>
+        </nav>
+
+        <!-- Active Algorithm Area -->
+        <main class="flex-1 flex flex-col overflow-hidden relative">
+            
+            <!-- Top Info Bar: Formula & Params -->
+            <div class="bg-slate-900/50 p-6 border-b border-slate-800 shadow-sm shrink-0">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 id="algo-title" class="text-2xl font-bold text-blue-400 mb-2"></h2>
+                        <p id="algo-desc" class="text-slate-400 text-sm max-w-2xl"></p>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 min-w-[200px] text-center">
+                        <div class="text-xs text-slate-500 mb-1 uppercase">Wzór Rekurencyjny</div>
+                        <div id="algo-formula" class="text-xl font-bold text-emerald-400 math-symbol"></div>
+                    </div>
+                </div>
+
+                <!-- Parameters Controls -->
+                <div id="params-container" class="flex flex-wrap gap-4 items-end bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
+                    <!-- Params injected here -->
+                </div>
+            </div>
+
+            <!-- Simulation Area -->
+            <div class="flex-1 flex overflow-hidden">
+                
+                <!-- Left: Logic Trace -->
+                <div class="flex-1 p-6 overflow-y-auto border-r border-slate-800 bg-slate-950/50">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-slate-300 flex items-center gap-2">
+                            <i data-lucide="cpu" class="w-4 h-4"></i> Logika Obliczeń
+                        </h3>
+                        <div class="flex gap-2">
+                            <button id="btn-reset" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium border border-slate-600 transition-colors flex items-center gap-2">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
+                            </button>
+                            <button id="btn-step" class="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-[0_0_10px_rgba(37,99,235,0.3)] transition-all active:translate-y-0.5 flex items-center gap-2">
+                                <i data-lucide="play" class="w-4 h-4"></i> Wykonaj Krok
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Current State Display -->
+                    <div id="trace-container" class="space-y-4">
+                        <!-- Dynamic Trace content -->
+                        <div class="text-slate-500 italic text-center mt-10">Naciśnij "Wykonaj Krok" aby zobaczyć jak działa algorytm.</div>
+                    </div>
+                </div>
+
+                <!-- Right: History Table -->
+                <div class="w-80 bg-slate-900 overflow-y-auto shrink-0 border-l border-slate-800">
+                    <div class="p-3 bg-slate-800 sticky top-0 border-b border-slate-700 font-bold text-xs text-slate-400 uppercase flex justify-between">
+                        <span>n (Krok)</span>
+                        <span>Wartość</span>
+                    </div>
+                    <table class="w-full text-sm text-right">
+                        <tbody id="history-table">
+                            <!-- Rows injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- 10 Algorytmów - Definicje ---
+        
+        const algorithms = {
+            fibonacci: {
+                title: "Ciąg Fibonacciego",
+                desc: "Klasyka rekurencji. Każda liczba jest sumą dwóch poprzednich. Modeluje wzrost populacji królików i wzorce w naturze.",
+                formula: "Fₙ = Fₙ₋₁ + Fₙ₋₂",
+                params: [
+                    { id: 'f0', label: 'F₀ (Start 1)', value: 0 },
+                    { id: 'f1', label: 'F₁ (Start 2)', value: 1 }
+                ],
+                init: (p) => [p.f0, p.f1], 
+                step: (history, p) => {
+                    const n = history.length;
+                    const prev1 = history[n-1];
+                    const prev2 = history[n-2];
+                    const next = prev1 + prev2;
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Potrzebujemy dwóch poprzednich wartości:</div>
+                            <div class="pl-4 border-l-2 border-slate-700 my-2">
+                                <div>F${n-1} = <span class="text-yellow-400">${prev1}</span></div>
+                                <div>F${n-2} = <span class="text-yellow-400">${prev2}</span></div>
+                            </div>
+                            <div>Dodajemy je: <span class="text-yellow-400">${prev1}</span> + <span class="text-yellow-400">${prev2}</span> = <span class="text-green-400 font-bold text-lg">${next}</span></div>
+                        `
+                    };
+                }
+            },
+            collatz: {
+                title: "Ciąg Collatza",
+                desc: "Problem 3x+1. Jeśli liczba parzysta: dzielimy przez 2. Jeśli nieparzysta: mnożymy przez 3 i dodajemy 1.",
+                formula: "xₙ₊₁ = (xₙ % 2 == 0) ? xₙ/2 : 3xₙ+1",
+                params: [
+                    { id: 'start', label: 'Wartość startowa', value: 27 }
+                ],
+                init: (p) => [p.start],
+                step: (history, p) => {
+                    const n = history.length;
+                    const curr = history[n-1];
+                    const isEven = curr % 2 === 0;
+                    const next = isEven ? curr / 2 : 3 * curr + 1;
+                    
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Analizujemy liczbę: <span class="text-yellow-400 font-bold text-lg">${curr}</span></div>
+                            <div class="my-2">Czy jest parzysta? <span class="font-bold ${isEven ? 'text-green-400' : 'text-red-400'}">${isEven ? 'TAK' : 'NIE'}</span></div>
+                            <div class="pl-4 border-l-2 border-slate-700 bg-slate-800/30 p-2 rounded">
+                                ${isEven 
+                                    ? `Działanie: ${curr} / 2 = <span class="text-green-400 font-bold">${next}</span>` 
+                                    : `Działanie: 3 · ${curr} + 1 = ${3*curr} + 1 = <span class="text-green-400 font-bold">${next}</span>`}
+                            </div>
+                        `
+                    };
+                }
+            },
+            logistic: {
+                title: "Odwzorowanie Logistyczne",
+                desc: "Prosty model, który prowadzi do chaosu. Opisuje populację w ograniczonym środowisku.",
+                formula: "xₙ₊₁ = r · xₙ · (1 - xₙ)",
+                params: [
+                    { id: 'r', label: 'Parametr r (3.5 = chaos)', value: 3.2, step: 0.1 },
+                    { id: 'x0', label: 'x₀ (0-1)', value: 0.5, step: 0.01 }
+                ],
+                init: (p) => [p.x0],
+                step: (history, p) => {
+                    const n = history.length;
+                    const curr = history[n-1];
+                    // Formuła
+                    const brackets = (1 - curr);
+                    const next = p.r * curr * brackets;
+                    
+                    return {
+                        val: parseFloat(next.toFixed(4)), // Zaokrąglamy dla czytelności
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Stan populacji: <span class="text-yellow-400">${curr}</span>, Parametr r: <span class="text-purple-400">${p.r}</span></div>
+                            <div class="mt-2 text-slate-400 text-sm">Wzór: r · x · (1 - x)</div>
+                            <div class="pl-4 border-l-2 border-slate-700 my-2 font-mono">
+                                <div>1. Nawias (1 - ${curr}) = <span class="text-slate-300">${brackets.toFixed(4)}</span></div>
+                                <div>2. Mnożenie r · x = ${p.r} · ${curr} = <span class="text-slate-300">${(p.r*curr).toFixed(4)}</span></div>
+                                <div>3. Wynik końcowy: ${(p.r*curr).toFixed(4)} · ${brackets.toFixed(4)}</div>
+                            </div>
+                            <div class="text-right border-t border-slate-700 pt-2 text-xl font-bold text-green-400">
+                                = ${next.toFixed(5)}...
+                            </div>
+                        `
+                    };
+                }
+            },
+            mandelbrot: {
+                title: "Zbiór Mandelbrota (Iteracja)",
+                desc: "Sprawdzamy losy punktu C na płaszczyźnie zespolonej. Jeśli ucieka w nieskończoność - nie należy do zbioru.",
+                formula: "zₙ₊₁ = zₙ² + c",
+                params: [
+                    { id: 'cre', label: 'Re(c)', value: -0.8, step: 0.1 },
+                    { id: 'cim', label: 'Im(c)', value: 0.156, step: 0.01 }
+                ],
+                init: (p) => [{re: 0, im: 0}], // Start always at 0
+                step: (history, p) => {
+                    const n = history.length;
+                    const z = history[n-1]; // Obiekt {re, im}
+                    const c = { re: p.cre, im: p.cim };
+                    
+                    // (a+bi)^2 = a^2 - b^2 + 2abi
+                    const z_sq_re = (z.re * z.re) - (z.im * z.im);
+                    const z_sq_im = 2 * z.re * z.im;
+                    
+                    // + c
+                    const next_re = z_sq_re + c.re;
+                    const next_im = z_sq_im + c.im;
+                    
+                    // Moduł (odległość od środka)
+                    const mod = Math.sqrt(next_re*next_re + next_im*next_im);
+                    const escaped = mod > 2;
+
+                    return {
+                        val: {re: next_re, im: next_im},
+                        displayVal: `${next_re.toFixed(3)} ${next_im >= 0 ? '+' : ''}${next_im.toFixed(3)}i`,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Z = <span class="text-yellow-400">${z.re.toFixed(3)} + ${z.im.toFixed(3)}i</span></div>
+                            <div>C = <span class="text-purple-400">${c.re} + ${c.im}i</span> (Stała)</div>
+                            
+                            <div class="mt-3 text-sm text-slate-400 font-bold">1. Podnosimy Z do kwadratu (Z²):</div>
+                            <div class="pl-4 font-mono text-xs text-slate-300">
+                                Re: ${z.re.toFixed(2)}² - ${z.im.toFixed(2)}² = ${(z.re*z.re - z.im*z.im).toFixed(3)}<br>
+                                Im: 2 · ${z.re.toFixed(2)} · ${z.im.toFixed(2)} = ${z_sq_im.toFixed(3)}
+                            </div>
+
+                            <div class="mt-2 text-sm text-slate-400 font-bold">2. Dodajemy C (Z² + C):</div>
+                            <div class="pl-4 font-mono text-sm">
+                                Nowe Re: ${(z.re*z.re - z.im*z.im).toFixed(3)} + (${c.re}) = <span class="text-green-400 font-bold">${next_re.toFixed(3)}</span><br>
+                                Nowe Im: ${z_sq_im.toFixed(3)} + (${c.im}) = <span class="text-green-400 font-bold">${next_im.toFixed(3)}</span>
+                            </div>
+
+                            <div class="mt-4 pt-2 border-t border-slate-700">
+                                Odległość od (0,0): <span class="${escaped ? 'text-red-500' : 'text-slate-300'} font-bold">${mod.toFixed(3)}</span>
+                                ${escaped ? '<br><span class="text-red-500 font-bold uppercase">Ucieczka! (Punkt poza zbiorem)</span>' : ''}
+                            </div>
+                        `
+                    };
+                }
+            },
+            newton: {
+                title: "Metoda Newtona-Raphsona",
+                desc: "Numeryczne szukanie pierwiastka liczby A. Używamy funkcji f(x) = x² - A.",
+                formula: "xₙ₊₁ = xₙ - (xₙ² - A) / (2xₙ)",
+                params: [
+                    { id: 'A', label: 'Szukamy pierwiastka z:', value: 64 },
+                    { id: 'x0', label: 'Strzał początkowy', value: 1 }
+                ],
+                init: (p) => [p.x0],
+                step: (history, p) => {
+                    const n = history.length;
+                    const x = history[n-1];
+                    const A = p.A;
+                    
+                    const f_val = x*x - A; // x^2 - A
+                    const f_prime = 2*x;   // 2x
+                    const diff = f_val / f_prime;
+                    const next = x - diff;
+                    
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Aktualne przybliżenie: <span class="text-yellow-400 font-bold">${x.toFixed(6)}</span></div>
+                            
+                            <div class="mt-2 border-l-2 border-slate-700 pl-4 text-sm">
+                                <div>1. Wartość funkcji (błąd): x² - ${A} = <span class="text-red-300">${f_val.toFixed(4)}</span></div>
+                                <div>2. Pochodna (nachylenie): 2x = <span class="text-slate-300">${f_prime.toFixed(4)}</span></div>
+                                <div>3. Korekta (f/f'): ${f_val.toFixed(4)} / ${f_prime.toFixed(4)} = <span class="text-orange-300">${diff.toFixed(6)}</span></div>
+                            </div>
+
+                            <div class="mt-3 pt-2 border-t border-slate-700">
+                                Nowy x = Stary x - Korekta
+                                <div class="text-green-400 font-bold text-xl mt-1">
+                                    ${next.toFixed(8)}
+                                </div>
+                                <div class="text-xs text-slate-500">Rzeczywisty pierwiastek: ${Math.sqrt(A).toFixed(8)}</div>
+                            </div>
+                        `
+                    };
+                }
+            },
+            euler: {
+                title: "Metoda Eulera (Fizyka)",
+                desc: "Symulacja stygnięcia (rozpadu). Prędkość zmiany zależy od aktualnej wartości (dy/dt = -k·y).",
+                formula: "yₙ₊₁ = yₙ - k · yₙ · h",
+                params: [
+                    { id: 'y0', label: 'Temp. początkowa', value: 100 },
+                    { id: 'k', label: 'Wsp. chłodzenia (k)', value: 0.1, step: 0.01 },
+                    { id: 'h', label: 'Krok czasu (h)', value: 1.0, step: 0.1 }
+                ],
+                init: (p) => [p.y0],
+                step: (history, p) => {
+                    const n = history.length;
+                    const y = history[n-1];
+                    const change = -p.k * y; // Pochodna
+                    const step_val = change * p.h; // Zmiana w czasie h
+                    const next = y + step_val;
+                    
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Aktualna Temperatura: <span class="text-yellow-400 font-bold">${y.toFixed(2)}°C</span></div>
+                            
+                            <div class="mt-2 text-sm text-slate-400">Jak szybko stygnie? (Pochodna = -k·y)</div>
+                            <div class="pl-4 font-mono text-sm">
+                                Szybkość = -${p.k} · ${y.toFixed(2)} = <span class="text-red-400 font-bold">${change.toFixed(3)}</span> stopni/s
+                            </div>
+
+                            <div class="mt-2 text-sm text-slate-400">Ile ostygnie przez czas h=${p.h}s?</div>
+                            <div class="pl-4 font-mono text-sm">
+                                Zmiana = Szybkość · h = ${change.toFixed(3)} · ${p.h} = <span class="text-red-400 font-bold">${step_val.toFixed(3)}</span>
+                            </div>
+
+                            <div class="mt-4 pt-2 border-t border-slate-700 text-lg">
+                                Nowa Temp = ${y.toFixed(2)} + (${step_val.toFixed(3)}) = <span class="text-green-400 font-bold">${next.toFixed(2)}°C</span>
+                            </div>
+                        `
+                    };
+                }
+            },
+            hanoi: {
+                title: "Wieże Hanoi",
+                desc: "Minimalna liczba ruchów potrzebna do przeniesienia wieży. Rozwiązanie problemu N krążków wymaga dwukrotnego rozwiązania problemu N-1 krążków.",
+                formula: "Lₙ = 2 · Lₙ₋₁ + 1",
+                params: [
+                    { id: 'start', label: 'Start (dla n=1)', value: 1, readonly: true } // Usually L1=1
+                ],
+                init: (p) => [1], // L1 is 1 move
+                step: (history, p) => {
+                    const n = history.length + 1; // Current N being calculated
+                    const prev = history[n-2]; // L(n-1)
+                    const next = 2 * prev + 1;
+                    
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Obliczamy dla n=${n} krążków</div>
+                            <div>Znamy wynik dla ${n-1} krążków: <span class="text-yellow-400 font-bold">${prev}</span> ruchów.</div>
+                            
+                            <div class="mt-4 space-y-2 text-sm border-l-2 border-slate-700 pl-4">
+                                <div>1. Przenieś ${n-1} krążków na słupek pomocniczy: <span class="text-yellow-400">${prev}</span> ruchów.</div>
+                                <div>2. Przenieś największy krążek na docelowy: <span class="text-white font-bold">1</span> ruch.</div>
+                                <div>3. Przenieś ${n-1} krążków z pomocniczego na docelowy: <span class="text-yellow-400">${prev}</span> ruchów.</div>
+                            </div>
+
+                            <div class="mt-4 pt-2 border-t border-slate-700 text-lg">
+                                Razem: 2 · ${prev} + 1 = <span class="text-green-400 font-bold">${next}</span>
+                            </div>
+                        `
+                    };
+                }
+            },
+            interest: {
+                title: "Procent Składany",
+                desc: "Magia finansów. Odsetki są naliczane od kapitału powiększonego o wcześniejsze odsetki.",
+                formula: "Kₙ₊₁ = Kₙ · (1 + p/100)",
+                params: [
+                    { id: 'k0', label: 'Kapitał startowy', value: 1000 },
+                    { id: 'p', label: 'Oprocentowanie (%)', value: 5 }
+                ],
+                init: (p) => [p.k0],
+                step: (history, p) => {
+                    const n = history.length;
+                    const k = history[n-1];
+                    const factor = 1 + (p.p / 100);
+                    const profit = k * (p.p / 100);
+                    const next = k * factor;
+                    
+                    return {
+                        val: parseFloat(next.toFixed(2)),
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Rok n=${n}</div>
+                            <div>Kapitał na początku roku: <span class="text-yellow-400 font-bold">${k.toFixed(2)} zł</span></div>
+                            
+                            <div class="mt-2 text-sm pl-4 border-l-2 border-slate-700">
+                                <div>Mnożnik (1 + ${p.p}%): <span class="text-purple-400">${factor.toFixed(2)}</span></div>
+                                <div>Zarobione odsetki: <span class="text-green-400">+${profit.toFixed(2)} zł</span></div>
+                            </div>
+
+                            <div class="mt-4 pt-2 border-t border-slate-700 text-lg">
+                                Nowy Kapitał: <span class="text-green-400 font-bold">${next.toFixed(2)} zł</span>
+                            </div>
+                        `
+                    };
+                }
+            },
+            caterer: {
+                title: "Leniwy Caterer",
+                desc: "Jaka jest maksymalna liczba kawałków pizzy przy n cięciach? Każde nowe cięcie przecina wszystkie poprzednie.",
+                formula: "Lₙ = Lₙ₋₁ + n",
+                params: [
+                    { id: 'start', label: 'Start (0 cięć)', value: 1, readonly: true }
+                ],
+                init: (p) => [1],
+                step: (history, p) => {
+                    const n = history.length; // This is the 'n' we are cutting now (index is n-1, so next index is n)
+                    const prev = history[n-1];
+                    const next = prev + n;
+                    
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Cięcie numer n=${n}</div>
+                            <div>Mieliśmy kawałków: <span class="text-yellow-400 font-bold">${prev}</span></div>
+                            
+                            <div class="mt-3 text-sm text-slate-300">
+                                Nowa linia cięcia przecina ${n-1} poprzednich linii.
+                                <br>To znaczy, że przechodzi przez ${n} istniejących kawałków, dzieląc każdy z nich na dwa.
+                            </div>
+
+                            <div class="mt-2 pl-4 border-l-2 border-slate-700">
+                                Dodajemy <span class="text-purple-400 font-bold">+${n}</span> nowych kawałków.
+                            </div>
+
+                            <div class="mt-4 pt-2 border-t border-slate-700 text-lg">
+                                Razem: ${prev} + ${n} = <span class="text-green-400 font-bold">${next}</span>
+                            </div>
+                        `
+                    };
+                }
+            },
+            random: {
+                title: "Błądzenie Losowe 1D",
+                desc: "Cząsteczka przesuwa się losowo w lewo (-1) lub w prawo (+1). Podstawa procesów stochastycznych.",
+                formula: "xₙ₊₁ = xₙ + losowa(-1, 1)",
+                params: [
+                    { id: 'x0', label: 'Start (0)', value: 0 }
+                ],
+                init: (p) => [p.x0],
+                step: (history, p) => {
+                    const n = history.length;
+                    const prev = history[n-1];
+                    const move = Math.random() > 0.5 ? 1 : -1;
+                    const next = prev + move;
+                    
+                    return {
+                        val: next,
+                        trace: `
+                            <div class="mb-1 text-blue-400 font-bold">Krok n=${n}</div>
+                            <div>Pozycja: <span class="text-yellow-400 font-bold">${prev}</span></div>
+                            
+                            <div class="mt-4 text-center p-4 bg-slate-800 rounded border border-slate-700">
+                                <div class="text-xs text-slate-400 mb-1 uppercase">Rzut monetą</div>
+                                <div class="text-2xl font-bold ${move > 0 ? 'text-green-400' : 'text-red-400'}">
+                                    ${move > 0 ? 'W PRAWO (+1)' : 'W LEWO (-1)'}
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-2 border-t border-slate-700 text-lg">
+                                Nowa pozycja: ${prev} ${move > 0 ? '+' : ''}${move} = <span class="text-white font-bold">${next}</span>
+                            </div>
+                        `
+                    };
+                }
+            }
+        };
+
+        // --- Logika Aplikacji ---
+
+        let currentAlgoKey = 'fibonacci';
+        let historyData = [];
+
+        // DOM Elements
+        const menuEl = document.getElementById('sidebar-menu');
+        const titleEl = document.getElementById('algo-title');
+        const descEl = document.getElementById('algo-desc');
+        const formulaEl = document.getElementById('algo-formula');
+        const paramsContainer = document.getElementById('params-container');
+        const traceContainer = document.getElementById('trace-container');
+        const historyTable = document.getElementById('history-table');
+        const btnStep = document.getElementById('btn-step');
+        const btnReset = document.getElementById('btn-reset');
+
+        // Init Menu
+        Object.keys(algorithms).forEach(key => {
+            const algo = algorithms[key];
+            const btn = document.createElement('button');
+            btn.className = `w-full text-left px-4 py-3 rounded-md text-sm font-medium transition-colors hover:bg-slate-800 text-slate-400 mb-1 flex items-center gap-2`;
+            btn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-600 status-dot"></span> ${algo.title}`;
+            btn.onclick = () => loadAlgo(key);
+            btn.dataset.key = key;
+            menuEl.appendChild(btn);
+        });
+
+        function loadAlgo(key) {
+            currentAlgoKey = key;
+            const algo = algorithms[key];
+
+            // Update UI Sidebar active state
+            Array.from(menuEl.children).forEach(btn => {
+                const isActive = btn.dataset.key === key;
+                btn.classList.toggle('bg-slate-800', isActive);
+                btn.classList.toggle('text-blue-400', isActive);
+                btn.classList.toggle('text-slate-400', !isActive);
+                const dot = btn.querySelector('.status-dot');
+                dot.classList.toggle('bg-blue-500', isActive);
+                dot.classList.toggle('bg-slate-600', !isActive);
+            });
+
+            // Update Header
+            titleEl.textContent = algo.title;
+            descEl.textContent = algo.desc;
+            formulaEl.textContent = algo.formula;
+
+            // Generate Params Inputs
+            paramsContainer.innerHTML = '';
+            algo.params.forEach(p => {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = `
+                    <label class="block text-xs text-slate-500 mb-1">${p.label}</label>
+                    <input type="number" id="param-${p.id}" value="${p.value}" step="${p.step || 1}" 
+                           ${p.readonly ? 'disabled' : ''}
+                           class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-white w-24 focus:outline-none focus:border-blue-500 transition-colors">
+                `;
+                paramsContainer.appendChild(wrapper);
+                
+                // Add listener to auto-reset on param change
+                if(!p.readonly) {
+                    wrapper.querySelector('input').addEventListener('change', resetSimulation);
+                }
+            });
+
+            resetSimulation();
+        }
+
+        function getParamsValues() {
+            const algo = algorithms[currentAlgoKey];
+            const values = {};
+            algo.params.forEach(p => {
+                const input = document.getElementById(`param-${p.id}`);
+                values[p.id] = parseFloat(input.value);
+            });
+            return values;
+        }
+
+        function resetSimulation() {
+            const algo = algorithms[currentAlgoKey];
+            const p = getParamsValues();
+            
+            historyData = algo.init(p);
+            
+            // Clear Trace
+            traceContainer.innerHTML = '<div class="text-slate-500 italic text-center mt-10">Stan początkowy załadowany. <br>Naciśnij "Wykonaj Krok".</div>';
+            
+            renderHistory();
+        }
+
+        function stepSimulation() {
+            const algo = algorithms[currentAlgoKey];
+            const p = getParamsValues();
+            
+            const result = algo.step(historyData, p);
+            
+            // Add to history
+            historyData.push(result.val);
+            
+            // Render Trace with animation
+            traceContainer.innerHTML = result.trace;
+            traceContainer.classList.remove('highlight-change');
+            void traceContainer.offsetWidth; // trigger reflow
+            traceContainer.classList.add('highlight-change');
+
+            renderHistory();
+        }
+
+        function renderHistory() {
+            historyTable.innerHTML = '';
+            // Show last few items + scroll to bottom
+            historyData.forEach((val, idx) => {
+                const row = document.createElement('tr');
+                row.className = "border-b border-slate-800 hover:bg-slate-800/50 transition-colors";
+                
+                // Format value (handle complex objects for Mandelbrot)
+                let displayVal = val;
+                if (typeof val === 'number') {
+                    // Check if integer
+                    if (Number.isInteger(val)) displayVal = val;
+                    else displayVal = val.toFixed(4);
+                } else if (typeof val === 'object' && algorithms[currentAlgoKey].step(historyData, getParamsValues()).displayVal) {
+                     // Hacky way to reuse display logic for Mandelbrot without re-calculating, 
+                     // actually simpler to just format here specifically for Mandelbrot if needed or generic object
+                     if(val.re !== undefined) displayVal = `${val.re.toFixed(3)} ${val.im >= 0 ? '+' : ''}${val.im.toFixed(3)}i`;
+                }
+
+                row.innerHTML = `
+                    <td class="p-2 text-slate-500 font-mono">${idx}</td>
+                    <td class="p-2 font-mono text-emerald-400 font-bold">${displayVal}</td>
+                `;
+                historyTable.appendChild(row);
+            });
+
+            // Scroll table to bottom
+            const parent = historyTable.parentElement.parentElement;
+            parent.scrollTop = parent.scrollHeight;
+        }
+
+        // Listeners
+        btnStep.onclick = stepSimulation;
+        btnReset.onclick = resetSimulation;
+
+        // Init Icons
+        lucide.createIcons();
+
+        // Start App
+        loadAlgo('fibonacci');
+
+    </script>
+</body>
+</html>
