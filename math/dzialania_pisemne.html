@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mistrz Działań Pisemnych</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Ikony -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Dodatkowe style dla suwaka i animacji */
+        input[type=range] {
+            accent-color: #3b82f6; 
+        }
+        .cell-transition {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans flex flex-col items-center p-4 min-h-screen">
+
+    <!-- Header -->
+    <header class="mb-4 text-center max-w-4xl">
+        <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400 mb-2">
+            Mistrz Działań
+        </h1>
+        <p class="text-slate-400">Ciemny motyw. Śledź złote pola!</p>
+    </header>
+
+    <!-- Panel Sterowania (Input) -->
+    <div class="bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 w-full max-w-7xl mb-6">
+        <!-- Przyciski Operacji -->
+        <div class="flex flex-wrap gap-4 justify-center mb-6" id="operationButtons">
+            <button data-op="add" class="op-btn px-4 py-2 rounded-lg font-medium transition-all bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] transform scale-105">Dodawanie (+)</button>
+            <button data-op="subtract" class="op-btn px-4 py-2 rounded-lg font-medium transition-all bg-slate-700 text-slate-300 hover:bg-slate-600">Odejmowanie (-)</button>
+            <button data-op="multiply" class="op-btn px-4 py-2 rounded-lg font-medium transition-all bg-slate-700 text-slate-300 hover:bg-slate-600">Mnożenie (×)</button>
+            <button data-op="divide" class="op-btn px-4 py-2 rounded-lg font-medium transition-all bg-slate-700 text-slate-300 hover:bg-slate-600">Dzielenie (:)</button>
+        </div>
+
+        <!-- Pola Liczbowe -->
+        <div class="flex items-center justify-center gap-4 text-xl">
+            <input type="number" id="num1" value="126" maxlength="5" class="w-28 p-3 text-center bg-slate-900 text-white border border-slate-600 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+            <span id="opSymbol" class="font-bold text-3xl text-slate-500">+</span>
+            <input type="number" id="num2" value="5" maxlength="4" class="w-28 p-3 text-center bg-slate-900 text-white border border-slate-600 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+        </div>
+    </div>
+
+    <!-- Główny Obszar -->
+    <div class="flex flex-col gap-6 w-full max-w-7xl">
+        
+        <!-- Kontrolki Odtwarzania -->
+        <div class="flex flex-col sm:flex-row items-center gap-4 bg-slate-800 p-4 rounded-lg shadow-lg border border-slate-700 w-full justify-between">
+            <div class="flex items-center gap-2">
+                <button id="btnReset" class="p-2 hover:bg-slate-700 rounded-full transition-colors" title="Od nowa">
+                    <i data-lucide="rotate-ccw" class="text-slate-400 w-5 h-5"></i>
+                </button>
+                <div class="h-6 w-px bg-slate-600 mx-2"></div>
+                <button id="btnPrev" class="p-2 disabled:opacity-30 hover:bg-slate-700 rounded-full transition-colors" title="Cofnij">
+                    <i data-lucide="chevron-left" class="text-blue-400 w-6 h-6"></i>
+                </button>
+                <button id="btnPlay" class="p-3 rounded-full text-white transition-all shadow-lg transform hover:scale-105 bg-green-600 hover:bg-green-500">
+                    <i data-lucide="play" class="w-6 h-6 icon-play"></i>
+                    <i data-lucide="pause" class="w-6 h-6 icon-pause hidden"></i>
+                </button>
+                <button id="btnNext" class="p-2 disabled:opacity-30 hover:bg-slate-700 rounded-full transition-colors" title="Dalej">
+                    <i data-lucide="chevron-right" class="text-blue-400 w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="flex items-center gap-4 w-full sm:w-auto">
+                <span class="text-sm font-medium text-slate-400">Tempo:</span>
+                <input type="range" id="speedRange" min="200" max="2000" step="100" value="1200" class="w-32 bg-slate-700 rounded-lg appearance-none h-2 cursor-pointer">
+            </div>
+        </div>
+        
+        <!-- Pasek Wyjaśnień -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg text-center">
+            <h3 id="stepTitle" class="text-blue-400 font-bold inline-block mr-2">Start:</h3>
+            <span id="stepExplanation" class="text-slate-200 text-lg">Wpisz liczby i naciśnij play.</span>
+        </div>
+        
+        <!-- Grid Display -->
+        <div class="w-full">
+            <div id="gridContainer" class="overflow-auto p-4 flex justify-center items-start min-h-[500px] w-full bg-slate-800 rounded-xl border border-slate-700 shadow-inner">
+                <!-- Grid wygenerowany przez JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Logika JS -->
+    <script>
+        // --- Zmienne Stanu ---
+        let state = {
+            num1: 126,
+            num2: 5,
+            operation: 'add',
+            currentStepIndex: 0,
+            isPlaying: false,
+            speed: 1000,
+            steps: []
+        };
+
+        let playInterval = null;
+
+        // --- Logika Generowania Kroków (Przepisana z React) ---
+        function generateSteps(num1, num2, op) {
+            const steps = [];
+            const s1 = num1.toString();
+            const s2 = num2.toString();
+            
+            const createGrid = (rows, cols) => 
+                Array(rows).fill(null).map(() => Array(cols).fill(null));
+
+            if (op === 'add') {
+                const maxLen = Math.max(s1.length, s2.length);
+                const width = maxLen + 3; 
+                const height = 5; 
+                
+                let baseGrid = createGrid(height, width);
+                
+                for(let i=0; i<s1.length; i++) baseGrid[1][width - 1 - i] = s1[s1.length - 1 - i];
+                baseGrid[1][width - 1 - maxLen - 1] = '+';
+                for(let i=0; i<s2.length; i++) baseGrid[2][width - 1 - i] = s2[s2.length - 1 - i];
+                for(let i=0; i<width; i++) baseGrid[3][i] = 'line';
+
+                let carry = 0;
+                const carries = [];
+
+                steps.push({
+                    grid: JSON.parse(JSON.stringify(baseGrid)),
+                    highlights: [],
+                    carries: [],
+                    descriptionTitle: "Start",
+                    explanation: "Zapisujemy liczby w słupku."
+                });
+
+                for (let i = 0; i < maxLen; i++) {
+                    const colIndex = width - 1 - i;
+                    const d1 = parseInt(s1[s1.length - 1 - i] || '0');
+                    const d2 = parseInt(s2[s2.length - 1 - i] || '0');
+                    const sum = d1 + d2 + carry;
+                    const digitToWrite = sum % 10;
+                    const newCarry = Math.floor(sum / 10);
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [
+                            { r: 1, c: colIndex, color: 'gold' }, 
+                            { r: 2, c: colIndex, color: 'gold' }
+                        ],
+                        carries: [...carries],
+                        descriptionTitle: `Dodawanie`,
+                        explanation: `Dodajemy: ${d1} + ${d2}${carry > 0 ? ` + ${carry}` : ''} = ${sum}.`
+                    });
+
+                    baseGrid[4][colIndex] = digitToWrite;
+                    
+                    let carryText = "";
+                    if (newCarry > 0) {
+                        carries.push({ r: 0, c: colIndex - 1, value: newCarry });
+                        carryText = ` Piszemy ${digitToWrite}, a ${newCarry} dalej.`;
+                    } else {
+                        carryText = ` Piszemy ${digitToWrite}.`;
+                    }
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [{ r: 4, c: colIndex, color: 'green' }],
+                        carries: [...carries],
+                        descriptionTitle: "Zapis",
+                        explanation: `Wynik: ${sum}.${carryText}`
+                    });
+
+                    carry = newCarry;
+                }
+
+                if (carry > 0) {
+                    baseGrid[4][width - 1 - maxLen] = carry;
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [{ r: 4, c: width - 1 - maxLen, color: 'green' }],
+                        carries: [...carries],
+                        descriptionTitle: "Koniec",
+                        explanation: `Przepisujemy ${carry}.`
+                    });
+                }
+
+            } else if (op === 'subtract') {
+                const maxLen = Math.max(s1.length, s2.length);
+                const width = maxLen + 3;
+                const height = 5;
+                
+                let baseGrid = createGrid(height, width);
+                
+                for(let i=0; i<s1.length; i++) baseGrid[1][width - 1 - i] = parseInt(s1[s1.length - 1 - i]);
+                baseGrid[1][width - 1 - maxLen - 1] = '-';
+                for(let i=0; i<s2.length; i++) baseGrid[2][width - 1 - i] = parseInt(s2[s2.length - 1 - i]);
+                for(let i=0; i<width; i++) baseGrid[3][i] = 'line';
+
+                const localBorrows = [];
+                
+                steps.push({
+                    grid: JSON.parse(JSON.stringify(baseGrid)),
+                    highlights: [],
+                    carries: [],
+                    descriptionTitle: "Start",
+                    explanation: "Większa liczba na górze."
+                });
+
+                let workDigits = s1.split('').map(Number).reverse();
+                while(workDigits.length < maxLen) workDigits.push(0); 
+
+                for (let i = 0; i < maxLen; i++) {
+                    const colIndex = width - 1 - i;
+                    const d2 = parseInt(s2[s2.length - 1 - i] || '0');
+                    let d1 = workDigits[i];
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [{r: 1, c: colIndex, color: 'gold'}, {r: 2, c: colIndex, color: 'gold'}],
+                        carries: [...localBorrows],
+                        descriptionTitle: "Analiza",
+                        explanation: `Odejmujemy: ${d1} - ${d2}.`
+                    });
+
+                    if (d1 < d2) {
+                        let borrowIndex = i + 1;
+                        while (borrowIndex < workDigits.length && workDigits[borrowIndex] === 0) {
+                            borrowIndex++;
+                        }
+                        
+                        if (borrowIndex < workDigits.length) {
+                            steps.push({
+                                grid: JSON.parse(JSON.stringify(baseGrid)),
+                                highlights: [{r: 1, c: width - 1 - borrowIndex, color: 'red'}],
+                                carries: [...localBorrows],
+                                descriptionTitle: "Pożyczanie",
+                                explanation: `Liczba ${d1} jest za mała! Pożyczamy od lewej.`
+                            });
+
+                            workDigits[borrowIndex]--;
+                            localBorrows.push({r: 0, c: width - 1 - borrowIndex, value: workDigits[borrowIndex]});
+                            
+                            for (let k = borrowIndex - 1; k > i; k--) {
+                                workDigits[k] = 9;
+                                localBorrows.push({r: 0, c: width - 1 - k, value: 9});
+                            }
+                            
+                            workDigits[i] += 10;
+                            d1 += 10;
+                            localBorrows.push({r: 0, c: colIndex, value: d1});
+
+                            steps.push({
+                                grid: JSON.parse(JSON.stringify(baseGrid)),
+                                highlights: [{r: 0, c: colIndex, color: 'gold'}],
+                                carries: [...localBorrows],
+                                descriptionTitle: "Pożyczono",
+                                explanation: `Teraz mamy ${d1}.`
+                            });
+                        }
+                    }
+
+                    const result = d1 - d2;
+                    baseGrid[4][colIndex] = result;
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [{r: 4, c: colIndex, color: 'green'}],
+                        carries: [...localBorrows],
+                        descriptionTitle: "Wynik",
+                        explanation: `${d1} - ${d2} = ${result}.`
+                    });
+                }
+
+            } else if (op === 'multiply') {
+                const width = s1.length + s2.length + 2;
+                const baseRows = 4;
+                const totalRows = baseRows + s2.length + (s2.length > 1 ? 2 : 0);
+                
+                let baseGrid = createGrid(totalRows, width);
+                
+                for(let i=0; i<s1.length; i++) baseGrid[1][width - 1 - i] = parseInt(s1[s1.length - 1 - i]);
+                baseGrid[2][width - s1.length - 2] = 'x';
+                for(let i=0; i<s2.length; i++) baseGrid[2][width - 1 - i] = parseInt(s2[s2.length - 1 - i]);
+                for(let i=0; i<width; i++) baseGrid[3][i] = 'line';
+
+                steps.push({
+                    grid: JSON.parse(JSON.stringify(baseGrid)),
+                    highlights: [],
+                    carries: [],
+                    descriptionTitle: "Start",
+                    explanation: "Mnożenie pisemne."
+                });
+
+                const activeCarries = [];
+
+                for (let j = 0; j < s2.length; j++) {
+                    const d2 = parseInt(s2[s2.length - 1 - j]);
+                    let currentCarry = 0;
+                    const rowIdx = 4 + j;
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [{r: 2, c: width - 1 - j, color: 'gold'}],
+                        carries: [...activeCarries],
+                        descriptionTitle: `Mnożnik: ${d2}`,
+                        explanation: `Mnożymy górę przez ${d2}.`
+                    });
+
+                    for (let i = 0; i < s1.length; i++) {
+                        const d1 = parseInt(s1[s1.length - 1 - i]);
+                        const colIndex = width - 1 - i - j;
+
+                        const product = d1 * d2 + currentCarry;
+                        const digitToWrite = product % 10;
+                        const newCarry = Math.floor(product / 10);
+
+                        steps.push({
+                            grid: JSON.parse(JSON.stringify(baseGrid)),
+                            highlights: [
+                                {r: 1, c: width - 1 - i, color: 'gold'},
+                                {r: 2, c: width - 1 - j, color: 'gold'}
+                            ],
+                            carries: currentCarry > 0 ? [{r: 0, c: width - 1 - i, value: currentCarry}] : [],
+                            descriptionTitle: "Obliczanie",
+                            explanation: `${d1} * ${d2} ${currentCarry ? `+ ${currentCarry}` : ''} = ${product}.`
+                        });
+
+                        baseGrid[rowIdx][colIndex] = digitToWrite;
+                        
+                        const tempCarries = [];
+                        if (newCarry > 0) {
+                            tempCarries.push({r: 0, c: colIndex - 1, value: newCarry});
+                        }
+
+                        steps.push({
+                            grid: JSON.parse(JSON.stringify(baseGrid)),
+                            highlights: [{r: rowIdx, c: colIndex, color: 'green'}],
+                            carries: tempCarries,
+                            descriptionTitle: "Zapis",
+                            explanation: `Piszemy ${digitToWrite}${newCarry > 0 ? `, ${newCarry} dalej` : ''}.`
+                        });
+
+                        currentCarry = newCarry;
+                    }
+
+                    if (currentCarry > 0) {
+                        baseGrid[rowIdx][width - 1 - s1.length - j] = currentCarry;
+                        steps.push({
+                            grid: JSON.parse(JSON.stringify(baseGrid)),
+                            highlights: [{r: rowIdx, c: width - 1 - s1.length - j, color: 'green'}],
+                            carries: [],
+                            descriptionTitle: "Reszta",
+                            explanation: `Dopisujemy ${currentCarry}.`
+                        });
+                    }
+                }
+
+                if (s2.length > 1) {
+                    const lineRow = 4 + s2.length;
+                    const sumRow = lineRow + 1;
+                    for(let i=0; i<width; i++) baseGrid[lineRow][i] = 'line';
+                    
+                    const total = num1 * num2;
+                    const totalStr = total.toString();
+                    for(let i=0; i<totalStr.length; i++) {
+                        baseGrid[sumRow][width - 1 - i] = totalStr[totalStr.length - 1 - i];
+                    }
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: Array.from({length: totalStr.length}, (_, i) => ({r: sumRow, c: width - 1 - i, color: 'green'})),
+                        carries: [],
+                        descriptionTitle: "Suma",
+                        explanation: `Dodajemy wyniki częściowe: ${total}.`
+                    });
+                }
+
+            } else if (op === 'divide') {
+                if (num2 === 0) return [];
+
+                const divisor = parseInt(s2);
+                const maxDecimalPlaces = 3;
+                
+                const START_X = 2; 
+                const width = START_X + s1.length + maxDecimalPlaces + s2.length + maxDecimalPlaces + 10;
+                
+                const maxRows = (s1.length + maxDecimalPlaces) * 5 + 10;
+                
+                let baseGrid = createGrid(maxRows, width);
+
+                // Header
+                for(let i=0; i<s1.length; i++) baseGrid[0][START_X + i] = s1[i];
+                const colonPos = START_X + s1.length;
+                baseGrid[0][colonPos] = ':';
+                for(let i=0; i<s2.length; i++) baseGrid[0][colonPos + 1 + i] = s2[i];
+                const equalsPos = colonPos + 1 + s2.length;
+                baseGrid[0][equalsPos] = '=';
+                const resultStartPos = equalsPos + 1;
+
+                steps.push({
+                    grid: JSON.parse(JSON.stringify(baseGrid)),
+                    highlights: [],
+                    carries: [],
+                    descriptionTitle: "Start",
+                    explanation: `Dzielimy ${s1} przez ${s2}.`
+                });
+
+                let currentDividendVal = 0;
+                let resultStr = "";
+                let currentRow = 0; 
+                let dividendIdx = 0;
+                let decimalMode = false;
+                let decimalCount = 0;
+                let commaAdded = false;
+
+                while (dividendIdx < s1.length || (currentDividendVal !== 0 && decimalCount < maxDecimalPlaces)) {
+                    
+                    let digit = 0;
+                    if (dividendIdx < s1.length) {
+                        digit = parseInt(s1[dividendIdx]);
+                    } else {
+                        decimalMode = true;
+                        digit = 0;
+                        if (!commaAdded) {
+                            resultStr += ",";
+                            baseGrid[0][resultStartPos + resultStr.length - 1] = ",";
+                            commaAdded = true;
+                            steps.push({
+                                grid: JSON.parse(JSON.stringify(baseGrid)),
+                                highlights: [{r: 0, c: resultStartPos + resultStr.length - 1, color: 'green'}],
+                                carries: [],
+                                descriptionTitle: "Przecinek",
+                                explanation: `Stawiamy przecinek.`
+                            });
+                        }
+                    }
+
+                    currentDividendVal = currentDividendVal * 10 + digit;
+                    const gridCol = START_X + dividendIdx + (decimalMode ? (decimalCount > 0 ? 0 : 0) : 0);
+                    if (decimalMode) decimalCount++;
+
+                    const q = Math.floor(currentDividendVal / divisor);
+
+                    if (q === 0 && resultStr.length === 0 && !decimalMode) {
+                        dividendIdx++;
+                        continue; 
+                    }
+
+                    resultStr += q.toString();
+                    baseGrid[0][resultStartPos + resultStr.length - 1] = q;
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [{r: 0, c: resultStartPos + resultStr.length - 1, color: 'green'}],
+                        carries: [],
+                        descriptionTitle: decimalMode ? "Dzielenie ułamkowe" : "Dzielenie",
+                        explanation: `Ile razy ${divisor} mieści się w ${currentDividendVal}? ${q} razy.`
+                    });
+
+                    const product = q * divisor;
+                    const productStr = product.toString();
+                    
+                    const subRow = currentRow + 1;
+                    const lineRow = currentRow + 2;
+                    const remainderRow = currentRow + 3;
+
+                    const endPos = gridCol; 
+                    const minusPos = endPos - productStr.length;
+                    
+                    baseGrid[subRow][minusPos] = '-';
+                    for(let k=0; k<productStr.length; k++) {
+                        baseGrid[subRow][endPos - (productStr.length - 1) + k] = productStr[k];
+                    }
+
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [
+                            ...Array.from({length: productStr.length}, (_, k) => ({r: subRow, c: endPos - (productStr.length - 1) + k, color: 'gold'})),
+                            {r: subRow, c: minusPos, color: 'red'}
+                        ],
+                        carries: [],
+                        descriptionTitle: "Mnożenie",
+                        explanation: `${q} * ${divisor} = ${product}. Zapisujemy pod spodem.`
+                    });
+
+                    for(let k=0; k<productStr.length + 1; k++) { 
+                        baseGrid[lineRow][endPos - productStr.length + k] = 'line';
+                    }
+
+                    const remainder = currentDividendVal - product;
+                    currentDividendVal = remainder; 
+                    
+                    const remStr = remainder.toString();
+                    for(let k=0; k<remStr.length; k++) {
+                        baseGrid[remainderRow][endPos - (remStr.length - 1) + k] = remStr[k];
+                    }
+                    
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: Array.from({length: remStr.length}, (_, k) => ({r: remainderRow, c: endPos - (remStr.length - 1) + k, color: 'blue'})),
+                        carries: [],
+                        descriptionTitle: "Odejmowanie",
+                        explanation: `Zostaje ${remainder}.`
+                    });
+
+                    if (dividendIdx < s1.length - 1) {
+                        const nextDigit = s1[dividendIdx+1];
+                        baseGrid[remainderRow][endPos + 1] = nextDigit;
+                        
+                        steps.push({
+                            grid: JSON.parse(JSON.stringify(baseGrid)),
+                            highlights: [
+                                {r: remainderRow, c: endPos + 1, color: 'gold'}, 
+                                ...Array.from({length: remStr.length}, (_, k) => ({r: remainderRow, c: endPos - (remStr.length - 1) + k, color: 'blue'}))
+                            ],
+                            carries: [],
+                            descriptionTitle: "Spisanie",
+                            explanation: `Spisujemy ${nextDigit}. Mamy ${remainder}${nextDigit}.`
+                        });
+                    } else if (currentDividendVal !== 0 && decimalCount < maxDecimalPlaces) {
+                        baseGrid[remainderRow][endPos + 1] = 0;
+                        steps.push({
+                            grid: JSON.parse(JSON.stringify(baseGrid)),
+                            highlights: [
+                                {r: remainderRow, c: endPos + 1, color: 'gold'},
+                                ...Array.from({length: remStr.length}, (_, k) => ({r: remainderRow, c: endPos - (remStr.length - 1) + k, color: 'blue'}))
+                            ],
+                            carries: [],
+                            descriptionTitle: "Dopisanie zera",
+                            explanation: `Dopisujemy 0.`
+                        });
+                    }
+
+                    currentRow = remainderRow;
+                    dividendIdx++;
+                }
+
+                if (currentDividendVal !== 0 && decimalCount >= maxDecimalPlaces) {
+                    steps.push({
+                        grid: JSON.parse(JSON.stringify(baseGrid)),
+                        highlights: [],
+                        carries: [],
+                        descriptionTitle: "Limit",
+                        explanation: `Koniec (limit 3 miejsc).`
+                    });
+                }
+            }
+
+            return steps;
+        }
+
+        // --- Renderowanie Gridu ---
+        function renderGrid(step) {
+            const container = document.getElementById('gridContainer');
+            if (!step || !step.grid) {
+                container.innerHTML = '<div class="text-slate-500">Brak danych</div>';
+                return;
+            }
+
+            // Ustawienie kolumn
+            const cols = step.grid[0].length;
+            container.innerHTML = `
+                <div class="grid gap-1 font-mono text-xl sm:text-2xl select-none" style="grid-template-columns: repeat(${cols}, minmax(35px, 45px))">
+                    ${step.grid.map((row, rIndex) => 
+                        row.map((cell, cIndex) => {
+                            const highlight = step.highlights.find(h => h.r === rIndex && h.c === cIndex);
+                            const carry = step.carries.find(c => c.r === rIndex && c.c === cIndex);
+                            const isLine = cell === 'line';
+
+                            let cellClass = "text-slate-200 bg-transparent"; 
+                            if (highlight) {
+                                switch(highlight.color) {
+                                    case 'gold':
+                                        cellClass = "bg-amber-500 text-slate-900 font-extrabold ring-2 ring-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] z-10 transform scale-110";
+                                        break;
+                                    case 'green':
+                                        cellClass = "text-green-400 font-bold bg-slate-700/50 border border-green-500/30";
+                                        break;
+                                    case 'red':
+                                        cellClass = "text-red-400 font-bold bg-red-900/20";
+                                        break;
+                                    case 'blue':
+                                        cellClass = "text-cyan-300 font-bold bg-cyan-900/30 ring-1 ring-cyan-500/50";
+                                        break;
+                                    default:
+                                        cellClass = `bg-${highlight.color}-500/30 text-white`;
+                                }
+                            }
+
+                            const gridLineClass = (!highlight && !isLine) ? "border border-slate-700/50" : "";
+                            
+                            let content = '';
+                            if (isLine) {
+                                content = '<div class="w-full h-0.5 bg-slate-500"></div>';
+                            } else {
+                                const carryEl = carry ? `<span class="absolute -top-3 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-pink-500 font-bold animate-pulse">${carry.value}</span>` : '';
+                                
+                                let innerText = cell;
+                                if (carry && typeof cell === 'number' && highlight?.color === 'red') {
+                                    innerText = `<span class="line-through opacity-50 decoration-pink-500">${cell}</span>`;
+                                } else if (cell === null) {
+                                    innerText = '';
+                                }
+
+                                content = `${carryEl}<span>${innerText}</span>`;
+                            }
+
+                            return `
+                                <div class="relative flex items-center justify-center h-10 sm:h-12 rounded cell-transition ${cellClass} ${gridLineClass} ${isLine ? 'h-1 sm:h-1 mt-2 mb-2 bg-transparent' : ''}">
+                                    ${content}
+                                </div>
+                            `;
+                        }).join('')
+                    ).join('')}
+                </div>
+            `;
+        }
+
+        // --- Aktualizacja UI ---
+        function updateUI() {
+            // Obliczenia kroków
+            const n1 = parseInt(state.num1);
+            const n2 = parseInt(state.num2);
+            
+            if (isNaN(n1) || isNaN(n2) || (state.operation === 'divide' && n2 === 0)) {
+                state.steps = [];
+                document.getElementById('stepTitle').innerText = "Błąd";
+                document.getElementById('stepExplanation').innerText = "Wpisz poprawne liczby (dzielnik != 0).";
+                renderGrid(null);
+                return;
+            }
+
+            // Generujemy kroki jeśli są puste (np. po zmianie liczb)
+            if (state.steps.length === 0) {
+                state.steps = generateSteps(n1, n2, state.operation);
+            }
+
+            // Ograniczenie indexu
+            if (state.currentStepIndex >= state.steps.length) state.currentStepIndex = state.steps.length - 1;
+            if (state.currentStepIndex < 0) state.currentStepIndex = 0;
+
+            const currentStep = state.steps[state.currentStepIndex];
+
+            // Renderowanie
+            renderGrid(currentStep);
+            document.getElementById('stepTitle').innerText = (currentStep?.descriptionTitle || "Start") + ":";
+            document.getElementById('stepExplanation').innerText = currentStep?.explanation || "";
+
+            // Stan przycisków
+            document.getElementById('btnPrev').disabled = state.currentStepIndex === 0;
+            document.getElementById('btnNext').disabled = state.currentStepIndex === state.steps.length - 1;
+
+            // Ikona Play/Pause
+            const iconPlay = document.querySelector('.icon-play');
+            const iconPause = document.querySelector('.icon-pause');
+            const btnPlay = document.getElementById('btnPlay');
+            
+            if (state.isPlaying) {
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+                btnPlay.classList.replace('bg-green-600', 'bg-amber-600');
+                btnPlay.classList.replace('hover:bg-green-500', 'hover:bg-amber-500');
+            } else {
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+                btnPlay.classList.replace('bg-amber-600', 'bg-green-600');
+                btnPlay.classList.replace('hover:bg-amber-500', 'hover:bg-green-500');
+            }
+
+            // Przyciski operacji (aktywny)
+            document.querySelectorAll('.op-btn').forEach(btn => {
+                if (btn.dataset.op === state.operation) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]', 'transform', 'scale-105');
+                    btn.classList.remove('bg-slate-700', 'text-slate-300', 'hover:bg-slate-600');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'shadow-[0_0_15px_rgba(37,99,235,0.5)]', 'transform', 'scale-105');
+                    btn.classList.add('bg-slate-700', 'text-slate-300', 'hover:bg-slate-600');
+                }
+            });
+
+            // Symbol
+            const symbols = { add: '+', subtract: '-', multiply: '×', divide: ':' };
+            document.getElementById('opSymbol').innerText = symbols[state.operation];
+        }
+
+        function reset() {
+            state.currentStepIndex = 0;
+            state.isPlaying = false;
+            clearInterval(playInterval);
+            state.steps = []; // Wymuś regenerację
+            updateUI();
+        }
+
+        // --- Event Listeners ---
+
+        document.getElementById('operationButtons').addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                state.operation = e.target.dataset.op;
+                reset();
+            }
+        });
+
+        document.getElementById('num1').addEventListener('input', (e) => {
+            state.num1 = e.target.value;
+            reset();
+        });
+
+        document.getElementById('num2').addEventListener('input', (e) => {
+            state.num2 = e.target.value;
+            reset();
+        });
+
+        document.getElementById('btnNext').addEventListener('click', () => {
+            state.currentStepIndex++;
+            updateUI();
+        });
+
+        document.getElementById('btnPrev').addEventListener('click', () => {
+            state.currentStepIndex--;
+            updateUI();
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            reset();
+        });
+
+        document.getElementById('btnPlay').addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                // Koniec kroków? Zacznij od nowa
+                if (state.currentStepIndex === state.steps.length - 1) {
+                    state.currentStepIndex = 0;
+                }
+                
+                playInterval = setInterval(() => {
+                    if (state.currentStepIndex < state.steps.length - 1) {
+                        state.currentStepIndex++;
+                        updateUI();
+                    } else {
+                        state.isPlaying = false;
+                        clearInterval(playInterval);
+                        updateUI();
+                    }
+                }, 2200 - state.speed);
+            } else {
+                clearInterval(playInterval);
+                updateUI();
+            }
+            updateUI();
+        });
+
+        document.getElementById('speedRange').addEventListener('input', (e) => {
+            state.speed = parseInt(e.target.value);
+            // Jeśli gra, zrestartuj interwał z nową prędkością
+            if (state.isPlaying) {
+                clearInterval(playInterval);
+                playInterval = setInterval(() => {
+                    if (state.currentStepIndex < state.steps.length - 1) {
+                        state.currentStepIndex++;
+                        updateUI();
+                    } else {
+                        state.isPlaying = false;
+                        clearInterval(playInterval);
+                        updateUI();
+                    }
+                }, 2200 - state.speed);
+            }
+        });
+
+        // Init icons
+        lucide.createIcons();
+        // Init UI
+        updateUI();
+
+    </script>
+</body>
+</html>
