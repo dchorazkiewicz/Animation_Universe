@@ -35,6 +35,10 @@ nav:
     - Kolejność Działań 1: math/kolejnosc_dzialan.html
     - Kolejność Działań 2: math/kolejnosc_dzialan_2.html
     - Dzialania Pisemne: math/dzialania_pisemne.html
+    - Laboratorium Rekurencji: math/Laboratorium_Rekurencji.html
+    - Conway's Game of Life: math/conway_life.html
+    - Mandelbrot Set: math/maldenbrot.html
+    - Fraktale: math/fraktale.html
   - Fizyka:
     - Rzut Ukośny: phys/rzut_ukosny.html
     - Wahadła i Sprężyny: phys/wahadla_i_sprezyny.html

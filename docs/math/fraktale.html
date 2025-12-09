@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeria Fraktali</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        .math { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .fractal-btn-active {
+            background-color: #2563eb;
+            color: white;
+            border-color: #3b82f6;
+        }
+        .fractal-btn-inactive {
+            background-color: #1e293b;
+            color: #94a3b8;
+            border-color: #334155;
+        }
+        .fractal-btn-inactive:hover {
+            background-color: #334155;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 shrink-0 z-20">
+        <div class="max-w-full px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="aperture" class="text-blue-500 w-6 h-6"></i>
+                <h1 class="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                    Galeria Fraktali
+                </h1>
+            </div>
+            <div class="text-xs text-slate-500 font-mono hidden sm:block">
+                Eksploracja Matematycznego Piękna
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <nav class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-10">
+            <div class="p-4 border-b border-slate-800">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Wybierz Fraktal</h2>
+                <div class="flex flex-col gap-2">
+                    <button onclick="setFractal('mandelbrot')" id="btn-mandelbrot" class="fractal-btn-active w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-400"></span> Mandelbrot
+                    </button>
+                    <button onclick="setFractal('julia')" id="btn-julia" class="fractal-btn-inactive w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-purple-400"></span> Julia
+                    </button>
+                    <button onclick="setFractal('burningship')" id="btn-burningship" class="fractal-btn-inactive w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-orange-500"></span> Burning Ship
+                    </button>
+                    <button onclick="setFractal('tricorn')" id="btn-tricorn" class="fractal-btn-inactive w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span> Tricorn
+                    </button>
+                    <button onclick="setFractal('celtic')" id="btn-celtic" class="fractal-btn-inactive w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-teal-400"></span> Celtic
+                    </button>
+                    <button onclick="setFractal('newton')" id="btn-newton" class="fractal-btn-inactive w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Newton
+                    </button>
+                </div>
+            </div>
+
+            <!-- Theory Section (Dynamic) -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Teoria & Zasada</h3>
+                <div id="theory-content" class="text-sm text-slate-400 space-y-4 leading-relaxed">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Viewport -->
+        <main class="flex-1 flex flex-col relative bg-black">
+            
+            <!-- Canvas -->
+            <div class="flex-1 relative overflow-hidden cursor-crosshair">
+                <canvas id="gl-canvas" class="block w-full h-full"></canvas>
+                
+                <!-- HUD -->
+                <div class="absolute top-4 left-4 pointer-events-none">
+                    <div class="bg-slate-900/80 backdrop-blur border border-slate-700 p-3 rounded-lg text-xs font-mono text-slate-300 shadow-xl">
+                        <div class="font-bold text-white mb-1" id="hud-title">Zbiór Mandelbrota</div>
+                        <div>Zoom: <span id="val-zoom" class="text-blue-400">1.0x</span></div>
+                        <div>X: <span id="val-x">0.00</span></div>
+                        <div>Y: <span id="val-y">0.00</span></div>
+                    </div>
+                </div>
+
+                <!-- Interactive Hint for Julia -->
+                <div id="julia-hint" class="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 transition-opacity duration-500">
+                    <div class="bg-purple-900/80 backdrop-blur px-4 py-2 rounded-full border border-purple-500/50 text-purple-200 text-xs font-bold flex items-center gap-2 shadow-lg">
+                        <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i>
+                        Przesuwaj myszką, aby deformować zbiór!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Toolbar -->
+            <div class="h-16 bg-slate-900 border-t border-slate-800 p-3 flex items-center justify-between gap-4 shrink-0 z-20">
+                
+                <div class="flex items-center gap-6 flex-1">
+                    <!-- Iterations -->
+                    <div class="flex flex-col gap-1 w-48">
+                        <div class="flex justify-between text-[10px] uppercase font-bold text-slate-500">
+                            <span>Szczegółowość</span>
+                            <span id="iter-val">100</span>
+                        </div>
+                        <input type="range" id="iter-range" min="50" max="1000" value="100" class="h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <!-- Julia Specific: Lock Mouse -->
+                    <div id="julia-controls" class="hidden flex items-center gap-2">
+                        <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer bg-slate-800 px-3 py-1.5 rounded border border-slate-700 hover:border-purple-500 transition-colors">
+                            <input type="checkbox" id="julia-animate" class="accent-purple-500" checked>
+                            Animuj Myszką
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="resetView()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded border border-slate-700 transition-colors flex items-center gap-2">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Resetuj Widok
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SHADERS -->
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() { gl_Position = vec4(position, 0.0, 1.0); }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+        
+        uniform vec2 u_res;
+        uniform vec2 u_center;
+        uniform float u_zoom;
+        uniform int u_iter;
+        uniform int u_type; // 0:Mandelbrot, 1:Julia, 2:BurningShip, 3:Newton, 4:Tricorn, 5:Celtic
+        uniform vec2 u_mouse; // For Julia
+
+        // Koloryzacja (Palette)
+        vec3 palette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        // Complex Number Math
+        vec2 c_mul(vec2 a, vec2 b) {
+            return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x);
+        }
+        
+        vec2 c_div(vec2 a, vec2 b) {
+            float denom = dot(b, b);
+            return vec2(dot(a, b), a.y*b.x - a.x*b.y) / denom;
+        }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy - 0.5 * u_res.xy) / u_res.y;
+            vec2 c = uv * (1.0 / u_zoom) + u_center;
+            vec2 z = vec2(0.0);
+            
+            float iter_score = 0.0;
+            bool escaped = false;
+
+            // --- MANDELBROT ---
+            if (u_type == 0) {
+                z = vec2(0.0);
+                for(int i=0; i<1000; i++) {
+                    if(i >= u_iter) break;
+                    // z = z^2 + c
+                    z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+                    if(dot(z,z) > 4.0) {
+                        iter_score = float(i);
+                        escaped = true;
+                        break;
+                    }
+                }
+            }
+            // --- JULIA ---
+            else if (u_type == 1) {
+                z = c; // Pixel is Z, Mouse is C
+                vec2 k = u_mouse; 
+                for(int i=0; i<1000; i++) {
+                    if(i >= u_iter) break;
+                    z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + k;
+                    if(dot(z,z) > 4.0) {
+                        iter_score = float(i);
+                        escaped = true;
+                        break;
+                    }
+                }
+            }
+            // --- BURNING SHIP ---
+            else if (u_type == 2) {
+                z = vec2(0.0);
+                // Flip Y for visual consistency
+                vec2 c_flip = vec2(c.x, -c.y);
+                for(int i=0; i<1000; i++) {
+                    if(i >= u_iter) break;
+                    // z = (|Re(z)| + i|Im(z)|)^2 + c
+                    float absX = abs(z.x);
+                    float absY = abs(z.y);
+                    z = vec2(absX*absX - absY*absY, 2.0*absX*absY) + c_flip;
+                    if(dot(z,z) > 4.0) {
+                        iter_score = float(i);
+                        escaped = true;
+                        break;
+                    }
+                }
+            }
+            // --- NEWTON ---
+            else if (u_type == 3) {
+                z = c;
+                int root = 0; // 0:none, 1:1, 2:-0.5+sq3/2, 3:-0.5-sq3/2
+                
+                for(int i=0; i<100; i++) { // Newton converges fast
+                    if(i >= u_iter) break;
+                    
+                    vec2 z2 = c_mul(z, z);
+                    vec2 z3 = c_mul(z2, z);
+                    
+                    vec2 num = 2.0 * z3 + vec2(1.0, 0.0);
+                    vec2 den = 3.0 * z2;
+                    
+                    z = c_div(num, den);
+                    
+                    // Check roots
+                    // Root 1: (1, 0)
+                    if(distance(z, vec2(1.0, 0.0)) < 0.001) { root=1; iter_score=float(i); break; }
+                    // Root 2: (-0.5, 0.866)
+                    if(distance(z, vec2(-0.5, 0.866)) < 0.001) { root=2; iter_score=float(i); break; }
+                    // Root 3: (-0.5, -0.866)
+                    if(distance(z, vec2(-0.5, -0.866)) < 0.001) { root=3; iter_score=float(i); break; }
+                }
+                
+                // Custom Coloring for Newton
+                if(root == 1) gl_FragColor = vec4(1.0, 0.2, 0.2, 1.0) * (1.0 - iter_score/20.0); // Red
+                else if(root == 2) gl_FragColor = vec4(0.2, 1.0, 0.2, 1.0) * (1.0 - iter_score/20.0); // Green
+                else if(root == 3) gl_FragColor = vec4(0.2, 0.2, 1.0, 1.0) * (1.0 - iter_score/20.0); // Blue
+                else gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                return;
+            }
+            // --- TRICORN (Mandelbar) ---
+            else if (u_type == 4) {
+                z = vec2(0.0);
+                for(int i=0; i<1000; i++) {
+                    if(i >= u_iter) break;
+                    // z = conj(z)^2 + c
+                    // conj(x+iy) = x-iy
+                    // (x-iy)^2 = x^2 - y^2 - 2xyi
+                    z = vec2(z.x*z.x - z.y*z.y, -2.0*z.x*z.y) + c;
+                    if(dot(z,z) > 4.0) {
+                        iter_score = float(i);
+                        escaped = true;
+                        break;
+                    }
+                }
+            }
+            // --- CELTIC MANDELBROT ---
+            else if (u_type == 5) {
+                z = vec2(0.0);
+                for(int i=0; i<1000; i++) {
+                    if(i >= u_iter) break;
+                    // z = |Re(z^2)| + i*Im(z^2) + c
+                    // z^2 = (x^2-y^2) + i(2xy)
+                    float re_sq = z.x*z.x - z.y*z.y;
+                    float im_sq = 2.0*z.x*z.y;
+                    z = vec2(abs(re_sq), im_sq) + c;
+                    
+                    if(dot(z,z) > 4.0) {
+                        iter_score = float(i);
+                        escaped = true;
+                        break;
+                    }
+                }
+            }
+
+            // Coloring for Escape Time Fractals
+            if (escaped) {
+                float t = sqrt(iter_score / float(u_iter));
+                vec3 col = vec3(0.0);
+                
+                if (u_type == 0) // Mandelbrot (Classic Blue/Gold)
+                    col = palette(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.0, 0.33, 0.67));
+                else if (u_type == 1) // Julia (Purple/Pink/Neon)
+                    col = palette(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.3, 0.20, 0.20));
+                else if (u_type == 2) // Burning Ship (Fire)
+                    col = palette(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.0, 0.10, 0.20));
+                else if (u_type == 4) // Tricorn (Crimson/Gold)
+                    col = palette(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.0, 0.15, 0.20)); // Similar to fire but different phase
+                else if (u_type == 5) // Celtic (Teal/Emerald)
+                    col = palette(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.5, 0.20, 0.25));
+
+                gl_FragColor = vec4(col, 1.0);
+            } else {
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            }
+        }
+    </script>
+
+    <script>
+        // --- CONTENT DATA ---
+        const fractals = {
+            mandelbrot: {
+                id: 0,
+                title: "Zbiór Mandelbrota",
+                start: {x: -0.7, y: 0.0, zoom: 0.8},
+                desc: `
+                    <p class="font-bold text-white mb-2">Król Fraktali</p>
+                    <p class="mb-4">Zbiór punktów <strong>c</strong>, dla których ciąg <strong>z<sub>n+1</sub> = z<sub>n</sub>² + c</strong> (gdzie z₀=0) nie ucieka w nieskończoność.</p>
+                    <p class="mb-4">To "mapa" wszystkich zbiorów Julii. Czarne obszary to miejsca stabilne. Kolorowe to chaos uciekający w nieskończoność.</p>
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-xs text-emerald-400 text-center">z ← z² + c</div>
+                `
+            },
+            julia: {
+                id: 1,
+                title: "Zbiór Julii",
+                start: {x: 0.0, y: 0.0, zoom: 0.8},
+                desc: `
+                    <p class="font-bold text-white mb-2">Zwierciadło Mandelbrota</p>
+                    <p class="mb-4">Używa tego samego wzoru co Mandelbrot, ale z jedną różnicą: <strong>c</strong> jest stałe dla całego obrazu, a zmienną jest punkt początkowy <strong>z</strong>.</p>
+                    <p class="mb-4 text-purple-400 font-bold">Interakcja:</p>
+                    <p class="mb-4">W tej symulacji <strong>c</strong> zależy od pozycji Twojej myszki! Ruszaj nią, by zmieniać kształt fraktala w czasie rzeczywistym.</p>
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-xs text-purple-400 text-center">z ← z² + Myszka</div>
+                `
+            },
+            burningship: {
+                id: 2,
+                title: "Płonący Statek",
+                start: {x: -1.75, y: -0.04, zoom: 35.0},
+                desc: `
+                    <p class="font-bold text-white mb-2">Burning Ship</p>
+                    <p class="mb-4">Modyfikacja wzoru Mandelbrota. Przed podniesieniem do kwadratu bierzemy <strong>wartość bezwzględną</strong> z części rzeczywistej i urojonej.</p>
+                    <p class="mb-4">To tworzy charakterystyczne, ostre kształty przypominające żagle statku, płomienie lub gotyckie katedry.</p>
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-xs text-orange-400 text-center">z ← (|Re z| + i|Im z|)² + c</div>
+                `
+            },
+            newton: {
+                id: 3,
+                title: "Fraktal Newtona",
+                start: {x: 0.0, y: 0.0, zoom: 0.8},
+                desc: `
+                    <p class="font-bold text-white mb-2">Baseny Przyciągania</p>
+                    <p class="mb-4">Ten fraktal nie bada ucieczki, lecz <strong>zbieżność</strong>. Używamy metody Newtona do znalezienia pierwiastków wielomianu <strong>z³ - 1 = 0</strong>.</p>
+                    <p class="mb-4">Są 3 rozwiązania. Każdy kolor (Czerwony, Zielony, Niebieski) oznacza, do którego z tych trzech rozwiązań "spadnie" punkt startowy.</p>
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-xs text-blue-400 text-center">z ← z - f(z)/f'(z)</div>
+                `
+            },
+            tricorn: {
+                id: 4,
+                title: "Tricorn (Mandelbar)",
+                start: {x: 0.0, y: 0.0, zoom: 0.8},
+                desc: `
+                    <p class="font-bold text-white mb-2">Zły Bliźniak</p>
+                    <p class="mb-4">Podobny do Mandelbrota, ale zamiast zwykłego $z$, używamy <strong>sprzężenia zespolonego</strong> ($\bar{z}$).</p>
+                    <p class="mb-4">Operacja ta zmienia kształt z serca na formę trójkątną (trikorn). Fraktal ten ma 3-krotną symetrię obrotową, w przeciwieństwie do 1-krotnej Mandelbrota.</p>
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-xs text-red-400 text-center">z ← conj(z)² + c</div>
+                `
+            },
+            celtic: {
+                id: 5,
+                title: "Celtic Mandelbrot",
+                start: {x: -0.4, y: 0.0, zoom: 1.0},
+                desc: `
+                    <p class="font-bold text-white mb-2">Celtycki Wzór</p>
+                    <p class="mb-4">Kolejna wariacja z wartością bezwzględną. Tutaj bierzemy moduł tylko z <strong>części rzeczywistej</strong> kwadratu liczby $z$.</p>
+                    <p class="mb-4">Efektem są struktury przypominające plecionki, rybie łuski lub skomplikowane wzory jubilerskie.</p>
+                    <div class="bg-slate-800 p-2 rounded border border-slate-700 font-mono text-xs text-teal-400 text-center">z ← |Re(z²)| + i Im(z²) + c</div>
+                `
+            }
+        };
+
+        // --- WEBGL SETUP ---
+        const canvas = document.getElementById('gl-canvas');
+        const gl = canvas.getContext('webgl');
+        
+        if (!gl) alert("Brak WebGL!");
+
+        function createShader(gl, type, src) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src);
+            gl.compileShader(s);
+            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(s));
+                return null;
+            }
+            return s;
+        }
+
+        const prog = gl.createProgram();
+        gl.attachShader(prog, createShader(gl, gl.VERTEX_SHADER, document.getElementById('vs').text));
+        gl.attachShader(prog, createShader(gl, gl.FRAGMENT_SHADER, document.getElementById('fs').text));
+        gl.linkProgram(prog);
+        gl.useProgram(prog);
+
+        const posLoc = gl.getAttribLocation(prog, "position");
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        // Uniforms
+        const uRes = gl.getUniformLocation(prog, "u_res");
+        const uCenter = gl.getUniformLocation(prog, "u_center");
+        const uZoom = gl.getUniformLocation(prog, "u_zoom");
+        const uIter = gl.getUniformLocation(prog, "u_iter");
+        const uType = gl.getUniformLocation(prog, "u_type");
+        const uMouse = gl.getUniformLocation(prog, "u_mouse");
+
+        // STATE
+        let currentType = 'mandelbrot';
+        let cam = {x: -0.7, y: 0.0, zoom: 0.8};
+        let iterations = 100;
+        let mousePos = {x: -0.4, y: 0.6}; // Default Julia param
+        let isDragging = false;
+        let lastMouse = {x:0, y:0};
+        let animateJulia = true;
+
+        // --- LOGIC ---
+
+        function setFractal(type) {
+            currentType = type;
+            const data = fractals[type];
+            
+            // Update UI Sidebar
+            document.querySelectorAll('nav button').forEach(b => {
+                b.className = b.id === `btn-${type}` 
+                    ? 'fractal-btn-active w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2'
+                    : 'fractal-btn-inactive w-full text-left px-4 py-3 rounded-lg border text-sm font-semibold transition-all flex items-center gap-2';
+            });
+
+            // Update Theory
+            document.getElementById('theory-content').innerHTML = data.desc;
+            document.getElementById('hud-title').innerText = data.title;
+
+            // Reset View
+            cam = { ...data.start };
+            
+            // Show/Hide Julia controls
+            const juliaCtrl = document.getElementById('julia-controls');
+            const juliaHint = document.getElementById('julia-hint');
+            if (type === 'julia') {
+                juliaCtrl.classList.remove('hidden');
+                juliaHint.style.opacity = '1';
+                setTimeout(() => juliaHint.style.opacity = '0', 4000);
+            } else {
+                juliaCtrl.classList.add('hidden');
+                juliaHint.style.opacity = '0';
+            }
+
+            render();
+        }
+
+        function resetView() {
+            cam = { ...fractals[currentType].start };
+            render();
+        }
+
+        function render() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            gl.uniform2f(uRes, canvas.width, canvas.height);
+            gl.uniform2f(uCenter, cam.x, cam.y);
+            gl.uniform1f(uZoom, cam.zoom);
+            gl.uniform1i(uIter, iterations);
+            gl.uniform1i(uType, fractals[currentType].id);
+            gl.uniform2f(uMouse, mousePos.x, mousePos.y);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            // Update HUD
+            document.getElementById('val-x').innerText = cam.x.toFixed(6);
+            document.getElementById('val-y').innerText = cam.y.toFixed(6);
+            let zText = cam.zoom < 1000 ? cam.zoom.toFixed(2) : (cam.zoom/1000).toFixed(1) + "k";
+            if (cam.zoom > 1000000) zText = (cam.zoom/1000000).toFixed(1) + "M";
+            document.getElementById('val-zoom').innerText = zText + "x";
+        }
+
+        // INPUTS
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            lastMouse = {x: e.clientX, y: e.clientY};
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+        
+        canvas.addEventListener('mousemove', e => {
+            // Dragging (Pan)
+            if (isDragging) {
+                const dx = e.clientX - lastMouse.x;
+                const dy = e.clientY - lastMouse.y;
+                cam.x -= (dx / canvas.height) / cam.zoom * 2.0;
+                cam.y += (dy / canvas.height) / cam.zoom * 2.0;
+                lastMouse = {x: e.clientX, y: e.clientY};
+                render();
+            }
+
+            // Julia Interaction
+            if (currentType === 'julia' && animateJulia) {
+                // Map mouse to -1..1 range relative to center of screen
+                const rect = canvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) / rect.width * 2 - 1;
+                const my = -((e.clientY - rect.top) / rect.height * 2 - 1);
+                mousePos = {x: mx, y: my};
+                render();
+            }
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const factor = 1.1;
+            if (e.deltaY < 0) cam.zoom *= factor;
+            else cam.zoom /= factor;
+            render();
+        }, {passive:false});
+
+        document.getElementById('iter-range').addEventListener('input', e => {
+            iterations = parseInt(e.target.value);
+            document.getElementById('iter-val').innerText = iterations;
+            render();
+        });
+
+        document.getElementById('julia-animate').addEventListener('change', e => {
+            animateJulia = e.target.checked;
+        });
+
+        window.addEventListener('resize', render);
+        lucide.createIcons();
+        
+        // Init
+        setFractal('mandelbrot');
+
+    </script>
+</body>
+</html>

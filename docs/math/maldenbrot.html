@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eksplorator Mandelbrota</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Math styling */
+        .math { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .tab-active {
+            border-bottom: 2px solid #a855f7; /* Purple-500 */
+            color: #fff;
+        }
+        .tab-inactive {
+            border-bottom: 2px solid transparent;
+            color: #94a3b8;
+        }
+        .tab-inactive:hover { color: #cbd5e1; }
+
+        /* Canvas full container */
+        .canvas-wrapper {
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 shrink-0 relative z-10">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="infinity" class="text-purple-500 w-6 h-6"></i>
+                <h1 class="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                    Mandelbrot Explorer
+                </h1>
+            </div>
+            
+            <nav class="flex gap-6 text-sm font-medium h-full">
+                <button id="tab-explore-btn" onclick="switchTab('explore')" class="tab-active px-2 h-full transition-colors flex items-center gap-2">
+                    <i data-lucide="search" class="w-4 h-4"></i> Eksploracja
+                </button>
+                <button id="tab-theory-btn" onclick="switchTab('theory')" class="tab-inactive px-2 h-full transition-colors flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> Teoria
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 relative overflow-hidden">
+        
+        <!-- TAB 1: EXPLORER -->
+        <div id="tab-explore" class="absolute inset-0 flex flex-col">
+            
+            <!-- Canvas Area -->
+            <div class="flex-1 relative canvas-wrapper overflow-hidden">
+                <canvas id="gl-canvas" class="block w-full h-full cursor-move"></canvas>
+                
+                <!-- HUD / Info Overlay -->
+                <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-700 p-4 rounded-lg text-xs font-mono text-slate-400 pointer-events-none select-none min-w-[200px]">
+                    <div class="mb-2 text-white font-bold border-b border-slate-700 pb-1">Koordynaty</div>
+                    <div class="flex justify-between"><span>Re (x):</span> <span id="val-x" class="text-purple-400">0.000</span></div>
+                    <div class="flex justify-between"><span>Im (y):</span> <span id="val-y" class="text-purple-400">0.000</span></div>
+                    <div class="flex justify-between mt-2"><span>Zoom:</span> <span id="val-zoom" class="text-emerald-400">1.0x</span></div>
+                </div>
+
+                <!-- Tutorial Hint -->
+                <div id="tutorial-hint" class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-500">
+                    <div class="bg-slate-900/60 backdrop-blur px-6 py-3 rounded-full border border-slate-700 text-slate-300 text-sm flex items-center gap-3">
+                        <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+                        <span>Użyj kółka myszy, aby przybliżać | Przeciągnij, aby przesuwać</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Toolbar -->
+            <div class="h-auto bg-slate-900 border-t border-slate-800 p-3 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 z-10">
+                
+                <!-- Iterations Control -->
+                <div class="flex items-center gap-4 w-full sm:w-auto flex-1 max-w-md">
+                    <div class="flex flex-col w-full">
+                        <div class="flex justify-between text-xs text-slate-500 font-bold uppercase mb-1">
+                            <span>Jakość (Iteracje)</span>
+                            <span id="iter-display" class="text-white">100</span>
+                        </div>
+                        <input type="range" id="iter-range" min="0" max="1000" value="100" class="w-full accent-purple-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Presets -->
+                <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+                    <span class="text-xs text-slate-500 font-bold uppercase mr-2 shrink-0">Lokacje:</span>
+                    <button onclick="goToLocation(-0.74364388703, 0.13182590421, 5000)" class="px-3 py-1.5 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-purple-300 whitespace-nowrap transition-colors">Dolina Koników</button>
+                    <button onclick="goToLocation(-0.16070135, 1.0375665, 3000)" class="px-3 py-1.5 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-pink-300 whitespace-nowrap transition-colors">Podwójna Spirala</button>
+                    <button onclick="goToLocation(-1.769, 0.004, 1500)" class="px-3 py-1.5 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-blue-300 whitespace-nowrap transition-colors">Mini-Brot</button>
+                    <button onclick="resetView()" class="px-3 py-1.5 text-xs bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-slate-300 whitespace-nowrap transition-colors flex items-center gap-1">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset
+                    </button>
+                </div>
+                
+                <!-- Color Theme -->
+                 <div class="flex items-center gap-2">
+                    <button onclick="toggleTheme()" class="p-2 bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-slate-300" title="Zmień paletę">
+                        <i data-lucide="palette" class="w-4 h-4"></i>
+                    </button>
+                 </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: THEORY -->
+        <div id="tab-theory" class="absolute inset-0 bg-slate-950 overflow-y-auto hidden">
+            <div class="max-w-4xl mx-auto p-8">
+                
+                <section class="mb-12">
+                    <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-6">
+                        Mapa Chaosu: Jak to działa?
+                    </h2>
+                    <p class="text-lg text-slate-400 leading-relaxed mb-6">
+                        Zbiór Mandelbrota to najsłynniejszy obiekt matematyki współczesnej. Choć wygląda niesamowicie skomplikowanie, powstaje z jednego, banalnie prostego wzoru:
+                    </p>
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 text-center mb-8">
+                        <span class="text-3xl sm:text-5xl font-bold text-emerald-400 math">z<sub>n+1</sub> = z<sub>n</sub>² + c</span>
+                    </div>
+                </section>
+
+                <div class="grid md:grid-cols-2 gap-8 mb-12">
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800">
+                        <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="binary" class="text-purple-500"></i> Co to są Z i C?
+                        </h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            To <strong>liczby zespolone</strong>. Możesz o nich myśleć jak o punktach na płaszczyźnie 2D (mają współrzędną X i Y).
+                        </p>
+                        <ul class="mt-4 space-y-3 text-sm text-slate-300">
+                            <li><strong class="text-pink-400">c</strong>: To punkt (piksel) na ekranie, który aktualnie testujemy. Każdy piksel ma inne "c".</li>
+                            <li><strong class="text-blue-400">z</strong>: To nasza zmienna, która zawsze startuje od zera ($0+0i$).</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800">
+                        <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="repeat" class="text-emerald-500"></i> Algorytm (Przepis)
+                        </h3>
+                        <ol class="list-decimal list-inside space-y-3 text-sm text-slate-300">
+                            <li>Wybieramy piksel na ekranie (to nasze $c$).</li>
+                            <li>Zaczynamy od $z = 0$.</li>
+                            <li>Wykonujemy działanie: pomnóż $z$ przez siebie i dodaj $c$.</li>
+                            <li>Otrzymany wynik to nowe $z$. Powtarzamy krok 3 wielokrotnie.</li>
+                            <li>Patrzymy co się dzieje z $z$.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <section class="mb-12">
+                    <h3 class="text-2xl font-bold text-white mb-6">Dwa scenariusze losu punktu</h3>
+                    <div class="flex flex-col gap-4">
+                        <div class="flex items-start gap-4 p-4 bg-slate-900/50 rounded-lg border-l-4 border-black">
+                            <div class="bg-black p-3 rounded shrink-0 w-12 h-12 flex items-center justify-center font-bold text-white">1</div>
+                            <div>
+                                <h4 class="font-bold text-white">Należy do zbioru (Czerń)</h4>
+                                <p class="text-slate-400 text-sm mt-1">
+                                    Nieważne ile razy powtórzysz działanie, wartość $z$ krąży w kółko i nigdy nie ucieka daleko od środka. Punkt jest "uwięziony". Te punkty malujemy na czarno. To jest "ciało" żuka Mandelbrota.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4 p-4 bg-slate-900/50 rounded-lg border-l-4 border-purple-500">
+                            <div class="bg-gradient-to-br from-purple-500 to-pink-500 p-3 rounded shrink-0 w-12 h-12 flex items-center justify-center font-bold text-white">2</div>
+                            <div>
+                                <h4 class="font-bold text-white">Ucieka w nieskończoność (Kolor)</h4>
+                                <p class="text-slate-400 text-sm mt-1">
+                                    Wartość $z$ szybko rośnie i wystrzeliwuje w kosmos. 
+                                    <strong>Kolor</strong>, który widzisz, oznacza <strong>szybkość ucieczki</strong>. 
+                                    <br>
+                                    Ciemny kolor = ucieka powoli (blisko granicy zbioru).
+                                    Jasny/Jaskrawy = ucieka natychmiast.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-2xl font-bold text-white mb-4">Dlaczego to jest piękne?</h3>
+                    <p class="text-slate-400 leading-relaxed">
+                        Granica tego zbioru jest nieskończenie skomplikowana. Nieważne jak mocno przybliżysz (użyj kółka myszy!), zawsze zobaczysz nowe detale, małe kopie całego zbioru i wirujące spirale. To definicja <strong>fraktala</strong> – obiektu samopodobnego.
+                    </p>
+                </section>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Shader Scripts -->
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+        
+        uniform vec2 u_resolution;
+        uniform vec2 u_center;
+        uniform float u_zoom;
+        uniform int u_max_iter;
+        uniform int u_palette;
+
+        // Proste funkcje palet kolorów
+        vec3 palette1(float t) {
+            // Purple/Pink/Blue
+            vec3 a = vec3(0.5, 0.5, 0.5);
+            vec3 b = vec3(0.5, 0.5, 0.5);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            vec3 d = vec3(0.263, 0.416, 0.557);
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        vec3 palette2(float t) {
+            // Fire/Gold
+            vec3 a = vec3(0.5, 0.5, 0.5);
+            vec3 b = vec3(0.5, 0.5, 0.5);
+            vec3 c = vec3(1.0, 0.7, 0.4);
+            vec3 d = vec3(0.00, 0.15, 0.20);
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+            
+            // Konwersja piksela na liczbę zespoloną C
+            vec2 c = uv * (1.0 / u_zoom) + u_center;
+            
+            vec2 z = vec2(0.0);
+            float iter = 0.0;
+            
+            // Główna pętla Mandelbrota
+            for (int i = 0; i < 2000; i++) {
+                if (i >= u_max_iter) break;
+                
+                // z = z^2 + c
+                // (x+iy)^2 = x^2 - y^2 + 2xyi
+                float x = (z.x * z.x - z.y * z.y) + c.x;
+                float y = (2.0 * z.x * z.y) + c.y;
+                
+                if ((x*x + y*y) > 4.0) {
+                    // Wyznaczamy 'płynną' iterację dla gładszych kolorów
+                    // Smooth coloring trick
+                    float log_zn = log(x*x + y*y) / 2.0;
+                    float nu = log(log_zn / log(2.0)) / log(2.0);
+                    iter = float(i) + 1.0 - nu;
+                    break;
+                }
+                
+                z.x = x;
+                z.y = y;
+                iter = float(i);
+            }
+            
+            vec3 color = vec3(0.0);
+            
+            if (iter < float(u_max_iter) - 0.5) {
+                // Punkt uciekł - kolorujemy
+                float t = sqrt(iter / 100.0); // Skalowanie dla gradientu
+                if(u_palette == 0) color = palette1(t);
+                else color = palette2(t);
+            } else {
+                // Punkt w zbiorze - Czarny
+                color = vec3(0.0); 
+            }
+            
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+
+    <script>
+        // --- LOGIKA WEBGL I APLIKACJI ---
+
+        const canvas = document.getElementById('gl-canvas');
+        const gl = canvas.getContext('webgl');
+        
+        if (!gl) {
+            alert("Twoja przeglądarka nie obsługuje WebGL. Fraktal nie zadziała :(");
+        }
+
+        // Shadery
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vs').text;
+        const fsSource = document.getElementById('fs').text;
+        
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+        
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        // Buffers (Full screen quad)
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+            -1,  1,
+             1, -1,
+             1,  1,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        // Uniforms
+        const uResolution = gl.getUniformLocation(program, "u_resolution");
+        const uCenter = gl.getUniformLocation(program, "u_center");
+        const uZoom = gl.getUniformLocation(program, "u_zoom");
+        const uMaxIter = gl.getUniformLocation(program, "u_max_iter");
+        const uPalette = gl.getUniformLocation(program, "u_palette");
+
+        // Stan aplikacji
+        let centerX = -0.7;
+        let centerY = 0.0;
+        let zoom = 0.8;
+        let maxIter = 100; // Startowa niska wartość
+        let paletteId = 0;
+        
+        // Elementy UI
+        const uiX = document.getElementById('val-x');
+        const uiY = document.getElementById('val-y');
+        const uiZoom = document.getElementById('val-zoom');
+        const uiIter = document.getElementById('iter-display');
+        const rangeIter = document.getElementById('iter-range');
+
+        // Render Loop
+        function render() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            gl.uniform2f(uResolution, canvas.width, canvas.height);
+            gl.uniform2f(uCenter, centerX, centerY);
+            gl.uniform1f(uZoom, zoom);
+            gl.uniform1i(uMaxIter, maxIter);
+            gl.uniform1i(uPalette, paletteId);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            
+            // Update UI
+            uiX.innerText = centerX.toFixed(6);
+            uiY.innerText = centerY.toFixed(6);
+            
+            let displayZoom = zoom < 1000 ? zoom.toFixed(2) + "x" : (zoom/1000).toFixed(2) + "k x";
+            if(zoom > 1000000) displayZoom = (zoom/1000000).toFixed(2) + "M x";
+            
+            uiZoom.innerText = displayZoom;
+        }
+
+        // Input Handling
+        let isDragging = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            document.getElementById('tutorial-hint').style.opacity = '0';
+        });
+
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        window.addEventListener('mousemove', e => {
+            if (isDragging) {
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                
+                // Przesunięcie jest odwrotnie proporcjonalne do zoomu
+                centerX -= dx / (canvas.height * zoom) * 2.0; // *2.0 correction factor for aspect
+                centerY += dy / (canvas.height * zoom) * 2.0;
+
+                lastX = e.clientX;
+                lastY = e.clientY;
+                requestAnimationFrame(render);
+            }
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoomFactor = 1.1;
+            
+            // Zoom in or out
+            if (e.deltaY < 0) {
+                zoom *= zoomFactor;
+            } else {
+                zoom /= zoomFactor;
+            }
+            requestAnimationFrame(render);
+        }, { passive: false });
+
+        // Controls
+        rangeIter.addEventListener('input', e => {
+            maxIter = parseInt(e.target.value);
+            uiIter.innerText = maxIter;
+            requestAnimationFrame(render);
+        });
+
+        // Actions
+        function goToLocation(x, y, z) {
+            // Prosta animacja mogłaby być tu, ale dla wydajności zrobimy skok
+            centerX = x;
+            centerY = y;
+            zoom = z;
+            // Podbij jakość automatycznie przy presetach
+            if(maxIter < 300) {
+                maxIter = 300;
+                rangeIter.value = 300;
+                uiIter.innerText = 300;
+            }
+            requestAnimationFrame(render);
+        }
+
+        function resetView() {
+            centerX = -0.7;
+            centerY = 0.0;
+            zoom = 0.8;
+            maxIter = 100;
+            rangeIter.value = 100;
+            uiIter.innerText = 100;
+            requestAnimationFrame(render);
+        }
+
+        function toggleTheme() {
+            paletteId = (paletteId + 1) % 2;
+            requestAnimationFrame(render);
+        }
+
+        // --- TAB LOGIC ---
+        function switchTab(tabId) {
+            const exploreTab = document.getElementById('tab-explore');
+            const theoryTab = document.getElementById('tab-theory');
+            const exploreBtn = document.getElementById('tab-explore-btn');
+            const theoryBtn = document.getElementById('tab-theory-btn');
+
+            if (tabId === 'explore') {
+                exploreTab.classList.remove('hidden');
+                theoryTab.classList.add('hidden');
+                
+                exploreBtn.classList.replace('tab-inactive', 'tab-active');
+                theoryBtn.classList.replace('tab-active', 'tab-inactive');
+                
+                requestAnimationFrame(render);
+            } else {
+                exploreTab.classList.add('hidden');
+                theoryTab.classList.remove('hidden');
+                
+                theoryBtn.classList.replace('tab-inactive', 'tab-active');
+                exploreBtn.classList.replace('tab-active', 'tab-inactive');
+            }
+        }
+        
+        window.switchTab = switchTab;
+        window.goToLocation = goToLocation;
+        window.resetView = resetView;
+        window.toggleTheme = toggleTheme;
+
+        // Init
+        lucide.createIcons();
+        window.addEventListener('resize', render);
+        render(); // First draw
+
+    </script>
+</body>
+</html>
