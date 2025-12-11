@@ -49,3 +49,6 @@ nav:
     - Lorenz Attractor: phys/lorenz_attractor.html
     - Logistic Map: phys/logistic_map.html
     - Grawitacja i Orbity: phys/grawitacja_orbity.html
+  - Dokumentacja:
+    - How To MkDocs (PL): how_to_mkdocs_pl.md
+    - How To MkDocs (EN): how_to_mkdocs_en.md
