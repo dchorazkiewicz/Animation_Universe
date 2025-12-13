@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Numeryczne Rozwiązanie Równań Ruchu</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <!-- Zmieniono źródło na unpkg dla lepszej kompatybilności -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -16,26 +21,35 @@
         .log-container::-webkit-scrollbar-track { background: #f1f1f1; }
         .log-container::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
         .log-container::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Dark mode scrollbar */
+        .dark .log-container::-webkit-scrollbar-track { background: #1e293b; }
+        .dark .log-container::-webkit-scrollbar-thumb { background: #475569; }
     </style>
 </head>
-<body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
+<body class="bg-slate-100 dark:bg-slate-900 h-screen flex flex-col overflow-hidden transition-colors duration-300">
 
     <!-- Header -->
-    <header class="bg-white shadow-sm p-4 z-10 flex justify-between items-center border-b border-slate-200">
+    <header class="bg-white dark:bg-slate-800 shadow-sm p-4 z-10 flex justify-between items-center border-b border-slate-200 dark:border-slate-700 transition-colors duration-300">
         <div>
-            <h1 class="text-xl font-bold text-slate-800">Numeryczna Całkowanie Równań Ruchu (Metoda Eulera)</h1>
-            <p class="text-sm text-slate-500">Wizualizacja układu równań liniowych: $v = dx/dt$ oraz $a = dv/dt$</p>
+            <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Numeryczna Całkowanie Równań Ruchu (Metoda Eulera)</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Wizualizacja układu równań liniowych: $v = dx/dt$ oraz $a = dv/dt$</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="clearGhosts()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 rounded transition-colors font-medium" title="Usuń poprzednie wykresy">
-                <i data-lucide="trash-2" class="w-4 h-4"></i> Wyczyść ślady
+            <!-- Theme Toggle -->
+            <button onclick="toggleTheme()" class="p-2 mr-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" title="Przełącz motyw">
+                <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
+                <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
             </button>
-            <div class="w-px h-8 bg-slate-300 mx-1"></div>
-            <button onclick="resetSimulation()" class="flex items-center gap-2 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-colors font-medium">
+
+            <button onclick="clearGhosts()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded transition-colors font-medium" title="Usuń poprzednie wykresy">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> <span class="hidden sm:inline">Wyczyść ślady</span>
+            </button>
+            <div class="w-px h-8 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+            <button onclick="resetSimulation()" class="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded transition-colors font-medium">
                 <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
             </button>
             <button id="stepBtn" onclick="stepSimulation()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors font-medium">
-                <i data-lucide="step-forward" class="w-4 h-4"></i> Wykonaj Krok ($\Delta t$)
+                <i data-lucide="step-forward" class="w-4 h-4"></i> <span class="hidden sm:inline">Krok ($\Delta t$)</span>
             </button>
             <button id="autoBtn" onclick="toggleAuto()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow transition-colors font-medium">
                 <i data-lucide="play" class="w-4 h-4"></i> Auto
@@ -47,70 +61,69 @@
     <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         <!-- Sidebar Controls & Math -->
-        <aside class="w-full md:w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto shadow-lg z-10">
+        <aside class="w-full md:w-96 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col overflow-y-auto shadow-lg z-10 transition-colors duration-300">
             
             <!-- Parameters -->
-            <div class="p-5 border-b border-slate-100">
-                <h2 class="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <div class="p-5 border-b border-slate-100 dark:border-slate-700">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
                     <i data-lucide="sliders" class="w-4 h-4"></i> Parametry początkowe
                 </h2>
                 
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-xs font-medium text-slate-500 mb-1">Krok czasowy ($\Delta t$)</label>
+                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Krok czasowy ($\Delta t$)</label>
                         <div class="flex items-center gap-2">
-                            <input type="range" id="dtInput" min="0.05" max="0.5" step="0.05" value="0.2" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
-                            <span id="dtValue" class="text-sm font-mono w-12 text-right">0.20s</span>
+                            <input type="range" id="dtInput" min="0.05" max="0.5" step="0.05" value="0.2" class="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            <span id="dtValue" class="text-sm font-mono w-12 text-right text-slate-700 dark:text-slate-300">0.20s</span>
                         </div>
-                        <p class="text-xs text-slate-400 mt-1">Im większe $\Delta t$, tym większy błąd numeryczny (i "skoki").</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Im większe $\Delta t$, tym większy błąd numeryczny (i "skoki").</p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-slate-500 mb-1">Prędkość $v_0$ [m/s]</label>
-                            <input type="number" id="v0Input" value="30" class="w-full p-2 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Prędkość $v_0$ [m/s]</label>
+                            <input type="number" id="v0Input" value="30" class="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-500 mb-1">Kąt [stopnie]</label>
-                            <input type="number" id="angleInput" value="60" class="w-full p-2 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Kąt [stopnie]</label>
+                            <input type="number" id="angleInput" value="60" class="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors">
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- View Settings (New Section) -->
-            <div class="p-5 border-b border-slate-100 bg-slate-50/50">
-                <h2 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <!-- View Settings -->
+            <div class="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
                     <i data-lucide="zoom-in" class="w-4 h-4"></i> Skala Widoku
                 </h2>
                 <div>
                     <div class="flex items-center gap-2">
                         <i data-lucide="minus" class="w-3 h-3 text-slate-400"></i>
-                        <input type="range" id="zoomInput" min="0.2" max="2.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-slate-600">
+                        <input type="range" id="zoomInput" min="0.2" max="2.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-300 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer accent-slate-600">
                         <i data-lucide="plus" class="w-3 h-3 text-slate-400"></i>
-                        <span id="zoomValue" class="text-sm font-mono w-12 text-right text-slate-700">1.0x</span>
+                        <span id="zoomValue" class="text-sm font-mono w-12 text-right text-slate-700 dark:text-slate-300">1.0x</span>
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Zmniejsz powiększenie, jeśli wykres wychodzi poza ekran.</p>
                 </div>
             </div>
 
             <!-- Current State Calculation -->
             <div class="flex-1 p-5 flex flex-col min-h-0">
-                <h2 class="font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
                     <i data-lucide="calculator" class="w-4 h-4"></i> Obliczenia (Log)
                 </h2>
-                <div id="calcLog" class="log-container flex-1 bg-slate-900 text-green-400 font-mono text-xs p-3 rounded shadow-inner overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                <div id="calcLog" class="log-container flex-1 bg-slate-900 dark:bg-black text-green-400 font-mono text-xs p-3 rounded shadow-inner overflow-y-auto whitespace-pre-wrap leading-relaxed border border-transparent dark:border-slate-700">
                     -- Oczekiwanie na start --
                 </div>
             </div>
 
             <!-- Legend -->
-            <div class="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-600">
+            <div class="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 transition-colors">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="w-3 h-3 rounded-full bg-blue-500"></span> Aktualne Położenie
                 </div>
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="w-3 h-3 rounded-full bg-slate-300"></span> Poprzednie przebiegi (Duchy)
+                    <span class="w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-600"></span> Poprzednie przebiegi (Duchy)
                 </div>
                 <div class="flex items-center gap-2 mb-1">
                     <span class="w-8 h-0.5 bg-green-500 relative"><span class="absolute right-0 -top-1 border-t-2 border-r-2 border-green-500 w-2 h-2 rotate-45"></span></span> Prędkość ($v$)
@@ -122,13 +135,13 @@
         </aside>
 
         <!-- Visualization Area -->
-        <main class="flex-1 relative bg-white cursor-crosshair overflow-hidden" id="canvasContainer">
+        <main class="flex-1 relative bg-white dark:bg-slate-900 cursor-crosshair overflow-hidden transition-colors duration-300" id="canvasContainer">
             <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
             
             <!-- Floating Stats -->
-            <div class="absolute top-4 left-4 bg-white/90 backdrop-blur border border-slate-200 p-3 rounded shadow-sm pointer-events-none">
-                <div class="text-sm font-mono text-slate-800">Czas: <span id="timeDisplay">0.00</span> s</div>
-                <div class="text-xs text-slate-500 mt-1">
+            <div class="absolute top-4 left-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur border border-slate-200 dark:border-slate-600 p-3 rounded shadow-sm pointer-events-none transition-colors">
+                <div class="text-sm font-mono text-slate-800 dark:text-slate-100">Czas: <span id="timeDisplay">0.00</span> s</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     x: <span id="xDisplay">0.0</span> m <br>
                     y: <span id="yDisplay">0.0</span> m <br>
                     vx: <span id="vxDisplay">0.0</span> m/s <br>
@@ -276,7 +289,14 @@
         }
 
         function drawGrid() {
-            ctx.strokeStyle = '#e2e8f0';
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // Colors based on theme
+            const gridColor = isDark ? '#334155' : '#e2e8f0'; // slate-700 : slate-200
+            const textColor = isDark ? '#94a3b8' : '#94a3b8'; // slate-400
+            const axisColor = isDark ? '#64748b' : '#475569'; // slate-500 : slate-600
+
+            ctx.strokeStyle = gridColor;
             ctx.lineWidth = 1;
             ctx.beginPath();
             
@@ -287,7 +307,7 @@
                 const pos = worldToScreen(i, 0);
                 ctx.moveTo(pos.x, 0);
                 ctx.lineTo(pos.x, canvas.height);
-                ctx.fillStyle = '#94a3b8';
+                ctx.fillStyle = textColor;
                 ctx.font = '10px sans-serif';
                 ctx.fillText(i + 'm', pos.x + 2, origin.y + 15);
             }
@@ -295,12 +315,12 @@
                 const pos = worldToScreen(0, i);
                 ctx.moveTo(0, pos.y);
                 ctx.lineTo(canvas.width, pos.y);
-                ctx.fillStyle = '#94a3b8';
+                ctx.fillStyle = textColor;
                 ctx.fillText(i + 'm', origin.x - 25, pos.y - 2);
             }
             ctx.stroke();
 
-            ctx.strokeStyle = '#475569';
+            ctx.strokeStyle = axisColor;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(origin.x, 0);
@@ -339,14 +359,18 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawGrid();
 
+            const isDark = document.documentElement.classList.contains('dark');
+            const ghostColor = isDark ? 'rgba(148, 163, 184, 0.3)' : 'rgba(148, 163, 184, 0.5)';
+            const pathColor = '#3b82f6'; // Blue-500
+
             // Draw Ghosts (Previous runs)
             ghosts.forEach(ghostPath => {
-                drawPath(ghostPath, 'rgba(148, 163, 184, 0.5)', false);
+                drawPath(ghostPath, ghostColor, false);
             });
 
             // Draw Current Path
             if (state.history.length > 0) {
-                drawPath(state.history, '#3b82f6', true);
+                drawPath(state.history, pathColor, true);
             }
 
             // Draw Current Ball & Vectors
@@ -357,7 +381,7 @@
             ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
             ctx.fillStyle = '#2563eb';
             ctx.fill();
-            ctx.strokeStyle = '#fff';
+            ctx.strokeStyle = isDark ? '#1e293b' : '#fff'; // Dark border in dark mode
             ctx.lineWidth = 2;
             ctx.stroke();
 
@@ -389,6 +413,14 @@
         }
 
         // --- Interaction & Utils ---
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            draw(); // Redraw canvas with new colors
+            
+            // Re-render icons after DOM change just in case
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
 
         function updateStats() {
             document.getElementById('timeDisplay').innerText = state.t.toFixed(2);
@@ -436,7 +468,6 @@
         }
 
         function saveGhost() {
-            // Save only if simulation actually moved
             if (state.history.length > 1) {
                 ghosts.push([...state.history]);
             }
@@ -444,7 +475,7 @@
 
         function resetSimulation() {
             if (isAuto) toggleAuto();
-            saveGhost(); // Save current state before resetting
+            saveGhost(); 
             initSimulation();
             updateStats();
         }
@@ -467,7 +498,6 @@
             updateScale();
         });
         
-        // Change events trigger reset (and save ghost)
         dtInput.addEventListener('change', resetSimulation);
         v0Input.addEventListener('change', resetSimulation);
         angleInput.addEventListener('change', resetSimulation);
