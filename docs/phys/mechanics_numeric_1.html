@@ -78,6 +78,22 @@
                 </div>
             </div>
 
+            <!-- View Settings (New Section) -->
+            <div class="p-5 border-b border-slate-100 bg-slate-50/50">
+                <h2 class="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <i data-lucide="zoom-in" class="w-4 h-4"></i> Skala Widoku
+                </h2>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="minus" class="w-3 h-3 text-slate-400"></i>
+                        <input type="range" id="zoomInput" min="0.2" max="2.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-slate-600">
+                        <i data-lucide="plus" class="w-3 h-3 text-slate-400"></i>
+                        <span id="zoomValue" class="text-sm font-mono w-12 text-right text-slate-700">1.0x</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Zmniejsz powiększenie, jeśli wykres wychodzi poza ekran.</p>
+                </div>
+            </div>
+
             <!-- Current State Calculation -->
             <div class="flex-1 p-5 flex flex-col min-h-0">
                 <h2 class="font-semibold text-slate-700 mb-2 flex items-center gap-2">
@@ -133,6 +149,8 @@
         const dtValue = document.getElementById('dtValue');
         const v0Input = document.getElementById('v0Input');
         const angleInput = document.getElementById('angleInput');
+        const zoomInput = document.getElementById('zoomInput');
+        const zoomValue = document.getElementById('zoomValue');
         const stepBtn = document.getElementById('stepBtn');
         const autoBtn = document.getElementById('autoBtn');
 
@@ -203,6 +221,7 @@
                 log(`\n[t=${state.t.toFixed(2)}s]`);
                 log(`x = ${oldX.toFixed(1)} + ${oldVx.toFixed(1)}*${dt} = ${state.x.toFixed(2)}`);
                 log(`y = ${oldY.toFixed(1)} + ${oldVy.toFixed(1)}*${dt} = ${state.y.toFixed(2)}`);
+                log(`vx = ${oldVx.toFixed(1)} + 0 = ${state.vx.toFixed(2)}`);
                 log(`vy = ${oldVy.toFixed(1)} - ${g}*${dt} = ${state.vy.toFixed(2)}`);
             }
 
@@ -212,12 +231,19 @@
 
         // --- Visualization ---
 
+        function updateScale() {
+            // Base scale fits approx 150m width and 80m height on standard view
+            const baseScale = Math.min(canvas.width / 150, canvas.height / 80); 
+            const zoomFactor = parseFloat(zoomInput.value);
+            scale = baseScale * zoomFactor;
+            draw();
+        }
+
         function resizeCanvas() {
             canvas.width = canvas.parentElement.clientWidth;
             canvas.height = canvas.parentElement.clientHeight;
             origin = { x: 50, y: canvas.height - 50 };
-            scale = Math.min(canvas.width / 150, canvas.height / 80); 
-            draw();
+            updateScale();
         }
 
         function worldToScreen(wx, wy) {
@@ -434,6 +460,11 @@
         // Input listeners
         dtInput.addEventListener('input', (e) => {
             dtValue.innerText = parseFloat(e.target.value).toFixed(2) + 's';
+        });
+
+        zoomInput.addEventListener('input', (e) => {
+            zoomValue.innerText = parseFloat(e.target.value).toFixed(1) + 'x';
+            updateScale();
         });
         
         // Change events trigger reset (and save ghost)
