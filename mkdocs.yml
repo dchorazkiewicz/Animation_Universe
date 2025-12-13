@@ -51,3 +51,6 @@ nav:
     - Grawitacja i Orbity: phys/grawitacja_orbity.html
     - Tunelowanie: phys/tunelowanie.html
     - Mechanika Numeryczna 1: phys/mechanics_numeric_1.html
+  - Dokumentacja:
+    - How To MkDocs (PL): how_to_mkdocs_pl.md
+    - How To MkDocs (EN): how_to_mkdocs_en.md
