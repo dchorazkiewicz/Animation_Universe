@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numeryczne Rozwiązanie Równań Ruchu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Zmieniono źródło na unpkg dla lepszej kompatybilności -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { touch-action: none; }
+        .math-font { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        /* Custom scrollbar for the log */
+        .log-container::-webkit-scrollbar { width: 8px; }
+        .log-container::-webkit-scrollbar-track { background: #f1f1f1; }
+        .log-container::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .log-container::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm p-4 z-10 flex justify-between items-center border-b border-slate-200">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">Numeryczna Całkowanie Równań Ruchu (Metoda Eulera)</h1>
+            <p class="text-sm text-slate-500">Wizualizacja układu równań liniowych: $v = dx/dt$ oraz $a = dv/dt$</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="clearGhosts()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 rounded transition-colors font-medium" title="Usuń poprzednie wykresy">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Wyczyść ślady
+            </button>
+            <div class="w-px h-8 bg-slate-300 mx-1"></div>
+            <button onclick="resetSimulation()" class="flex items-center gap-2 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-colors font-medium">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
+            </button>
+            <button id="stepBtn" onclick="stepSimulation()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow transition-colors font-medium">
+                <i data-lucide="step-forward" class="w-4 h-4"></i> Wykonaj Krok ($\Delta t$)
+            </button>
+            <button id="autoBtn" onclick="toggleAuto()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow transition-colors font-medium">
+                <i data-lucide="play" class="w-4 h-4"></i> Auto
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Sidebar Controls & Math -->
+        <aside class="w-full md:w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto shadow-lg z-10">
+            
+            <!-- Parameters -->
+            <div class="p-5 border-b border-slate-100">
+                <h2 class="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-4 h-4"></i> Parametry początkowe
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Krok czasowy ($\Delta t$)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="dtInput" min="0.05" max="0.5" step="0.05" value="0.2" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            <span id="dtValue" class="text-sm font-mono w-12 text-right">0.20s</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">Im większe $\Delta t$, tym większy błąd numeryczny (i "skoki").</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Prędkość $v_0$ [m/s]</label>
+                            <input type="number" id="v0Input" value="30" class="w-full p-2 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Kąt [stopnie]</label>
+                            <input type="number" id="angleInput" value="60" class="w-full p-2 bg-slate-50 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current State Calculation -->
+            <div class="flex-1 p-5 flex flex-col min-h-0">
+                <h2 class="font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-4 h-4"></i> Obliczenia (Log)
+                </h2>
+                <div id="calcLog" class="log-container flex-1 bg-slate-900 text-green-400 font-mono text-xs p-3 rounded shadow-inner overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                    -- Oczekiwanie na start --
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-600">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-3 h-3 rounded-full bg-blue-500"></span> Aktualne Położenie
+                </div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-3 h-3 rounded-full bg-slate-300"></span> Poprzednie przebiegi (Duchy)
+                </div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-8 h-0.5 bg-green-500 relative"><span class="absolute right-0 -top-1 border-t-2 border-r-2 border-green-500 w-2 h-2 rotate-45"></span></span> Prędkość ($v$)
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-0.5 bg-red-500 relative"><span class="absolute right-0 -top-1 border-t-2 border-r-2 border-red-500 w-2 h-2 rotate-45"></span></span> Grawitacja ($g$)
+                </div>
+            </div>
+        </aside>
+
+        <!-- Visualization Area -->
+        <main class="flex-1 relative bg-white cursor-crosshair overflow-hidden" id="canvasContainer">
+            <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+            
+            <!-- Floating Stats -->
+            <div class="absolute top-4 left-4 bg-white/90 backdrop-blur border border-slate-200 p-3 rounded shadow-sm pointer-events-none">
+                <div class="text-sm font-mono text-slate-800">Czas: <span id="timeDisplay">0.00</span> s</div>
+                <div class="text-xs text-slate-500 mt-1">
+                    x: <span id="xDisplay">0.0</span> m <br>
+                    y: <span id="yDisplay">0.0</span> m <br>
+                    vx: <span id="vxDisplay">0.0</span> m/s <br>
+                    vy: <span id="vyDisplay">0.0</span> m/s
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- Setup & Configuration ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const calcLog = document.getElementById('calcLog');
+        
+        // UI Elements
+        const dtInput = document.getElementById('dtInput');
+        const dtValue = document.getElementById('dtValue');
+        const v0Input = document.getElementById('v0Input');
+        const angleInput = document.getElementById('angleInput');
+        const stepBtn = document.getElementById('stepBtn');
+        const autoBtn = document.getElementById('autoBtn');
+
+        // Physics State
+        const g = 9.81; // m/s^2
+        let state = {
+            t: 0,
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            history: [] // Array of {x, y}
+        };
+
+        // Storage for previous runs (ghosts)
+        let ghosts = []; 
+
+        let isAuto = false;
+        let autoInterval = null;
+        let scale = 10; // pixels per meter
+        let origin = { x: 50, y: 0 }; // calculated on resize
+
+        // --- Core Physics Logic (The Pedagogical Part) ---
+
+        function initSimulation() {
+            const v0 = parseFloat(v0Input.value);
+            const angleDeg = parseFloat(angleInput.value);
+            const angleRad = angleDeg * Math.PI / 180;
+
+            state = {
+                t: 0,
+                x: 0,
+                y: 0,
+                vx: v0 * Math.cos(angleRad),
+                vy: v0 * Math.sin(angleRad),
+                history: [{x: 0, y: 0}]
+            };
+
+            log(`-- NOWA SYMULACJA --\nv0 = ${v0} m/s, alpha = ${angleDeg}°, dt = ${dtInput.value}s`, true);
+            draw();
+        }
+
+        function step() {
+            const dt = parseFloat(dtInput.value);
+            
+            const oldX = state.x;
+            const oldY = state.y;
+            const oldVx = state.vx;
+            const oldVy = state.vy;
+
+            // Metoda Eulera
+            // 1. Zmiana położenia (dzięki prędkości)
+            state.x = state.x + state.vx * dt;
+            state.y = state.y + state.vy * dt;
+
+            // 2. Zmiana prędkości (dzięki przyspieszeniu)
+            state.vx = state.vx; 
+            state.vy = state.vy - g * dt;
+
+            state.t += dt;
+            state.history.push({x: state.x, y: state.y});
+
+            if (state.y < 0) {
+                state.y = 0;
+                log(`\nKONIEC (Ziemia)\nCzas: ${state.t.toFixed(2)}s, Zasięg: ${state.x.toFixed(2)}m`);
+                if (isAuto) toggleAuto();
+            } else {
+                log(`\n[t=${state.t.toFixed(2)}s]`);
+                log(`x = ${oldX.toFixed(1)} + ${oldVx.toFixed(1)}*${dt} = ${state.x.toFixed(2)}`);
+                log(`y = ${oldY.toFixed(1)} + ${oldVy.toFixed(1)}*${dt} = ${state.y.toFixed(2)}`);
+                log(`vy = ${oldVy.toFixed(1)} - ${g}*${dt} = ${state.vy.toFixed(2)}`);
+            }
+
+            draw();
+            updateStats();
+        }
+
+        // --- Visualization ---
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            origin = { x: 50, y: canvas.height - 50 };
+            scale = Math.min(canvas.width / 150, canvas.height / 80); 
+            draw();
+        }
+
+        function worldToScreen(wx, wy) {
+            return {
+                x: origin.x + wx * scale,
+                y: origin.y - wy * scale 
+            };
+        }
+
+        function drawArrow(fromX, fromY, vecX, vecY, color, width = 2) {
+            const headlen = 10;
+            const toX = fromX + vecX;
+            const toY = fromY - vecY;
+            const angle = Math.atan2(-vecY, vecX);
+
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(toX, toY);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            const maxMetersX = (canvas.width - origin.x) / scale;
+            const maxMetersY = origin.y / scale;
+
+            for(let i=0; i<=maxMetersX; i+=10) {
+                const pos = worldToScreen(i, 0);
+                ctx.moveTo(pos.x, 0);
+                ctx.lineTo(pos.x, canvas.height);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(i + 'm', pos.x + 2, origin.y + 15);
+            }
+            for(let i=0; i<=maxMetersY; i+=10) {
+                const pos = worldToScreen(0, i);
+                ctx.moveTo(0, pos.y);
+                ctx.lineTo(canvas.width, pos.y);
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText(i + 'm', origin.x - 25, pos.y - 2);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(origin.x, 0);
+            ctx.moveTo(origin.x, canvas.height);
+            ctx.lineTo(origin.x, 0);
+            ctx.moveTo(0, origin.y);
+            ctx.lineTo(canvas.width, origin.y);
+            ctx.stroke();
+        }
+
+        function drawPath(pathPoints, color, isDotted = false) {
+            if (pathPoints.length === 0) return;
+            
+            ctx.beginPath();
+            const start = worldToScreen(pathPoints[0].x, pathPoints[0].y);
+            ctx.moveTo(start.x, start.y);
+            
+            for(let point of pathPoints) {
+                const p = worldToScreen(point.x, point.y);
+                ctx.lineTo(p.x, p.y);
+                // Points
+                ctx.fillStyle = color;
+                ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+            }
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isDotted ? 1 : 2;
+            if (isDotted) ctx.setLineDash([5, 5]);
+            else ctx.setLineDash([]);
+            
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+
+            // Draw Ghosts (Previous runs)
+            ghosts.forEach(ghostPath => {
+                drawPath(ghostPath, 'rgba(148, 163, 184, 0.5)', false);
+            });
+
+            // Draw Current Path
+            if (state.history.length > 0) {
+                drawPath(state.history, '#3b82f6', true);
+            }
+
+            // Draw Current Ball & Vectors
+            const pos = worldToScreen(state.x, state.y);
+            
+            // Ball
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#2563eb';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Vectors
+            drawArrow(pos.x, pos.y, state.vx * scale * 0.5, state.vy * scale * 0.5, '#22c55e', 3);
+            drawArrow(pos.x, pos.y, 0, -g * scale * 0.5, '#ef4444', 3);
+
+            // Prediction Ghost
+            if (state.y > 0) {
+                const dt = parseFloat(dtInput.value);
+                const nextX = state.x + state.vx * dt;
+                const nextY = state.y + state.vy * dt;
+                const nextPos = worldToScreen(nextX, nextY);
+                
+                ctx.beginPath();
+                ctx.arc(nextPos.x, nextPos.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(34, 197, 94, 0.3)';
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+                ctx.lineTo(nextPos.x, nextPos.y);
+                ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // --- Interaction & Utils ---
+
+        function updateStats() {
+            document.getElementById('timeDisplay').innerText = state.t.toFixed(2);
+            document.getElementById('xDisplay').innerText = state.x.toFixed(1);
+            document.getElementById('yDisplay').innerText = state.y.toFixed(1);
+            document.getElementById('vxDisplay').innerText = state.vx.toFixed(1);
+            document.getElementById('vyDisplay').innerText = state.vy.toFixed(1);
+        }
+
+        function log(message, clear = false) {
+            if (clear) calcLog.innerText = '';
+            calcLog.innerText += message + '\n';
+            calcLog.scrollTop = calcLog.scrollHeight;
+        }
+
+        function stepSimulation() {
+            if (state.y <= 0 && state.t > 0) return;
+            step();
+        }
+
+        function toggleAuto() {
+            const btn = document.getElementById('autoBtn');
+            if (isAuto) {
+                clearInterval(autoInterval);
+                isAuto = false;
+                btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+                btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Auto';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else {
+                if (state.y <= 0 && state.t > 0) resetSimulation();
+                isAuto = true;
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+                btn.classList.add('bg-red-600', 'hover:bg-red-700');
+                btn.innerHTML = '<i data-lucide="pause" class="w-4 h-4"></i> Stop';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                autoInterval = setInterval(() => {
+                    if (state.y <= 0 && state.t > 0) {
+                        toggleAuto();
+                        return;
+                    }
+                    step();
+                }, 500);
+            }
+        }
+
+        function saveGhost() {
+            // Save only if simulation actually moved
+            if (state.history.length > 1) {
+                ghosts.push([...state.history]);
+            }
+        }
+
+        function resetSimulation() {
+            if (isAuto) toggleAuto();
+            saveGhost(); // Save current state before resetting
+            initSimulation();
+            updateStats();
+        }
+
+        function clearGhosts() {
+            ghosts = [];
+            draw();
+        }
+
+        // Listeners
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Input listeners
+        dtInput.addEventListener('input', (e) => {
+            dtValue.innerText = parseFloat(e.target.value).toFixed(2) + 's';
+        });
+        
+        // Change events trigger reset (and save ghost)
+        dtInput.addEventListener('change', resetSimulation);
+        v0Input.addEventListener('change', resetSimulation);
+        angleInput.addEventListener('change', resetSimulation);
+
+        // Init
+        window.addEventListener('load', () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+            resizeCanvas();
+            initSimulation();
+        });
+
+    </script>
+</body>
+</html>
