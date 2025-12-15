@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symulacja Restatement (Fixed Layout)</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* --- THEME --- */
+        :root {
+            --bg-app: #0f1115;
+            --bg-panel: #161b22;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            
+            --color-omega: #58a6ff;
+            --color-phi: #d29922;
+            --color-train: #2ea043; /* Green for April */
+            --color-incoming: #1f6feb;
+            --color-model: #a371f7; /* Purple for May */
+            --state-alert: #da3633;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            /* FLEX COLUMN LAYOUT FOR FULL SCREEN */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh; /* Fixed viewport height */
+            overflow: hidden; /* No body scroll */
+        }
+
+        /* --- TABS (FIXED TOP) --- */
+        .tabs {
+            flex: 0 0 auto; /* Don't grow or shrink */
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            background: var(--bg-panel);
+            padding: 5px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .tab-btn.active { background: var(--color-omega); color: #fff; }
+        
+        /* --- SINGLE VIEW CONTAINER (FLEXIBLE MIDDLE) --- */
+        #view-evolution {
+            flex: 1 1 auto; /* Grow to fill available space */
+            width: 100%;
+            max-width: 1600px;
+            /* Height is managed by flex, but we need min-height:0 for nested scroll to work */
+            min-height: 0; 
+            
+            border: 1px solid var(--border-color);
+            background: var(--bg-panel);
+            border-radius: 6px;
+            padding: 0;
+            
+            /* GRID LAYOUT INSIDE */
+            display: grid;
+            grid-template-columns: 80px 60px 1fr;
+            gap: 0;
+            overflow: hidden; /* Prevent container itself from scrolling */
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            position: relative;
+            background: #0d1117;
+            height: 100%; /* Fill the grid cell */
+            overflow: hidden; /* Manage overflow internally */
+        }
+
+        .column-header {
+            flex: 0 0 40px; /* Fixed height header */
+            padding: 10px;
+            text-align: center;
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-panel);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10;
+        }
+
+        /* SCROLLABLE AREAS */
+        .input-stack-compact, .matrix-container {
+            flex: 1 1 auto; /* Take remaining height */
+            overflow-y: auto; /* Enable scroll */
+            padding-top: 5px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .matrix-container { padding-left: 5px; }
+
+        /* ITEMS */
+        .source-pill {
+            height: 20px; flex: 0 0 20px; /* Fixed height items */
+            margin-bottom: 2px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #fff;
+            animation: slideInLeft 0.2s;
+        }
+
+        /* Color coding for Snapshots */
+        .source-pill.april {
+            background: rgba(46, 160, 67, 0.2);
+            border-left: 3px solid var(--color-train);
+        }
+
+        .source-pill.may {
+            background: rgba(163, 113, 247, 0.2);
+            border-left: 3px solid var(--color-model);
+        }
+
+        .matrix-row {
+            height: 20px; flex: 0 0 20px; /* Fixed height items */
+            display: flex; align-items: center;
+            margin-bottom: 2px;
+            animation: fadeIn 0.2s;
+        }
+        
+        .cells-row { display: flex; gap: 1px; align-items: center; }
+        
+        /* Month Separator Line */
+        .month-separator {
+            width: 2px;
+            height: 20px;
+            background-color: var(--text-secondary);
+            margin: 0 3px;
+            flex: 0 0 2px;
+            opacity: 0.5;
+        }
+
+        .cell {
+            width: 22px; height: 20px; 
+            display: flex; justify-content: center; align-items: center;
+            font-size: 9px; border-radius: 1px; position: relative;
+        }
+        .cell.empty { background: rgba(255,255,255,0.02); }
+        .cell.val { background: #21262d; color: #8b949e; }
+        .cell.new { background: rgba(31, 111, 235, 0.3); color: #fff; font-weight: bold; border: 1px solid var(--color-incoming); }
+        .cell.alert { background: rgba(218, 54, 51, 0.8) !important; color: white !important; font-weight: bold; }
+        
+        /* MTD Specific Styles */
+        .cell.mtd-aprx { background: #1a2e1d; color: #7ee787; font-size: 8px; } /* MTD April */
+        .cell.mtd-total { background: #2e1a2b; color: #d8b4fe; font-weight:bold; font-size: 8px; border: 1px solid #583857; } /* Total April Plateau */
+
+        @keyframes slideInLeft { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- CONTROLS (FIXED BOTTOM) --- */
+        .controls {
+            flex: 0 0 auto; /* Don't grow or shrink */
+            margin-top: 15px; 
+            width: 100%; max-width: 1600px;
+            background: var(--bg-panel); padding: 15px; border: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+            border-radius: 6px;
+        }
+        button {
+            background: var(--color-omega); color: white; border: none; padding: 10px 20px;
+            border-radius: 4px; font-weight: bold; cursor: pointer; font-family: inherit;
+        }
+        button:disabled { background: #333; color: #666; cursor: not-allowed; }
+        
+        button.secondary {
+            background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+        }
+        button.secondary:hover { background: #30363d; border-color: #8b949e; }
+
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchView('daily')">1. Wartości Dzienne (Raw)</button>
+        <button class="tab-btn" onclick="switchView('mtd')">2. MTD & Suma Kwietnia</button>
+    </div>
+
+    <!-- SINGLE VIEW: EVOLUTION -->
+    <div id="view-evolution">
+        <!-- COL 1: SOURCE -->
+        <div class="column" style="width: 80px;">
+            <div class="column-header">SNAPSHOT<br>(&tau;)</div>
+            <div id="sourceContainer" class="input-stack-compact"></div>
+        </div>
+        
+        <!-- COL 2: PHI -->
+        <div class="column" style="display:flex; justify-content:center; align-items:center; background: #0d1117;">
+            <div style="font-size:24px; color:var(--color-phi);">&Phi;</div>
+        </div>
+        
+        <!-- COL 3: MATRIX -->
+        <div class="column" style="flex:1;">
+            <div class="column-header" style="justify-content: flex-start; padding-left: 20px;" id="matrixHeader">
+                MACIERZ HISTORII (V) - [Oś Pozioma = Czas Zdarzenia t] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Linia = Granica Kwietnia</span>
+            </div>
+            <div id="matrix1" class="matrix-container"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div id="status">Gotowy. Zakres: 01.04 - 10.05 (40 dni).</div>
+        <div style="display:flex; gap:10px;">
+            <button id="resetBtn" onclick="resetSim()" class="secondary">Reset</button>
+            <button id="mainBtn" onclick="nextStep()">Krok +1 (01.04)</button>
+            <button id="autoBtn" onclick="toggleAuto()" class="secondary">Auto-Play</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const APR_DAYS = 30;
+        const MAY_DAYS = 10;
+        const TOTAL_DAYS = APR_DAYS + MAY_DAYS; 
+        const CHANGE_WINDOW = 7; 
+        
+        // --- STATE ---
+        let stepIndex = 0; 
+        let scenarioMatrix = []; 
+        let autoInterval = null;
+        let viewMode = 'daily'; // 'daily' or 'mtd'
+
+        // --- PSEUDO-RANDOM GENERATOR ---
+        let seed = 12345;
+        function seededRandom() {
+            var x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        // --- INIT ---
+        initScenario();
+
+        function initScenario() {
+            scenarioMatrix = [];
+            seed = 500; 
+            
+            function getBaseValue(dayIdx) {
+                return Math.floor(100 + (dayIdx * 2) + Math.sin(dayIdx/3)*20 + seededRandom()*10);
+            }
+
+            let currentVector = new Array(TOTAL_DAYS).fill(null);
+
+            for(let row=0; row<TOTAL_DAYS; row++) {
+                // 1. Add NEW day
+                currentVector[row] = getBaseValue(row);
+
+                // 2. Changes
+                let startCheck = Math.max(0, row - CHANGE_WINDOW);
+                let endCheck = row - 1; 
+
+                for(let i = startCheck; i <= endCheck; i++) {
+                    if(seededRandom() > 0.7) {
+                        let changeAmount = Math.floor(seededRandom() * 10) - 5; 
+                        if(changeAmount !== 0) {
+                            currentVector[i] += changeAmount;
+                        }
+                    }
+                }
+                scenarioMatrix.push([...currentVector]); 
+            }
+        }
+        
+        function getLabel(idx) {
+            if (idx < APR_DAYS) {
+                let d = idx + 1;
+                return d < 10 ? `0${d}.04` : `${d}.04`;
+            } else {
+                let d = idx - APR_DAYS + 1;
+                return d < 10 ? `0${d}.05` : `${d}.05`;
+            }
+        }
+
+        function switchView(mode) {
+            viewMode = mode;
+            // Update buttons
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => b.classList.remove('active'));
+            if(mode === 'daily') btns[0].classList.add('active');
+            else btns[1].classList.add('active');
+
+            // Update Header
+            const header = document.getElementById('matrixHeader');
+            if (mode === 'daily') {
+                header.innerHTML = `MACIERZ HISTORII (V) - [Oś Pozioma = Czas Zdarzenia t] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Linia = Granica Kwietnia</span>`;
+            } else {
+                header.innerHTML = `MTD KWIETNIA & SUMA CAŁKOWITA - [Oś Pozioma = Dni Kwietnia + Projekcja Maja] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Prawa Strona = Ostateczna Suma Kwietnia</span>`;
+            }
+
+            // Re-render
+            refreshView();
+        }
+
+        function refreshView() {
+            // Clear and redraw all rows up to current step
+            document.getElementById('sourceContainer').innerHTML = '';
+            document.getElementById('matrix1').innerHTML = '';
+            
+            for(let i=0; i<stepIndex; i++) {
+                renderRow(i);
+            }
+            scrollToBottom('matrix1');
+            scrollToBottom('sourceContainer');
+        }
+
+        function resetSim() {
+            clearInterval(autoInterval);
+            stepIndex = 0;
+            document.getElementById('sourceContainer').innerHTML = '';
+            document.getElementById('matrix1').innerHTML = '';
+            document.getElementById('mainBtn').innerText = "Krok +1 (01.04)";
+            document.getElementById('mainBtn').disabled = false;
+            document.getElementById('status').innerText = "Zresetowano.";
+            seed = 500;
+        }
+
+        function toggleAuto() {
+            if (autoInterval) {
+                clearInterval(autoInterval);
+                autoInterval = null;
+            } else {
+                nextStep();
+                autoInterval = setInterval(nextStep, 200); 
+            }
+        }
+
+        function nextStep() {
+            if (stepIndex >= TOTAL_DAYS) {
+                clearInterval(autoInterval);
+                document.getElementById('mainBtn').disabled = true;
+                document.getElementById('mainBtn').innerText = "Koniec";
+                return;
+            }
+
+            renderRow(stepIndex);
+            
+            stepIndex++;
+            
+            if(stepIndex < TOTAL_DAYS) {
+                document.getElementById('mainBtn').innerText = `Krok +1 (${getLabel(stepIndex)})`;
+            }
+            
+            scrollToBottom('matrix1');
+            scrollToBottom('sourceContainer');
+        }
+
+        function scrollToBottom(id) {
+            const el = document.getElementById(id);
+            requestAnimationFrame(() => {
+                el.scrollTop = el.scrollHeight;
+            });
+        }
+
+        function renderRow(idx) {
+            const currentVec = scenarioMatrix[idx];
+            const prevVec = idx > 0 ? scenarioMatrix[idx-1] : null;
+            const label = getLabel(idx);
+
+            // 1. Source Label
+            const sourceBox = document.getElementById('sourceContainer');
+            const pill = document.createElement('div');
+            
+            const isMay = idx >= APR_DAYS;
+            pill.className = `source-pill ${isMay ? 'may' : 'april'}`;
+            
+            pill.innerText = label;
+            sourceBox.appendChild(pill);
+
+            // 2. Matrix Row
+            const matrixBox = document.getElementById('matrix1');
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'matrix-row';
+            
+            let html = `<div class="cells-row">`;
+            
+            // Calc MTD Vector if needed
+            let displayVec = [];
+            let prevDisplayVec = [];
+
+            if (viewMode === 'mtd') {
+                // Calculate MTD for current row
+                let runningSum = 0;
+                for(let t=0; t<TOTAL_DAYS; t++) {
+                    if (currentVec[t] !== null) {
+                        // Crucial Logic:
+                        // If t < 30 (April): Add to running sum.
+                        // If t >= 30 (May): Don't add May value. KEEP the April Total (Plateau).
+                        if (t < APR_DAYS) {
+                            runningSum += currentVec[t];
+                        }
+                        displayVec[t] = runningSum; // For t>=30, this repeats the April Total
+                    } else {
+                        displayVec[t] = null;
+                    }
+                }
+
+                // Calculate MTD for prev row (for comparison)
+                if (prevVec) {
+                    let prevSum = 0;
+                    for(let t=0; t<TOTAL_DAYS; t++) {
+                        if (prevVec[t] !== null) {
+                            if (t < APR_DAYS) {
+                                prevSum += prevVec[t];
+                            }
+                            prevDisplayVec[t] = prevSum;
+                        }
+                    }
+                }
+            } else {
+                displayVec = currentVec;
+                prevDisplayVec = prevVec;
+            }
+
+            // RENDER COLS
+            for(let t=0; t<TOTAL_DAYS; t++) {
+                // Separator
+                if (t === APR_DAYS) {
+                    html += `<div class="month-separator" title="Granica Miesiąca"></div>`;
+                }
+
+                let val = displayVec[t];
+                let cssClass = 'cell empty';
+                let displayVal = '.';
+
+                if (val !== null && val !== undefined) {
+                    // It exists in history
+                    // Check bounds: In raw mode check vs index. In MTD check if data existed.
+                    if (t <= idx) {
+                        displayVal = val;
+                        
+                        if (viewMode === 'daily') {
+                            cssClass = 'cell val';
+                            if (t === idx) cssClass = 'cell new'; 
+                            else if (prevDisplayVec && prevDisplayVec[t] !== val) cssClass = 'cell alert'; 
+                        } 
+                        else {
+                            // MTD MODE
+                            if (t < APR_DAYS) {
+                                cssClass = 'cell mtd-aprx'; // April MTD
+                            } else {
+                                cssClass = 'cell mtd-total'; // April Total Plateau (in May cols)
+                            }
+
+                            // Highlight change in Cumulative Value
+                            if (prevDisplayVec && prevDisplayVec[t] !== val) {
+                                cssClass += ' alert';
+                            }
+                        }
+                    }
+                }
+                
+                html += `<div class="${cssClass}">${displayVal}</div>`;
+            }
+            html += `</div>`;
+            
+            rowDiv.innerHTML = html;
+            matrixBox.appendChild(rowDiv);
+            
+            // Status Update
+            let restatementCount = 0;
+            if(idx > 0) {
+                // Determine raw changes for status
+                for(let k=0; k<idx; k++) {
+                    if(scenarioMatrix[idx-1][k] !== scenarioMatrix[idx][k]) restatementCount++;
+                }
+            }
+            
+            let month = idx < APR_DAYS ? "Kwiecień" : "Maj";
+            let sumApril = 0;
+            if(viewMode === 'mtd') {
+                // Calculate April Sum
+                for(let k=0; k<APR_DAYS; k++) if(scenarioMatrix[idx][k]) sumApril += scenarioMatrix[idx][k];
+            }
+
+            let statusHtml = `Dzień: <b>${label}</b> (${month}). ` + 
+                (restatementCount > 0 ? `<span style="color:#da3633">Zmiany historyczne: ${restatementCount}</span>` : `<span style="color:#2ea043">Stabilnie</span>`);
+            
+            if(viewMode === 'mtd') {
+                statusHtml += ` | Suma Kwietnia: <b>${sumApril}</b>`;
+            }
+
+            document.getElementById('status').innerHTML = statusHtml;
+        }
+    </script>
+</body>
+</html>
