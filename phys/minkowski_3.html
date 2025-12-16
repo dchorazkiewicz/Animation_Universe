@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontrakcja Długości - Symulacja</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            background: #1e1e1e;
+            margin: 10px 0;
+            border-radius: 8px;
+            padding: 5px;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #00d4ff;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            width: 95vw;
+            height: 80vh;
+            gap: 20px;
+        }
+
+        .tab-content.active { display: flex; }
+
+        /* LAYOUT */
+        .canvas-container {
+            flex: 2;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .controls {
+            flex: 1;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 350px;
+            overflow-y: auto;
+        }
+
+        /* SIMULATION VIEWS */
+        .simulation-wrapper {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sim-view {
+            flex: 1;
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sim-label {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            border-left: 3px solid #fff;
+            pointer-events: none;
+        }
+        .sim-label.red { border-left-color: #ff4444; }
+
+        /* UI ELEMENTS */
+        .slider-group {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .radio-group {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .val { color: #fff; font-weight: bold; }
+        
+        .info-card {
+            background: #252525;
+            padding: 10px;
+            border-left: 4px solid #00d4ff;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+        .btn-primary:hover { background: #00b8dd; }
+
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('diagram')">Diagram (Animowany)</button>
+        <button class="tab-btn" onclick="switchTab('simulation')">Symulacja (Perspektywa)</button>
+    </div>
+
+    <!-- TAB 1: DIAGRAM -->
+    <div id="tab-diagram" class="tab-content active">
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="minkowskiCanvas"></canvas>
+            <div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.6); font-size: 0.9rem; pointer-events: none;">
+                <strong>Żółty segment</strong> to linijka w danej chwili t.<br>
+                Obserwuj jak przesuwa się w górę (czas).
+            </div>
+        </div>
+
+        <div class="controls">
+            
+            <div class="radio-group">
+                <label>Gdzie spoczywa Linijka?</label>
+                <div>
+                    <input type="radio" id="restO" name="restFrame" value="O" checked onchange="updateSystem()">
+                    <label for="restO" style="display:inline; font-weight:normal">W układzie O (Lab)</label>
+                </div>
+                <div>
+                    <input type="radio" id="restOp" name="restFrame" value="Op" onchange="updateSystem()">
+                    <label for="restOp" style="display:inline; font-weight:normal">W układzie O' (Rakieta)</label>
+                </div>
+            </div>
+
+            <div class="slider-group">
+                <label>Prędkość układu O' (v/c)</label>
+                <input type="range" id="velocitySlider" min="-0.90" max="0.90" step="0.01" value="0.60">
+                <div class="row">
+                    <span>v = <span id="vDisplay" class="val">0.60</span>c</span>
+                    <span>γ = <span id="gammaDisplay" class="val">1.25</span></span>
+                </div>
+            </div>
+
+            <div class="slider-group">
+                <label>Długość spoczynkowa (L₀)</label>
+                <input type="range" id="lengthSlider" min="2" max="8" step="0.5" value="6">
+                <div class="row">
+                    <span>L₀ = <span id="l0Display" class="val">6.0</span> jedn.</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div style="text-align:center; margin-bottom:5px;">
+                    <button class="btn-primary" id="btnPlayPauseDiag" style="padding: 5px 10px; font-size:0.9rem;">Start / Stop Animacji</button>
+                </div>
+                <strong>Współrzędne końców (Rzutowanie):</strong>
+                <div class="row" style="margin-top:5px; color:#fff;">
+                    rzut na x (Biały): dx = <span id="lenO" class="val">0.00</span>
+                </div>
+                <div class="row" style="color:#ff69b4;">
+                    rzut na x' (Różowy): dx' = <span id="lenOp" class="val">0.00</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #444; margin: 8px 0;">
+                <small style="color:#aaa">
+                    Segment "leci" w górę zgodnie z czasem symulacji t. Różowe linie pokazują współrzędne w układzie poruszającym się (O').
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: SIMULATION -->
+    <div id="tab-simulation" class="tab-content">
+        <div class="simulation-wrapper">
+            <!-- View O -->
+            <div class="sim-view">
+                <div class="sim-label">
+                    <strong>Perspektywa O (My/Lab)</strong><br>
+                    <small>Długość w naszym układzie: <span id="simLenO" style="color:#00d4ff">0.00</span></small>
+                </div>
+                <canvas id="simCanvasO"></canvas>
+            </div>
+            
+            <!-- View O' -->
+            <div class="sim-view">
+                <div class="sim-label red">
+                    <strong>Perspektywa O' (Rakieta)</strong><br>
+                    <small>Długość w układzie rakiety: <span id="simLenOp" style="color:#ff69b4">0.00</span></small>
+                </div>
+                <canvas id="simCanvasOp"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+             <button class="btn-primary" id="btnPlayPause">Start / Stop</button>
+             
+             <div class="slider-group" style="margin-top:10px;">
+                <label>Czas symulacji (t)</label>
+                <input type="range" id="timeSlider" min="-10" max="10" step="0.01" value="0">
+             </div>
+
+             <div class="info-card" style="margin-top:10px;">
+                <strong>Legenda Symulacji:</strong>
+                <ul style="padding-left: 20px; margin: 5px 0; color: #aaa; font-size:0.85rem;">
+                    <li><span style="color:#ffff00">🟨</span> Linijka (Obiekt fizyczny)</li>
+                    <li><span style="color:#fff">⬜</span> Układ O (Obserwator Lab)</li>
+                    <li><span style="color:#ff4444">🟥</span> Układ O' (Obserwator Rakieta)</li>
+                </ul>
+                <p style="font-size:0.8rem; margin-bottom:0; color:#888;">
+                    Gdy linijka się porusza, ulega skróceniu Lorentza.
+                </p>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE ---
+        let activeTab = 'diagram';
+        let beta = 0.6;
+        let restLength = 6.0;
+        let restFrame = 'O'; // 'O' or 'Op'
+        const scale = 30; // pixels per unit
+
+        let isPlaying = false;
+        let simTime = 0;
+
+        // --- DOM ELEMENTS ---
+        const canvasD = document.getElementById('minkowskiCanvas');
+        const ctxD = canvasD.getContext('2d');
+        const containerD = document.getElementById('canvasContainer');
+        
+        const canvasSimO = document.getElementById('simCanvasO');
+        const ctxSimO = canvasSimO.getContext('2d');
+        const canvasSimOp = document.getElementById('simCanvasOp');
+        const ctxSimOp = canvasSimOp.getContext('2d');
+
+        // --- MATH HELPERS ---
+        function getGamma(v) { 
+            if(v*v >= 1) return 100; // safety
+            return 1 / Math.sqrt(1 - v*v); 
+        }
+
+        function toCanvas(mx, mt, w, h) {
+            const cx = w / 2;
+            const cy = h / 2;
+            return { x: cx + mx * scale, y: cy - mt * scale };
+        }
+        
+        function intersect(p1x, p1y, m1, p2x, p2y, m2) {
+            const c1 = p1y - m1 * p1x;
+            const c2 = p2y - m2 * p2x;
+            if (Math.abs(m1 - m2) < 0.0001) return {x: p1x, y: p1y};
+            const x = (c2 - c1) / (m1 - m2);
+            const y = m1 * x + c1;
+            return { x, y };
+        }
+
+        // --- LOGIC ---
+        function updateSystem() {
+            // Get inputs
+            const rO = document.getElementById('restO');
+            restFrame = rO.checked ? 'O' : 'Op';
+            
+            beta = parseFloat(document.getElementById('velocitySlider').value);
+            restLength = parseFloat(document.getElementById('lengthSlider').value);
+
+            // Calculate Lengths (Visual length in frames)
+            const gamma = getGamma(beta);
+            let lenO, lenOp;
+
+            // lenO = length measured in O (simultaneous in O)
+            // lenOp = length measured in O' (simultaneous in O')
+            
+            if (restFrame === 'O') {
+                lenO = restLength;
+                lenOp = restLength / gamma; 
+            } else {
+                lenOp = restLength;
+                lenO = restLength / gamma; 
+            }
+
+            // In the Projection Display, we show coordinate differences.
+            // If we project a slice of constant t (simultaneous in O) onto x', 
+            // we are calculating Delta x' = gamma(Delta x - v Delta t) = gamma * Delta x (since Dt=0).
+            // So if object is contracted in O (lenO = L0/gamma), Delta x' = gamma * (L0/gamma) = L0.
+            // The user will see that the projection onto red axis recovers the REST LENGTH.
+            const projWhite = lenO;
+            const projRed = lenO * gamma; // Coordinate difference in O' for events simultaneous in O
+
+            // Update UI
+            document.getElementById('vDisplay').innerText = beta.toFixed(2);
+            document.getElementById('gammaDisplay').innerText = gamma.toFixed(2);
+            document.getElementById('l0Display').innerText = restLength.toFixed(1);
+            
+            document.getElementById('lenO').innerText = projWhite.toFixed(2);
+            document.getElementById('lenOp').innerText = projRed.toFixed(2);
+            
+            // Simulation Labels
+            document.getElementById('simLenO').innerText = lenO.toFixed(3);
+            document.getElementById('simLenOp').innerText = lenOp.toFixed(3);
+
+            drawDiagram();
+            drawSimulation();
+        }
+
+        // --- DIAGRAM DRAWING ---
+        function drawDiagram() {
+            const w = containerD.clientWidth;
+            const h = containerD.clientHeight;
+            canvasD.width = w;
+            canvasD.height = h;
+
+            const cx = w / 2;
+            const cy = h / 2;
+
+            ctxD.fillStyle = '#1e1e1e';
+            ctxD.fillRect(0, 0, w, h);
+
+            // Grid
+            ctxD.strokeStyle = '#333';
+            ctxD.lineWidth = 1;
+            for(let i=-20; i<=20; i++) {
+                let p = toCanvas(i, 0, w, h);
+                ctxD.beginPath(); ctxD.moveTo(p.x, 0); ctxD.lineTo(p.x, h); ctxD.stroke();
+                p = toCanvas(0, i, w, h);
+                ctxD.beginPath(); ctxD.moveTo(0, p.y); ctxD.lineTo(w, p.y); ctxD.stroke();
+            }
+
+            // Light Cone
+            ctxD.strokeStyle = 'rgba(255, 255, 0, 0.3)';
+            ctxD.setLineDash([5,5]);
+            let p1 = toCanvas(-20,-20, w, h); let p2 = toCanvas(20,20, w, h);
+            ctxD.beginPath(); ctxD.moveTo(p1.x, p1.y); ctxD.lineTo(p2.x, p2.y); ctxD.stroke();
+            let p3 = toCanvas(-20,20, w, h); let p4 = toCanvas(20,-20, w, h);
+            ctxD.beginPath(); ctxD.moveTo(p3.x, p3.y); ctxD.lineTo(p4.x, p4.y); ctxD.stroke();
+            ctxD.setLineDash([]);
+
+            // Axes O (White)
+            ctxD.strokeStyle = '#fff'; ctxD.lineWidth = 2;
+            let ctTop = toCanvas(0, 20, w, h); let ctBot = toCanvas(0, -20, w, h);
+            ctxD.beginPath(); ctxD.moveTo(ctTop.x, ctTop.y); ctxD.lineTo(ctBot.x, ctBot.y); ctxD.stroke();
+            let xLeft = toCanvas(-20, 0, w, h); let xRight = toCanvas(20, 0, w, h);
+            ctxD.beginPath(); ctxD.moveTo(xLeft.x, xLeft.y); ctxD.lineTo(xRight.x, xRight.y); ctxD.stroke();
+            ctxD.fillStyle = '#fff'; ctxD.fillText("ct", cx+5, 15); ctxD.fillText("x", w-20, cy-5);
+
+            // Axes O' (Red)
+            ctxD.strokeStyle = '#ff4444';
+            let axisLen = 30;
+            let tp1 = toCanvas(beta*axisLen, axisLen, w, h); let tp2 = toCanvas(beta*-axisLen, -axisLen, w, h);
+            ctxD.beginPath(); ctxD.moveTo(tp2.x, tp2.y); ctxD.lineTo(tp1.x, tp1.y); ctxD.stroke();
+            ctxD.fillStyle = '#ff4444'; ctxD.fillText("ct'", tp1.x+5, tp1.y+15);
+
+            let xp1 = toCanvas(axisLen, beta*axisLen, w, h); let xp2 = toCanvas(-axisLen, beta*-axisLen, w, h);
+            ctxD.beginPath(); ctxD.moveTo(xp2.x, xp2.y); ctxD.lineTo(xp1.x, xp1.y); ctxD.stroke();
+            ctxD.fillText("x'", xp1.x-20, xp1.y-5);
+
+            // --- DRAW THE MOVING SEGMENT ---
+            // We draw the ruler at the current time t (simTime)
+            // This represents a slice of the worldstrip at t = simTime.
+            
+            const t = simTime;
+            const gamma = getGamma(beta);
+            
+            let xA, xB; // Endpoints in O coordinates
+            
+            if (restFrame === 'O') {
+                // Static in O.
+                xA = -restLength/2;
+                xB = restLength/2;
+            } else {
+                // Static in O'. Moves at v in O.
+                // Length in O is L0/gamma. Center is at vt.
+                const currentLen = restLength / gamma;
+                const centerX = beta * t;
+                xA = centerX - currentLen/2;
+                xB = centerX + currentLen/2;
+            }
+
+            const pSegA = toCanvas(xA, t, w, h);
+            const pSegB = toCanvas(xB, t, w, h);
+
+            // Draw Segment
+            ctxD.strokeStyle = '#ffff00'; 
+            ctxD.lineWidth = 6;
+            ctxD.beginPath(); ctxD.moveTo(pSegA.x, pSegA.y); ctxD.lineTo(pSegB.x, pSegB.y); ctxD.stroke();
+            
+            // Draw Endpoints
+            ctxD.fillStyle = '#ffff00';
+            ctxD.beginPath(); ctxD.arc(pSegA.x, pSegA.y, 5, 0, Math.PI*2); ctxD.fill();
+            ctxD.beginPath(); ctxD.arc(pSegB.x, pSegB.y, 5, 0, Math.PI*2); ctxD.fill();
+
+            // --- DRAW PROJECTIONS ---
+            // 1. Project to O axes (White)
+            // Vertical drop to x axis
+            ctxD.strokeStyle = 'rgba(255, 255, 255, 0.5)'; ctxD.lineWidth = 1; ctxD.setLineDash([4,4]);
+            
+            let pAxA = toCanvas(xA, 0, w, h);
+            let pAxB = toCanvas(xB, 0, w, h);
+            
+            ctxD.beginPath(); ctxD.moveTo(pSegA.x, pSegA.y); ctxD.lineTo(pAxA.x, pAxA.y); ctxD.stroke();
+            ctxD.beginPath(); ctxD.moveTo(pSegB.x, pSegB.y); ctxD.lineTo(pAxB.x, pAxB.y); ctxD.stroke();
+            
+            // Draw on Axis
+            ctxD.strokeStyle = '#fff'; ctxD.lineWidth = 3; ctxD.setLineDash([]);
+            ctxD.beginPath(); ctxD.moveTo(pAxA.x, pAxA.y); ctxD.lineTo(pAxB.x, pAxB.y); ctxD.stroke();
+
+
+            // 2. Project to O' axes (Red)
+            // Projecting events (xA, t) and (xB, t) onto x' and ct' axes.
+            // Projection parallel to x' axis gives time coordinate ct'.
+            // Projection parallel to ct' axis gives space coordinate x'.
+            
+            const axisSlopeXp = beta; // Slope of x' in (x,t) is beta
+            const axisSlopeTp = 1.0/beta; // Slope of ct' in (x,t) is 1/beta
+            
+            // Find coordinate on x' axis: Intersect line through P with slope of ct' axis (1/beta) against x' axis (slope beta)
+            // Wait, coordinate x' is found by projecting parallel to t' axis ONTO x' axis?
+            // Actually, we usually just draw the line from P parallel to the OTHER axis until it hits the TARGET axis.
+            // To find x' coordinate: Go parallel to ct' (slope 1/beta) until you hit x' (slope beta).
+            
+            let intXA, intXB;
+            if (Math.abs(beta) < 0.001) {
+                intXA = {x: xA, y: 0}; intXB = {x: xB, y: 0};
+            } else {
+                intXA = intersect(xA, t, axisSlopeTp, 0, 0, axisSlopeXp);
+                intXB = intersect(xB, t, axisSlopeTp, 0, 0, axisSlopeXp);
+            }
+            
+            let pRedA = toCanvas(intXA.x, intXA.y, w, h);
+            let pRedB = toCanvas(intXB.x, intXB.y, w, h);
+
+            // Draw dashed lines
+            ctxD.strokeStyle = 'rgba(255, 105, 180, 0.6)'; ctxD.lineWidth = 1; ctxD.setLineDash([4,4]);
+            ctxD.beginPath(); ctxD.moveTo(pSegA.x, pSegA.y); ctxD.lineTo(pRedA.x, pRedA.y); ctxD.stroke();
+            ctxD.beginPath(); ctxD.moveTo(pSegB.x, pSegB.y); ctxD.lineTo(pRedB.x, pRedB.y); ctxD.stroke();
+
+            // Draw on Axis
+            ctxD.strokeStyle = '#ff69b4'; ctxD.lineWidth = 3; ctxD.setLineDash([]);
+            ctxD.beginPath(); ctxD.moveTo(pRedA.x, pRedA.y); ctxD.lineTo(pRedB.x, pRedB.y); ctxD.stroke();
+            
+            // Faint worldlines (guides)
+            ctxD.strokeStyle = 'rgba(255, 255, 0, 0.1)'; ctxD.lineWidth = 1;
+            // Need slope. If restO: vertical. If restOp: slope 1/beta.
+            // Just draw line through current endpoints with correct slope
+            let slope = (restFrame === 'O') ? Infinity : 1/beta;
+            // Draw line passing through (xA, t)
+            drawGuideLine(ctxD, xA, t, slope, w, h);
+            drawGuideLine(ctxD, xB, t, slope, w, h);
+        }
+        
+        function drawGuideLine(ctx, x, t, slope, w, h) {
+            // y - t = m(x - x0) -> t_new = m(x_new - x) + t
+            // Calculate points at top and bottom of screen
+            let topT = 20, botT = -20;
+            let topX, botX;
+            
+            if (slope === Infinity) {
+                topX = x; botX = x;
+            } else {
+                // x = (t_new - t)/m + x
+                topX = (topT - t)/slope + x;
+                botX = (botT - t)/slope + x;
+            }
+            let p1 = toCanvas(topX, topT, w, h);
+            let p2 = toCanvas(botX, botT, w, h);
+            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        }
+
+        // --- SIMULATION DRAWING ---
+        function drawSimulation() {
+            // View O
+            const wO = canvasSimO.parentElement.clientWidth;
+            const hO = canvasSimO.parentElement.clientHeight;
+            canvasSimO.width = wO; canvasSimO.height = hO;
+            drawSingleSim(ctxSimO, wO, hO, 'O', simTime);
+
+            // View O'
+            const wOp = canvasSimOp.parentElement.clientWidth;
+            const hOp = canvasSimOp.parentElement.clientHeight;
+            canvasSimOp.width = wOp; canvasSimOp.height = hOp;
+            drawSingleSim(ctxSimOp, wOp, hOp, 'Op', simTime);
+        }
+
+        function drawSingleSim(ctx, w, h, viewFrame, time) {
+            const cx = w / 2;
+            const cy = h / 2;
+            const pxScale = 30; 
+
+            ctx.clearRect(0,0,w,h);
+            
+            // Grid
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, cy+20); ctx.lineTo(w, cy+20); ctx.stroke();
+            for(let x=-20; x<=20; x++){
+                let px = cx + x * pxScale;
+                ctx.beginPath(); ctx.moveTo(px, cy+15); ctx.lineTo(px, cy+25); ctx.stroke();
+            }
+
+            // Determine Ruler Position & Length in this frame
+            let currentLen, centerX;
+            const gamma = getGamma(beta);
+
+            if (viewFrame === 'O') {
+                if (restFrame === 'O') {
+                    currentLen = restLength;
+                    centerX = 0;
+                } else {
+                    currentLen = restLength / gamma;
+                    centerX = beta * time;
+                }
+            } else {
+                if (restFrame === 'Op') {
+                    currentLen = restLength;
+                    centerX = 0;
+                } else {
+                    currentLen = restLength / gamma;
+                    centerX = -beta * time;
+                }
+            }
+
+            // Draw Ruler
+            const screenLen = currentLen * pxScale;
+            const screenX = cx + centerX * pxScale;
+            
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.fillRect(screenX - screenLen/2, cy - 10, screenLen, 20);
+            ctx.strokeStyle = '#ffff00'; ctx.lineWidth = 2;
+            ctx.strokeRect(screenX - screenLen/2, cy - 10, screenLen, 20);
+            ctx.beginPath(); ctx.moveTo(screenX, cy-10); ctx.lineTo(screenX, cy+10); ctx.stroke();
+
+            // Observer
+            ctx.fillStyle = (viewFrame==='O') ? '#fff' : '#ff4444';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(viewFrame === 'O' ? "O (Ty)" : "O' (Ty)", cx, h - 10);
+            ctx.beginPath(); ctx.arc(cx, h-30, 5, 0, Math.PI*2); ctx.fill();
+
+            // Label
+            ctx.fillStyle = (viewFrame==='O') ? '#00d4ff' : '#ff69b4';
+            ctx.fillText(`L = ${currentLen.toFixed(2)}`, screenX, cy - 20);
+        }
+
+        // --- ANIMATION ---
+        function animate() {
+            if(isPlaying) {
+                simTime += 0.02;
+                if (simTime > 10) simTime = -10;
+                document.getElementById('timeSlider').value = simTime;
+            }
+            // Always draw to keep diagram synced with slider
+            drawDiagram();
+            drawSimulation();
+            
+            requestAnimationFrame(animate);
+        }
+
+        // --- LISTENERS ---
+        window.addEventListener('resize', () => { drawDiagram(); drawSimulation(); });
+        
+        document.getElementById('velocitySlider').addEventListener('input', updateSystem);
+        document.getElementById('lengthSlider').addEventListener('input', updateSystem);
+        
+        document.getElementById('btnPlayPause').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+        });
+        document.getElementById('btnPlayPauseDiag').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+        });
+        
+        document.getElementById('timeSlider').addEventListener('input', (e) => {
+            simTime = parseFloat(e.target.value);
+            isPlaying = false;
+        });
+
+        window.switchTab = function(t) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-'+t).classList.add('active');
+            
+            const btns = document.querySelectorAll('.tab-btn');
+            if(t==='diagram') { btns[0].classList.add('active'); }
+            else { btns[1].classList.add('active'); }
+        };
+
+        // Init
+        updateSystem();
+        animate();
+
+    </script>
+</body>
+</html>
