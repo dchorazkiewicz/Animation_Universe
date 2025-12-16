@@ -54,6 +54,8 @@ nav:
     - Mechanika Numeryczna 1: phys/mechanics_numeric_1.html
     - Minkowski: phys/minkowski.html
     - Minkowski 2: phys/minkowski_2.html
+    - Minkowski 3: phys/minkowski_3.html
+    - Minkowski 4: phys/minkowski_4.html
   - Dokumentacja:
     - How To MkDocs (PL): how_to_mkdocs_pl.md
     - How To MkDocs (EN): how_to_mkdocs_en.md

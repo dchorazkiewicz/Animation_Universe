@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontrakcja Długości - Spójna Symulacja</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            background: #1e1e1e;
+            margin: 10px 0;
+            border-radius: 8px;
+            padding: 5px;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #00d4ff;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            width: 95vw;
+            height: 80vh;
+            gap: 20px;
+        }
+
+        .tab-content.active { display: flex; }
+
+        /* LAYOUT */
+        .canvas-container {
+            flex: 2;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .controls {
+            flex: 1;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 350px;
+            overflow-y: auto;
+        }
+
+        /* SIMULATION VIEWS */
+        .simulation-wrapper {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sim-view {
+            flex: 1;
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sim-label {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            border-left: 3px solid #fff;
+            pointer-events: none;
+        }
+        .sim-label.red { border-left-color: #ff4444; }
+
+        /* UI ELEMENTS */
+        .slider-group {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .val { color: #fff; font-weight: bold; }
+        
+        .info-card {
+            background: #252525;
+            padding: 10px;
+            border-left: 4px solid #00d4ff;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+        .btn-primary:hover { background: #00b8dd; }
+
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('diagram')">1. Diagram (Analiza)</button>
+        <button class="tab-btn" onclick="switchTab('simulation')">2. Symulacja (Widok)</button>
+    </div>
+
+    <!-- TAB 1: DIAGRAM -->
+    <div id="tab-diagram" class="tab-content active">
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="minkowskiCanvas"></canvas>
+            <div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.6); font-size: 0.9rem; pointer-events: none;">
+                <strong>Scenariusz:</strong> Linijka spoczywa w Czerwonej Rakiecie (O').<br>
+                Dla nas (O) linijka ucieka i jest skrócona.
+            </div>
+        </div>
+
+        <div class="controls">
+            
+            <div class="info-card" style="border-left-color: #ff4444;">
+                <strong>Stan Układu:</strong><br>
+                Obiekt spoczywa w układzie <span style="color:#ff4444">O' (Czerwonym)</span>.
+            </div>
+
+            <div class="slider-group">
+                <label>Prędkość układu O' (v/c)</label>
+                <input type="range" id="velocitySlider" min="0.10" max="0.90" step="0.01" value="0.60">
+                <div class="row">
+                    <span>v = <span id="vDisplay" class="val">0.60</span>c</span>
+                    <span>γ = <span id="gammaDisplay" class="val">1.25</span></span>
+                </div>
+            </div>
+
+            <div class="slider-group">
+                <label>Długość własna (L₀ w O')</label>
+                <input type="range" id="lengthSlider" min="2" max="8" step="0.5" value="6">
+                <div class="row">
+                    <span>L₀ = <span id="l0Display" class="val">6.0</span> jedn.</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div style="text-align:center; margin-bottom:5px;">
+                    <button class="btn-primary" id="btnPlayPauseDiag" style="padding: 5px 10px; font-size:0.9rem;">Start / Stop Animacji</button>
+                </div>
+                <strong>Współrzędne (Rzutowanie):</strong>
+                <div class="row" style="margin-top:5px; color:#fff;">
+                    rzut na x (Biały): L = <span id="lenO" class="val">0.00</span>
+                </div>
+                <div class="row" style="color:#ff69b4;">
+                    rzut na x' (Różowy): L' = <span id="lenOp" class="val">0.00</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #444; margin: 8px 0;">
+                <small style="color:#aaa">
+                    Biały (My) widzi poruszający się, krótki segment.<br>
+                    Czerwony (O') widzi nieruchomy, długi segment (L₀).
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: SIMULATION -->
+    <div id="tab-simulation" class="tab-content">
+        <div class="simulation-wrapper">
+            <!-- View O -->
+            <div class="sim-view">
+                <div class="sim-label">
+                    <strong>Perspektywa O (My/Lab)</strong><br>
+                    <small>Widzimy uciekającą rakietę. Długość: <span id="simLenO" style="color:#00d4ff">0.00</span></small>
+                </div>
+                <canvas id="simCanvasO"></canvas>
+            </div>
+            
+            <!-- View O' -->
+            <div class="sim-view">
+                <div class="sim-label red">
+                    <strong>Perspektywa O' (Rakieta)</strong><br>
+                    <small>Dla rakiety linijka stoi. Długość: <span id="simLenOp" style="color:#ff69b4">0.00</span></small>
+                </div>
+                <canvas id="simCanvasOp"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+             <button class="btn-primary" id="btnPlayPause">Start / Stop</button>
+             
+             <div class="slider-group" style="margin-top:10px;">
+                <label>Czas symulacji (t)</label>
+                <input type="range" id="timeSlider" min="-10" max="10" step="0.01" value="0">
+             </div>
+
+             <div class="info-card" style="margin-top:10px;">
+                <strong>Legenda:</strong>
+                <ul style="padding-left: 20px; margin: 5px 0; color: #aaa; font-size:0.85rem;">
+                    <li><span style="color:#ffff00">🟨</span> Linijka (Obiekt)</li>
+                    <li><span style="color:#fff">⬜</span> Układ O (Spoczynkowy)</li>
+                    <li><span style="color:#ff4444">🟥</span> Układ O' (Ruchomy)</li>
+                </ul>
+                <p style="font-size:0.8rem; margin-bottom:0; color:#888;">
+                    Teraz obie zakładki są spójne: obiekt jest przywiązany do czerwonego układu.
+                </p>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE ---
+        let activeTab = 'diagram';
+        let beta = 0.6;
+        let restLength = 6.0;
+        const scale = 30; // pixels per unit
+
+        let isPlaying = false;
+        let simTime = 0;
+
+        // --- DOM ELEMENTS ---
+        const canvasD = document.getElementById('minkowskiCanvas');
+        const ctxD = canvasD.getContext('2d');
+        const containerD = document.getElementById('canvasContainer');
+        
+        const canvasSimO = document.getElementById('simCanvasO');
+        const ctxSimO = canvasSimO.getContext('2d');
+        const canvasSimOp = document.getElementById('simCanvasOp');
+        const ctxSimOp = canvasSimOp.getContext('2d');
+
+        // --- MATH HELPERS ---
+        function getGamma(v) { 
+            if(v*v >= 1) return 100; // safety
+            return 1 / Math.sqrt(1 - v*v); 
+        }
+
+        function toCanvas(mx, mt, w, h) {
+            const cx = w / 2;
+            const cy = h / 2;
+            return { x: cx + mx * scale, y: cy - mt * scale };
+        }
+        
+        // Find intersection of two lines:
+        // Line 1 through (p1x, p1y) with slope m1
+        // Line 2 through (p2x, p2y) with slope m2
+        // In x-t coordinates (where t is y-axis)
+        function intersect(p1x, p1y, m1, p2x, p2y, m2) {
+            const c1 = p1y - m1 * p1x;
+            const c2 = p2y - m2 * p2x;
+            if (Math.abs(m1 - m2) < 0.0001) return {x: p1x, y: p1y};
+            const x = (c2 - c1) / (m1 - m2);
+            const y = m1 * x + c1;
+            return { x, y };
+        }
+
+        // --- LOGIC ---
+        function updateSystem() {
+            beta = parseFloat(document.getElementById('velocitySlider').value);
+            restLength = parseFloat(document.getElementById('lengthSlider').value);
+
+            // Calculate Lengths
+            const gamma = getGamma(beta);
+            
+            // Physics Scenario: Ruler rests in O' (Red).
+            // Length measured in O' (Rest Length)
+            const lenOp = restLength; 
+            
+            // Length measured in O (Contracted Length)
+            const lenO = restLength / gamma;
+
+            // Update UI
+            document.getElementById('vDisplay').innerText = beta.toFixed(2);
+            document.getElementById('gammaDisplay').innerText = gamma.toFixed(2);
+            document.getElementById('l0Display').innerText = restLength.toFixed(1);
+            
+            // In diagram display:
+            // "rzut na x" (White) is the coordinate width in O (Contracted)
+            document.getElementById('lenO').innerText = lenO.toFixed(2);
+            // "rzut na x'" (Pink) is the coordinate width in O' (Proper Length)
+            document.getElementById('lenOp').innerText = lenOp.toFixed(2);
+            
+            // Simulation Labels
+            document.getElementById('simLenO').innerText = lenO.toFixed(3);
+            document.getElementById('simLenOp').innerText = lenOp.toFixed(3);
+
+            drawDiagram();
+            drawSimulation();
+        }
+
+        // --- DIAGRAM DRAWING ---
+        function drawDiagram() {
+            const w = containerD.clientWidth;
+            const h = containerD.clientHeight;
+            canvasD.width = w;
+            canvasD.height = h;
+
+            const cx = w / 2;
+            const cy = h / 2;
+
+            ctxD.fillStyle = '#1e1e1e';
+            ctxD.fillRect(0, 0, w, h);
+
+            // 1. GRID & AXES
+            // Grid
+            ctxD.strokeStyle = '#333'; ctxD.lineWidth = 1;
+            for(let i=-20; i<=20; i++) {
+                let p = toCanvas(i, 0, w, h);
+                ctxD.beginPath(); ctxD.moveTo(p.x, 0); ctxD.lineTo(p.x, h); ctxD.stroke();
+                p = toCanvas(0, i, w, h);
+                ctxD.beginPath(); ctxD.moveTo(0, p.y); ctxD.lineTo(w, p.y); ctxD.stroke();
+            }
+            // Light Cone
+            ctxD.strokeStyle = 'rgba(255, 255, 0, 0.2)'; ctxD.setLineDash([5,5]);
+            let p1 = toCanvas(-20,-20, w, h); let p2 = toCanvas(20,20, w, h);
+            ctxD.beginPath(); ctxD.moveTo(p1.x, p1.y); ctxD.lineTo(p2.x, p2.y); ctxD.stroke();
+            let p3 = toCanvas(-20,20, w, h); let p4 = toCanvas(20,-20, w, h);
+            ctxD.beginPath(); ctxD.moveTo(p3.x, p3.y); ctxD.lineTo(p4.x, p4.y); ctxD.stroke();
+            ctxD.setLineDash([]);
+            // Axes O (White)
+            ctxD.strokeStyle = '#fff'; ctxD.lineWidth = 2;
+            let ctTop = toCanvas(0, 20, w, h); let ctBot = toCanvas(0, -20, w, h);
+            ctxD.beginPath(); ctxD.moveTo(ctTop.x, ctTop.y); ctxD.lineTo(ctBot.x, ctBot.y); ctxD.stroke();
+            let xLeft = toCanvas(-20, 0, w, h); let xRight = toCanvas(20, 0, w, h);
+            ctxD.beginPath(); ctxD.moveTo(xLeft.x, xLeft.y); ctxD.lineTo(xRight.x, xRight.y); ctxD.stroke();
+            ctxD.fillStyle = '#fff'; ctxD.fillText("ct", cx+5, 15); ctxD.fillText("x", w-20, cy-5);
+            // Axes O' (Red)
+            ctxD.strokeStyle = '#ff4444';
+            let axisLen = 30;
+            let tp1 = toCanvas(beta*axisLen, axisLen, w, h); let tp2 = toCanvas(beta*-axisLen, -axisLen, w, h);
+            ctxD.beginPath(); ctxD.moveTo(tp2.x, tp2.y); ctxD.lineTo(tp1.x, tp1.y); ctxD.stroke();
+            ctxD.fillStyle = '#ff4444'; ctxD.fillText("ct'", tp1.x+5, tp1.y+15);
+            let xp1 = toCanvas(axisLen, beta*axisLen, w, h); let xp2 = toCanvas(-axisLen, beta*-axisLen, w, h);
+            ctxD.beginPath(); ctxD.moveTo(xp2.x, xp2.y); ctxD.lineTo(xp1.x, xp1.y); ctxD.stroke();
+            ctxD.fillText("x'", xp1.x-20, xp1.y-5);
+
+            // 2. PHYSICS: RULER
+            // Scenario: Ruler rests in O' from x' = -L0/2 to x' = L0/2
+            // We need to draw it at the current simTime (t) in Frame O.
+            // Coordinate transformation (Inverse Lorentz):
+            // x = gamma(x' + vt')
+            // t = gamma(t' + vx') -> t' = t/gamma - vx' (not easy to use directly for endpoints)
+            
+            // Easier way: The ruler moves in O with velocity v.
+            // Its center is at x_center(t) = v*t.
+            // Its length in O is L_contracted = L0/gamma.
+            
+            const t = simTime;
+            const gamma = getGamma(beta);
+            const contractedLen = restLength / gamma;
+            const centerX = beta * t;
+            
+            const xA = centerX - contractedLen/2;
+            const xB = centerX + contractedLen/2;
+
+            const pSegA = toCanvas(xA, t, w, h);
+            const pSegB = toCanvas(xB, t, w, h);
+
+            // Draw Ruler Segment
+            ctxD.strokeStyle = '#ffff00'; 
+            ctxD.lineWidth = 6;
+            ctxD.beginPath(); ctxD.moveTo(pSegA.x, pSegA.y); ctxD.lineTo(pSegB.x, pSegB.y); ctxD.stroke();
+            
+            // Endpoints
+            ctxD.fillStyle = '#ffff00';
+            ctxD.beginPath(); ctxD.arc(pSegA.x, pSegA.y, 5, 0, Math.PI*2); ctxD.fill();
+            ctxD.beginPath(); ctxD.arc(pSegB.x, pSegB.y, 5, 0, Math.PI*2); ctxD.fill();
+
+            // 3. PROJECTIONS
+            
+            // A) Project to O (White Axis) - Vertical drop
+            ctxD.strokeStyle = 'rgba(255, 255, 255, 0.5)'; ctxD.lineWidth = 1; ctxD.setLineDash([4,4]);
+            let pAxA = toCanvas(xA, 0, w, h);
+            let pAxB = toCanvas(xB, 0, w, h);
+            ctxD.beginPath(); ctxD.moveTo(pSegA.x, pSegA.y); ctxD.lineTo(pAxA.x, pAxA.y); ctxD.stroke();
+            ctxD.beginPath(); ctxD.moveTo(pSegB.x, pSegB.y); ctxD.lineTo(pAxB.x, pAxB.y); ctxD.stroke();
+            // Draw Measurement on Axis
+            ctxD.strokeStyle = '#fff'; ctxD.lineWidth = 3; ctxD.setLineDash([]);
+            ctxD.beginPath(); ctxD.moveTo(pAxA.x, pAxA.y); ctxD.lineTo(pAxB.x, pAxB.y); ctxD.stroke();
+
+
+            // B) Project to O' (Red Axis)
+            // We project parallel to ct' axis (slope 1/beta) onto x' axis (slope beta).
+            // This is equivalent to finding the "Simultaneous events in O'" that define the ends of the ruler.
+            // Since the ruler is STATIONARY in O', these projected points represent the fixed ends of the ruler in spacetime.
+            
+            const m_ct_prime = 1.0 / beta; // slope of ct'
+            const m_x_prime = beta;        // slope of x'
+            
+            // Intersect line through EndpointA with slope(ct') against line x' (slope beta through origin)
+            let projA, projB;
+            if (Math.abs(beta) < 0.001) {
+                projA = {x: xA, y: 0}; projB = {x: xB, y: 0};
+            } else {
+                projA = intersect(xA, t, m_ct_prime, 0, 0, m_x_prime);
+                projB = intersect(xB, t, m_ct_prime, 0, 0, m_x_prime);
+            }
+            
+            let pRedA = toCanvas(projA.x, projA.y, w, h);
+            let pRedB = toCanvas(projB.x, projB.y, w, h);
+
+            // Dash lines
+            ctxD.strokeStyle = 'rgba(255, 105, 180, 0.6)'; ctxD.lineWidth = 1; ctxD.setLineDash([4,4]);
+            ctxD.beginPath(); ctxD.moveTo(pSegA.x, pSegA.y); ctxD.lineTo(pRedA.x, pRedA.y); ctxD.stroke();
+            ctxD.beginPath(); ctxD.moveTo(pSegB.x, pSegB.y); ctxD.lineTo(pRedB.x, pRedB.y); ctxD.stroke();
+
+            // Measurement on Axis
+            ctxD.strokeStyle = '#ff69b4'; ctxD.lineWidth = 3; ctxD.setLineDash([]);
+            ctxD.beginPath(); ctxD.moveTo(pRedA.x, pRedA.y); ctxD.lineTo(pRedB.x, pRedB.y); ctxD.stroke();
+
+            // 4. WORLDLINES (Faint trails showing the ruler's history)
+            // Ruler moves with velocity v in O, so slope is 1/v = 1/beta.
+            // Or simpler: It is fixed in O', so its worldlines are parallel to ct' axis.
+            ctxD.strokeStyle = 'rgba(255, 255, 0, 0.15)'; ctxD.lineWidth = 2;
+            
+            // Worldline of Left End (fixed at x' = -L0/2)
+            // Worldline of Right End (fixed at x' = L0/2)
+            // These lines pass through the current segment endpoints (xA, t) and (xB, t) with slope 1/beta.
+            drawGuideLine(ctxD, xA, t, 1/beta, w, h);
+            drawGuideLine(ctxD, xB, t, 1/beta, w, h);
+        }
+        
+        function drawGuideLine(ctx, x, t, slope, w, h) {
+            let topT = 20, botT = -20;
+            let topX = (topT - t)/slope + x;
+            let botX = (botT - t)/slope + x;
+            let p1 = toCanvas(topX, topT, w, h);
+            let p2 = toCanvas(botX, botT, w, h);
+            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        }
+
+
+        // --- SIMULATION DRAWING ---
+        function drawSimulation() {
+            // View O
+            const wO = canvasSimO.parentElement.clientWidth;
+            const hO = canvasSimO.parentElement.clientHeight;
+            canvasSimO.width = wO; canvasSimO.height = hO;
+            drawSingleSim(ctxSimO, wO, hO, 'O', simTime);
+
+            // View O'
+            const wOp = canvasSimOp.parentElement.clientWidth;
+            const hOp = canvasSimOp.parentElement.clientHeight;
+            canvasSimOp.width = wOp; canvasSimOp.height = hOp;
+            drawSingleSim(ctxSimOp, wOp, hOp, 'Op', simTime);
+        }
+
+        function drawSingleSim(ctx, w, h, viewFrame, time) {
+            const cx = w / 2;
+            const cy = h / 2;
+            const pxScale = 30; 
+
+            ctx.clearRect(0,0,w,h);
+            
+            // Grid
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, cy+20); ctx.lineTo(w, cy+20); ctx.stroke();
+            for(let x=-20; x<=20; x++){
+                let px = cx + x * pxScale;
+                ctx.beginPath(); ctx.moveTo(px, cy+15); ctx.lineTo(px, cy+25); ctx.stroke();
+            }
+
+            // Determine Ruler Position & Length
+            const gamma = getGamma(beta);
+            let currentLen, centerX;
+
+            if (viewFrame === 'O') {
+                // View from Lab (O):
+                // Ruler is in Rocket (O'). Rocket moves at v.
+                // Ruler is Contracted.
+                currentLen = restLength / gamma;
+                centerX = beta * time;
+            } else {
+                // View from Rocket (O'):
+                // Ruler is in Rocket. Ruler is Static.
+                // Ruler is Full Length.
+                currentLen = restLength;
+                centerX = 0; // Fixed at origin of O' (simplification, or offset doesn't matter as long as v=0)
+            }
+
+            // Draw Ruler
+            const screenLen = currentLen * pxScale;
+            const screenX = cx + centerX * pxScale;
+            
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.fillRect(screenX - screenLen/2, cy - 10, screenLen, 20);
+            ctx.strokeStyle = '#ffff00'; ctx.lineWidth = 2;
+            ctx.strokeRect(screenX - screenLen/2, cy - 10, screenLen, 20);
+            ctx.beginPath(); ctx.moveTo(screenX, cy-10); ctx.lineTo(screenX, cy+10); ctx.stroke(); // mid mark
+
+            // Observer Info
+            ctx.fillStyle = (viewFrame==='O') ? '#fff' : '#ff4444';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'center';
+            if(viewFrame === 'O') {
+                ctx.fillText("Widok O: Rakiecianka ucieka (Skrócenie)", cx, h - 10);
+            } else {
+                ctx.fillText("Widok O': Rakiecianka stoi (Pełna długość)", cx, h - 10);
+            }
+            
+            // Label Length
+            ctx.fillStyle = (viewFrame==='O') ? '#00d4ff' : '#ff69b4';
+            ctx.fillText(`L = ${currentLen.toFixed(2)}`, screenX, cy - 20);
+        }
+
+        // --- ANIMATION ---
+        function animate() {
+            if(isPlaying) {
+                simTime += 0.02;
+                if (simTime > 10) simTime = -10;
+                document.getElementById('timeSlider').value = simTime;
+            }
+            drawDiagram();
+            drawSimulation();
+            requestAnimationFrame(animate);
+        }
+
+        // --- LISTENERS ---
+        window.addEventListener('resize', () => { drawDiagram(); drawSimulation(); });
+        
+        document.getElementById('velocitySlider').addEventListener('input', updateSystem);
+        document.getElementById('lengthSlider').addEventListener('input', updateSystem);
+        
+        document.getElementById('btnPlayPause').addEventListener('click', () => { isPlaying = !isPlaying; });
+        document.getElementById('btnPlayPauseDiag').addEventListener('click', () => { isPlaying = !isPlaying; });
+        
+        document.getElementById('timeSlider').addEventListener('input', (e) => {
+            simTime = parseFloat(e.target.value);
+            isPlaying = false;
+        });
+
+        window.switchTab = function(t) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-'+t).classList.add('active');
+            
+            const btns = document.querySelectorAll('.tab-btn');
+            if(t==='diagram') { btns[0].classList.add('active'); }
+            else { btns[1].classList.add('active'); }
+        };
+
+        // Init
+        updateSystem();
+        animate();
+
+    </script>
+</body>
+</html>
