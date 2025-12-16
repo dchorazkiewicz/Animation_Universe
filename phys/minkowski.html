@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wizualizacja Przestrzeni Minkowskiego</title>
+    <style>
+        :root {
+            --bg-color: #0d0d0d;
+            --panel-bg: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent-color: #00d4ff; /* Cyan */
+            --time-color: #ffaa00;   /* Orange */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 1.4rem; letter-spacing: 1px; }
+        p.subtitle { margin: 0 0 20px 0; color: #888; font-size: 0.9rem; }
+
+        /* Tabs Navigation */
+        .tabs {
+            display: flex;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .tab-btn.active {
+            background: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Main Display Area */
+        .display-area {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            flex: 1;
+            gap: 20px;
+            position: relative;
+        }
+
+        .scene-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: row;
+            gap: 15px;
+        }
+
+        .scene-container.active { display: flex; }
+
+        /* Panels */
+        .panel {
+            flex: 1;
+            background: var(--panel-bg);
+            border: 1px solid #333;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .label {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-color);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Time Axis Label specific style */
+        .time-axis-label {
+            border-left: 3px solid var(--time-color);
+        }
+
+        .label strong { display: block; font-size: 1rem; color: #fff; }
+        .label small { color: #ccc; font-size: 0.8rem; }
+        
+        canvas { width: 100%; height: 100%; display: block; }
+
+        @media (max-width: 768px) {
+            .scene-container { flex-direction: column; }
+            .tabs { width: 100%; justify-content: center; }
+        }
+
+        #threejs-mount { cursor: grab; }
+        #threejs-mount:active { cursor: grabbing; }
+    </style>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <h1>Wizualizacja Czasoprzestrzeni</h1>
+    <p class="subtitle">Idea przestrzeni Minkowskiego: Ruch w przestrzeni vs. Linia Świata</p>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tab1')">1. Ruch 1-wymiarowy</button>
+        <button class="tab-btn" onclick="switchTab('tab2')">2. Ruch 2-wymiarowy</button>
+    </div>
+
+    <div class="display-area">
+        
+        <!-- SCENARIO 1: 1D OSCILLATION -->
+        <div id="tab1" class="scene-container active">
+            <div class="panel">
+                <div class="label">
+                    <strong>Przestrzeń (1D)</strong>
+                    <small>Obiekt porusza się lewo-prawo</small>
+                </div>
+                <canvas id="canvas1D_space"></canvas>
+            </div>
+            <div class="panel">
+                <div class="label time-axis-label">
+                    <strong>Czasoprzestrzeń (2D)</strong>
+                    <small>Obserwuj uciekające linie czasu</small>
+                </div>
+                <canvas id="canvas1D_time"></canvas>
+            </div>
+        </div>
+
+        <!-- SCENARIO 2: 2D CIRCULAR MOTION -->
+        <div id="tab2" class="scene-container">
+            <div class="panel">
+                <div class="label">
+                    <strong>Przestrzeń (2D)</strong>
+                    <small>Rzut z góry. Czasu nie widać.</small>
+                </div>
+                <canvas id="canvas2D_space"></canvas>
+            </div>
+            <div class="panel">
+                <div class="label time-axis-label">
+                    <strong>Czasoprzestrzeń (3D)</strong>
+                    <small>Widok "windy" w górę. Przeciągnij myszą.</small>
+                </div>
+                <div id="threejs-mount" style="width: 100%; height: 100%;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- KONFIGURACJA OGÓLNA ---
+        let activeTab = 'tab1';
+        let time = 0;
+        const speed = 0.03; // Zwolniłem nieco dla lepszej obserwacji
+
+        // --- ZMIENNE DLA 1D ---
+        const c1s = document.getElementById('canvas1D_space');
+        const ctx1s = c1s.getContext('2d');
+        const c1t = document.getElementById('canvas1D_time');
+        const ctx1t = c1t.getContext('2d');
+        let history1D = [];
+
+        // --- ZMIENNE DLA 2D/3D ---
+        const c2s = document.getElementById('canvas2D_space');
+        const ctx2s = c2s.getContext('2d');
+        
+        // Three.js
+        let scene, camera, renderer, sphere3D, trailLine;
+        let trailPositions = [];
+        const MAX_TRAIL_POINTS = 800;
+        const threeContainer = document.getElementById('threejs-mount');
+        let movingGrids = []; // Tablica do przechowywania "pięter" czasu w 3D
+
+        // Kontrola kamery
+        let camTheta = Math.PI / 4;
+        let camPhi = Math.PI / 2.5;
+        const camRadius = 45;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        // --- INICJALIZACJA ---
+        function init() {
+            initThreeJS();
+            setupCameraControls();
+            window.addEventListener('resize', handleResize);
+            handleResize();
+            animate();
+        }
+
+        window.switchTab = function(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.scene-container').forEach(c => c.classList.remove('active'));
+            
+            const btns = document.querySelectorAll('.tab-btn');
+            if(tabId === 'tab1') btns[0].classList.add('active');
+            else btns[1].classList.add('active');
+
+            document.getElementById(tabId).classList.add('active');
+            setTimeout(handleResize, 50);
+        }
+
+        function handleResize() {
+            resizeCanvas(c1s);
+            resizeCanvas(c1t);
+            resizeCanvas(c2s);
+            if (camera && renderer && threeContainer) {
+                const w = threeContainer.clientWidth;
+                const h = threeContainer.clientHeight;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            }
+        }
+
+        function resizeCanvas(can) {
+            if (can.parentElement) {
+                can.width = can.parentElement.clientWidth;
+                can.height = can.parentElement.clientHeight;
+            }
+        }
+
+        // --- POMOCNICZE: Rysowanie zegara ---
+        function drawClock(ctx, w, h, timeVal) {
+            ctx.save();
+            ctx.font = 'bold 24px monospace';
+            ctx.fillStyle = '#00d4ff';
+            ctx.textAlign = 'right';
+            const text = `t: ${timeVal.toFixed(2)}s`;
+            ctx.fillText(text, w - 20, 40);
+            
+            // Ikona zegara
+            ctx.beginPath();
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 2;
+            ctx.arc(w - 140, 32, 10, 0, Math.PI*2);
+            ctx.moveTo(w - 140, 32);
+            // Wskazówka
+            const angle = (timeVal % 1) * Math.PI * 2;
+            ctx.lineTo(w - 140 + Math.sin(angle)*8, 32 - Math.cos(angle)*8);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- THREE.JS SETUP ---
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+            const w = threeContainer.clientWidth;
+            const h = threeContainer.clientHeight;
+
+            camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            threeContainer.appendChild(renderer.domElement);
+
+            // Oś pionowa (Czas)
+            const axisGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-100,0), new THREE.Vector3(0,100,0)]);
+            const axisMat = new THREE.LineBasicMaterial({ color: 0x444444 });
+            const yAxis = new THREE.Line(axisGeo, axisMat);
+            scene.add(yAxis);
+
+            // Kula (Cząstka)
+            const geometry = new THREE.SphereGeometry(0.8, 32, 32);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00d4ff });
+            sphere3D = new THREE.Mesh(geometry, material);
+            scene.add(sphere3D);
+
+            // Linia Świata
+            const lineGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(MAX_TRAIL_POINTS * 3);
+            lineGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 });
+            trailLine = new THREE.Line(lineGeo, lineMat);
+            scene.add(trailLine);
+            
+            // Inicjalizacja "pięter" czasu (Gridy które będą spadać)
+            // Nie dodajemy statycznego GridHelpera, zamiast tego stworzymy dynamiczne w pętli renderowania
+        }
+
+        // Funkcja tworząca tekst w 3D (jako Sprite)
+        function createTextSprite(message) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+            ctx.fillStyle = "rgba(0,0,0,0)";
+            ctx.fillRect(0, 0, 256, 128);
+            ctx.font = "Bold 40px monospace";
+            ctx.fillStyle = "#ffaa00";
+            ctx.textAlign = "center";
+            ctx.fillText(message, 128, 64); // text, x, y
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.8 });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(10, 5, 1);
+            return sprite;
+        }
+
+        // --- KONTROLA KAMERY ---
+        function setupCameraControls() {
+            threeContainer.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+            threeContainer.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, {passive: true});
+
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('touchend', () => isDragging = false);
+
+            window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+            window.addEventListener('touchmove', (e) => {
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            }, {passive: true});
+        }
+
+        function handleMove(x, y) {
+            if (!isDragging) return;
+            const deltaX = x - previousMousePosition.x;
+            const deltaY = y - previousMousePosition.y;
+            previousMousePosition = { x: x, y: y };
+
+            camTheta -= deltaX * 0.01;
+            camPhi -= deltaY * 0.01;
+            camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, camPhi)); 
+        }
+
+        // --- RYSOWANIE 1D ---
+        function draw1D() {
+            const w = c1s.width;
+            const h = c1s.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const amplitude = w * 0.35;
+            const xPos = Math.sin(time * 2) * amplitude;
+
+            // 1. LEWY PANEL (PRZESTRZEŃ)
+            ctx1s.clearRect(0, 0, w, h);
+            // Oś X
+            ctx1s.strokeStyle = '#333';
+            ctx1s.beginPath(); ctx1s.moveTo(0, cy); ctx1s.lineTo(w, cy); ctx1s.stroke();
+            // Znaczniki
+            for(let i=-5; i<=5; i++) {
+                let mx = cx + i * (amplitude/5);
+                ctx1s.beginPath(); ctx1s.moveTo(mx, cy-5); ctx1s.lineTo(mx, cy+5); ctx1s.stroke();
+            }
+            // Cząstka
+            ctx1s.fillStyle = '#00d4ff';
+            ctx1s.beginPath(); ctx1s.arc(cx + xPos, cy, 12, 0, Math.PI * 2); ctx1s.fill();
+            // Zegar
+            drawClock(ctx1s, w, h, time);
+
+            // 2. PRAWY PANEL (CZASOPRZESTRZEŃ)
+            history1D.push({ x: xPos, t: time });
+            if (history1D.length > 500) history1D.shift();
+
+            ctx1t.clearRect(0, 0, w, h);
+            
+            // RYSOWANIE RUCHOMEJ SIATKI CZASU (TŁO)
+            const timeScaleY = 50; // piksele na sekundę
+            const nowY = 50; // Gdzie jest "Teraz" na ekranie (od góry)
+            
+            // Znajdź najbliższą pełną sekundę w przyszłości względem 'time', żeby zacząć rysować linie
+            const startT = Math.ceil(time); 
+            
+            ctx1t.strokeStyle = '#333';
+            ctx1t.fillStyle = '#ffaa00';
+            ctx1t.font = '12px monospace';
+            ctx1t.textAlign = 'right';
+
+            // Pętla rysująca poziome linie czasu, które "jadą" w dół
+            // Rysujemy od t = time + coś do t = time - dużo
+            for (let tVal = startT; tVal > time - 10; tVal--) {
+                const dt = time - tVal; // ile czasu minęło od tej linii do teraz
+                const lineY = nowY + (dt * timeScaleY); // Jeśli dt dodatnie (przeszłość), linia niżej
+
+                if (lineY > h) break; // Poza ekranem
+                if (lineY < 0) continue; 
+
+                // Pozioma linia (chwila w czasie)
+                ctx1t.beginPath();
+                ctx1t.moveTo(0, lineY);
+                ctx1t.lineTo(w, lineY);
+                ctx1t.stroke();
+
+                // Podpis osi (t = X)
+                ctx1t.fillText(`t=${tVal}`, cx - 10, lineY - 2);
+            }
+            
+            // Pionowa oś czasu
+            ctx1t.strokeStyle = '#555';
+            ctx1t.beginPath(); ctx1t.moveTo(cx, 0); ctx1t.lineTo(cx, h); ctx1t.stroke();
+
+            // Linia Świata
+            ctx1t.strokeStyle = '#ffaa00';
+            ctx1t.lineWidth = 3;
+            ctx1t.beginPath();
+            for (let i = history1D.length - 1; i >= 0; i--) {
+                const pt = history1D[i];
+                const dt = time - pt.t; 
+                const drawY = nowY + (dt * timeScaleY); 
+                const drawX = cx + pt.x;
+                if (drawY > h) break; 
+                if (i === history1D.length - 1) ctx1t.moveTo(drawX, drawY);
+                else ctx1t.lineTo(drawX, drawY);
+            }
+            ctx1t.stroke();
+
+            // Kropka "Teraz"
+            ctx1t.fillStyle = '#fff';
+            ctx1t.beginPath(); ctx1t.arc(cx + xPos, nowY, 5, 0, Math.PI*2); ctx1t.fill();
+            ctx1t.fillStyle = '#aaa';
+            ctx1t.fillText('TERAZ', cx + xPos - 10, nowY);
+        }
+
+        // --- RYSOWANIE 2D/3D ---
+        function draw2D3D() {
+            // 1. LEWY PANEL (2D)
+            const w = c2s.width;
+            const h = c2s.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const radius = Math.min(w, h) * 0.25;
+            const xVal = Math.cos(time) * radius;
+            const yVal = Math.sin(time) * radius;
+
+            ctx2s.clearRect(0, 0, w, h);
+            // Tło
+            ctx2s.strokeStyle = '#222';
+            ctx2s.beginPath(); ctx2s.arc(cx, cy, radius, 0, Math.PI*2); ctx2s.stroke();
+            ctx2s.beginPath(); ctx2s.moveTo(cx, 0); ctx2s.lineTo(cx, h); ctx2s.stroke();
+            ctx2s.beginPath(); ctx2s.moveTo(0, cy); ctx2s.lineTo(w, cy); ctx2s.stroke();
+            // Cząstka
+            ctx2s.fillStyle = '#00d4ff';
+            ctx2s.beginPath(); ctx2s.arc(cx + xVal, cy + yVal, 15, 0, Math.PI * 2); ctx2s.fill();
+            // Zegar
+            drawClock(ctx2s, w, h, time);
+
+
+            // 2. PRAWY PANEL (3D)
+            if (!sphere3D) return;
+
+            const scale3D = 8;
+            const x3 = Math.cos(time) * scale3D;
+            const z3 = Math.sin(time) * scale3D;
+            const currentY = 10; // "Teraz" jest na stałej wysokości
+
+            // Aktualizacja kuli
+            sphere3D.position.set(x3, currentY, z3);
+
+            // --- ZARZĄDZANIE SIATKAMI CZASU (EFEKT WINDY) ---
+            // Dodaj nowy grid co pełną sekundę (lub interwał)
+            // Używamy modulo, żeby wykryć "przejście" przez interwał
+            // Zamiast tego, prościej: spawnujemy obiekt, który ma przypisany czas 't'
+            // I jego pozycja Y = currentY - (time - t) * speedFactor
+
+            const gridInterval = 2.0; // Co ile sekund "czasu" pojawia się piętro
+            const lastSpawnTime = movingGrids.length > 0 ? movingGrids[movingGrids.length-1].userData.timestamp : -999;
+            
+            // Jeśli minął czas na nowy grid
+            if (time > lastSpawnTime + gridInterval || movingGrids.length === 0) {
+                // Stwórz nowy grid/platformę
+                const helper = new THREE.GridHelper(30, 10, 0x444444, 0x111111);
+                
+                // Dodaj tekst (label)
+                const tVal = Math.floor(time);
+                const sprite = createTextSprite(`t=${tVal}`);
+                sprite.position.set(12, 0, 12); // Z boku siatki
+                helper.add(sprite);
+
+                helper.userData = { timestamp: time }; // Zapamiętaj kiedy powstał
+                helper.position.y = currentY; // Startuje w "Teraz"
+                
+                scene.add(helper);
+                movingGrids.push(helper);
+            }
+
+            // Przesuwaj gridy w dół
+            const flowSpeed = 20.0; // Prędkość wizualna "zjazdu" w jednostkach 3D na sekundę czasu t
+            // Ale musimy to zsynchronizować ze spiralą.
+            // Spirala: każdy punkt ma Y, które maleje.
+            // Różnica wysokości w spirali = delta_time * flowSpeedWizualny.
+            // Zmienna 'flowSpeed' w pętli linii wynosiła 0.2 na klatkę.
+            // Musimy dopasować gridy do linii.
+            // W logice linii: positions[i].y -= 0.2 (per frame).
+            // Per frame mamy 'speed' przyrostu czasu (np. 0.04).
+            // Więc flowSpeedWizualny = 0.2 / 0.04 = 5 jednostek Y na 1 jednostkę czasu T.
+            
+            const visualSpeedRatio = 0.2 / speed; // ok. 5.0
+
+            for (let i = movingGrids.length - 1; i >= 0; i--) {
+                const grid = movingGrids[i];
+                const age = time - grid.userData.timestamp;
+                
+                // Pozycja spada w dół
+                grid.position.y = currentY - (age * visualSpeedRatio);
+
+                // Usuń jak spadnie za nisko
+                if (grid.position.y < -30) {
+                    scene.remove(grid);
+                    movingGrids.splice(i, 1);
+                }
+            }
+
+
+            // --- LINIA ŚWIATA (SPIRALA) ---
+            trailPositions.unshift({ x: x3, y: currentY, z: z3 });
+            if (trailPositions.length > MAX_TRAIL_POINTS) trailPositions.pop();
+
+            const positions = trailLine.geometry.attributes.position.array;
+            
+            // Przesuwamy wszystkie punkty w dół o stałą wartość (0.2), co daje złudzenie ruchu w górę
+            const dropPerFrame = 0.2; 
+
+            for (let i = 0; i < trailPositions.length; i++) {
+                trailPositions[i].y -= dropPerFrame;
+            }
+
+            for (let i = 0; i < MAX_TRAIL_POINTS; i++) {
+                if (i < trailPositions.length) {
+                    positions[i * 3] = trailPositions[i].x;
+                    positions[i * 3 + 1] = trailPositions[i].y;
+                    positions[i * 3 + 2] = trailPositions[i].z;
+                } else {
+                    if (trailPositions.length > 0) {
+                        const last = trailPositions[trailPositions.length - 1];
+                        positions[i * 3] = last.x;
+                        positions[i * 3 + 1] = last.y;
+                        positions[i * 3 + 2] = last.z;
+                    }
+                }
+            }
+            trailLine.geometry.attributes.position.needsUpdate = true;
+
+            // --- KAMERA ---
+            const cX = camRadius * Math.sin(camPhi) * Math.sin(camTheta);
+            const cZ = camRadius * Math.sin(camPhi) * Math.cos(camTheta);
+            const cY = camRadius * Math.cos(camPhi) + 5; 
+            camera.position.set(cX, cY, cZ);
+            camera.lookAt(0, 5, 0); 
+
+            renderer.render(scene, camera);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += speed;
+            if (activeTab === 'tab1') draw1D();
+            else draw2D3D();
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
