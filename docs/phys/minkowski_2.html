@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktywny Diagram Minkowskiego i Symulacja</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            background: #1e1e1e;
+            margin: 10px 0;
+            border-radius: 8px;
+            padding: 5px;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #4488ff;
+            color: white;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            width: 95vw;
+            height: 80vh;
+            gap: 20px;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* DIAGRAM STYLES */
+        .canvas-container {
+            flex: 2;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            position: relative;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .controls {
+            flex: 1;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 350px;
+            overflow-y: auto;
+        }
+
+        /* SIMULATION STYLES */
+        .simulation-wrapper {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sim-view {
+            flex: 1;
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sim-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            pointer-events: none;
+            border-left: 3px solid #fff;
+        }
+        .sim-label.red { border-left-color: #ff4444; }
+
+        .sim-controls-panel {
+            flex: 1;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 300px;
+        }
+
+        /* COMMON CONTROLS */
+        .slider-group {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .val { color: #fff; font-weight: bold; }
+        .label-sub { color: #888; font-size: 0.8rem; }
+
+        .btn-primary {
+            background: #4488ff;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+        }
+        .btn-primary:hover { background: #3377ee; }
+
+        .event-card {
+            background: #252525;
+            padding: 10px;
+            border-left: 4px solid #555;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .event-card.red { border-left-color: #ff4444; }
+        .event-card.blue { border-left-color: #4488ff; }
+
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('diagram')">Diagram (Analiza)</button>
+        <button class="tab-btn" onclick="switchTab('simulation')">Symulacja (Perspektywa)</button>
+    </div>
+
+    <!-- TAB 1: DIAGRAM -->
+    <div id="tab-diagram" class="tab-content active">
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="minkowskiCanvas"></canvas>
+            <div style="position: absolute; top: 10px; left: 10px; color: rgba(255,255,255,0.3); pointer-events: none;">
+                Przeciągnij punkty A i B
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="slider-group">
+                <label for="velocitySlider">Prędkość układu O' (v/c)</label>
+                <input type="range" id="velocitySlider" min="-0.90" max="0.90" step="0.01" value="0.5">
+                <div class="row">
+                    <span>v = <span id="vDisplay" class="val">0.50</span>c</span>
+                    <span>γ = <span id="gammaDisplay" class="val">1.15</span></span>
+                </div>
+            </div>
+
+            <div class="data-panel" style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="event-card blue">
+                    <strong>Zdarzenie A</strong>
+                    <div class="row">t: <span id="tA" class="val">0.00</span>, x: <span id="xA" class="val">0.00</span></div>
+                    <div class="row" style="color: #ff6666;">t': <span id="tAp" class="val">0.00</span>, x': <span id="xAp" class="val">0.00</span></div>
+                </div>
+
+                <div class="event-card red">
+                    <strong>Zdarzenie B</strong>
+                    <div class="row">t: <span id="tB" class="val">0.00</span>, x: <span id="xB" class="val">0.00</span></div>
+                    <div class="row" style="color: #ff6666;">t': <span id="tBp" class="val">0.00</span>, x': <span id="xBp" class="val">0.00</span></div>
+                </div>
+                
+                <div class="event-card" style="border-left: 4px solid #fff;">
+                    <div class="label-sub">Legenda Rzutowania:</div>
+                    <div style="font-size:0.8rem; margin-top:5px;">
+                        <span style="color:#fff; border-bottom: 1px dashed #fff;">--- Białe linie</span>: Współrzędne w O (My)<br>
+                        <span style="color:#ff69b4; border-bottom: 1px dashed #ff69b4;">--- Różowe linie</span>: Współrzędne w O' (Rakieta)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: SIMULATION -->
+    <div id="tab-simulation" class="tab-content">
+        <div class="simulation-wrapper">
+            <!-- Perspective O -->
+            <div class="sim-view">
+                <div class="sim-label">
+                    <strong>Perspektywa O (My/Lab)</strong><br>
+                    <small>Czas własny t: <span id="simTimeO">0.00</span>s</small>
+                </div>
+                <canvas id="simCanvasO"></canvas>
+            </div>
+            
+            <!-- Perspective O' -->
+            <div class="sim-view">
+                <div class="sim-label red">
+                    <strong>Perspektywa O' (Rakieta)</strong><br>
+                    <small>Czas własny t': <span id="simTimeOp">0.00</span>s</small>
+                </div>
+                <canvas id="simCanvasOp"></canvas>
+            </div>
+        </div>
+
+        <div class="sim-controls-panel">
+            <button class="btn-primary" id="btnPlayPause">Start / Stop</button>
+            
+            <div class="slider-group">
+                <label>Prędkość odtwarzania</label>
+                <input type="range" id="speedSlider" min="0.1" max="2.0" step="0.1" value="1.0">
+                <div class="row" style="margin-top:5px; font-size:0.8rem;">
+                    <span>Wolno (0.1x)</span>
+                    <span>Szybko (2.0x)</span>
+                </div>
+            </div>
+
+            <div class="slider-group">
+                <label>Czas symulacji (Lokalny)</label>
+                <input type="range" id="timeSlider" min="-5" max="15" step="0.05" value="0">
+            </div>
+
+            <div class="event-card">
+                <strong>Legenda Symulacji:</strong>
+                <ul style="padding-left: 20px; margin: 5px 0; color: #aaa;">
+                    <li><span style="color:#fff">⬜</span> Układ O (Lab)</li>
+                    <li><span style="color:#ff4444">🟥</span> Układ O' (Rakieta)</li>
+                    <li><span style="color:#ffff00; font-weight:bold;">◯</span> Fala Świetlna (prędkość c)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE ---
+        let activeTab = 'diagram';
+        let beta = 0.5; // v/c
+        const scale = 40; // Pixels per unit
+        
+        // Shared Points (x, t)
+        let points = [
+            { id: 'A', x: 2, t: 4, color: '#4488ff' },
+            { id: 'B', x: 5, t: 2, color: '#ff4444' }
+        ];
+
+        // Simulation State
+        let simTime = 0;
+        let isPlaying = false;
+        let playbackSpeed = 1.0;
+        
+        // --- DIAGRAM VARIABLES ---
+        const canvasD = document.getElementById('minkowskiCanvas');
+        const ctxD = canvasD.getContext('2d');
+        const containerD = document.getElementById('canvasContainer');
+        let widthD, heightD, centerXD, centerYD;
+        let dragIndex = -1;
+
+        // --- SIMULATION VARIABLES ---
+        const canvasSimO = document.getElementById('simCanvasO');
+        const ctxSimO = canvasSimO.getContext('2d');
+        const canvasSimOp = document.getElementById('simCanvasOp');
+        const ctxSimOp = canvasSimOp.getContext('2d');
+
+        // --- MATH UTILS ---
+        function toMath(px, py, cx, cy) {
+            return { x: (px - cx) / scale, t: -(py - cy) / scale };
+        }
+        function toCanvas(mx, mt, cx, cy) {
+            return { x: cx + mx * scale, y: cy - mt * scale };
+        }
+        function lorentz(x, t, v) {
+            const gamma = 1 / Math.sqrt(1 - v*v);
+            return {
+                xp: gamma * (x - v * t),
+                tp: gamma * (t - v * x),
+                gamma: gamma
+            };
+        }
+        function intersect(p1x, p1y, m1, p2x, p2y, m2) {
+            const c1 = p1y - m1 * p1x;
+            const c2 = p2y - m2 * p2x;
+            // Handle parallel lines case if needed, but here slopes are bounded
+            if (Math.abs(m1 - m2) < 0.0001) return {x: p1x, y: p1y};
+            const x = (c2 - c1) / (m1 - m2);
+            const y = m1 * x + c1;
+            return { x, y };
+        }
+
+        // --- TABS LOGIC ---
+        window.switchTab = function(tabName) {
+            activeTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            const btns = document.querySelectorAll('.tab-btn');
+            if(tabName === 'diagram') btns[0].classList.add('active');
+            else btns[1].classList.add('active');
+
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            setTimeout(() => {
+                resizeDiagram();
+                resizeSimulation();
+                drawDiagram();
+                drawSimulation();
+            }, 50);
+        }
+
+        // --- DRAWING: DIAGRAM ---
+        function resizeDiagram() {
+            widthD = containerD.clientWidth;
+            heightD = containerD.clientHeight;
+            canvasD.width = widthD;
+            canvasD.height = heightD;
+            centerXD = widthD / 2;
+            centerYD = heightD / 2;
+        }
+
+        function drawDiagram() {
+            ctxD.fillStyle = '#1e1e1e';
+            ctxD.fillRect(0, 0, widthD, heightD);
+
+            // Grid
+            ctxD.strokeStyle = '#333';
+            ctxD.lineWidth = 1;
+            for(let i = -20; i <= 20; i++) {
+                let p = toCanvas(i, 0, centerXD, centerYD);
+                ctxD.beginPath(); ctxD.moveTo(p.x, 0); ctxD.lineTo(p.x, heightD); ctxD.stroke();
+                p = toCanvas(0, i, centerXD, centerYD);
+                ctxD.beginPath(); ctxD.moveTo(0, p.y); ctxD.lineTo(widthD, p.y); ctxD.stroke();
+            }
+
+            // Light Cone
+            ctxD.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+            ctxD.lineWidth = 2;
+            ctxD.setLineDash([5, 5]);
+            let p1 = toCanvas(-20, -20, centerXD, centerYD);
+            let p2 = toCanvas(20, 20, centerXD, centerYD);
+            ctxD.beginPath(); ctxD.moveTo(p1.x, p1.y); ctxD.lineTo(p2.x, p2.y); ctxD.stroke();
+            let p3 = toCanvas(-20, 20, centerXD, centerYD);
+            let p4 = toCanvas(20, -20, centerXD, centerYD);
+            ctxD.beginPath(); ctxD.moveTo(p3.x, p3.y); ctxD.lineTo(p4.x, p4.y); ctxD.stroke();
+            ctxD.setLineDash([]);
+
+            // Axes O (White)
+            ctxD.strokeStyle = '#fff';
+            ctxD.lineWidth = 2;
+            ctxD.beginPath(); ctxD.moveTo(centerXD, 0); ctxD.lineTo(centerXD, heightD); ctxD.stroke(); // ct
+            ctxD.beginPath(); ctxD.moveTo(0, centerYD); ctxD.lineTo(widthD, centerYD); ctxD.stroke(); // x
+            ctxD.fillStyle = '#fff'; ctxD.fillText("ct", centerXD+5, 15); ctxD.fillText("x", widthD-20, centerYD-5);
+
+            // Axes O' (Red)
+            ctxD.strokeStyle = '#ff4444';
+            const huge = 50;
+            // ct'
+            let tp1 = toCanvas(beta*huge, huge, centerXD, centerYD);
+            let tp2 = toCanvas(beta*-huge, -huge, centerXD, centerYD);
+            ctxD.beginPath(); ctxD.moveTo(tp2.x, tp2.y); ctxD.lineTo(tp1.x, tp1.y); ctxD.stroke();
+            ctxD.fillStyle = '#ff4444'; ctxD.fillText("ct'", tp1.x+5, tp1.y+15);
+
+            // x'
+            let xp1 = toCanvas(huge, beta*huge, centerXD, centerYD);
+            let xp2 = toCanvas(-huge, beta*-huge, centerXD, centerYD);
+            ctxD.beginPath(); ctxD.moveTo(xp2.x, xp2.y); ctxD.lineTo(xp1.x, xp1.y); ctxD.stroke();
+            ctxD.fillText("x'", xp1.x-20, xp1.y-5);
+
+            // Points
+            points.forEach(pt => {
+                const pos = toCanvas(pt.x, pt.t, centerXD, centerYD);
+                
+                // 1. RZUTOWANIE NA BIAŁO (Układ O) - Prostopadłe
+                ctxD.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctxD.lineWidth = 1;
+                ctxD.setLineDash([4, 4]);
+                
+                // Na oś x (pionowa kreska)
+                ctxD.beginPath(); ctxD.moveTo(pos.x, pos.y); ctxD.lineTo(pos.x, centerYD); ctxD.stroke();
+                // Na oś ct (pozioma kreska)
+                ctxD.beginPath(); ctxD.moveTo(pos.x, pos.y); ctxD.lineTo(centerXD, pos.y); ctxD.stroke();
+                
+
+                // 2. RZUTOWANIE NA RÓŻOWO (Układ O') - Ukośne
+                const axisSlope = 1.0/beta; 
+                const lineSlope = beta;    
+                
+                let intT;
+                if(Math.abs(beta) < 0.001) intT = {x: 0, y: pt.t};
+                else intT = intersect(pt.x, pt.t, lineSlope, 0, 0, axisSlope);
+                let pT = toCanvas(intT.x, intT.y, centerXD, centerYD);
+
+                let intX;
+                if(Math.abs(beta) < 0.001) intX = {x: pt.x, y: 0};
+                else intX = intersect(pt.x, pt.t, axisSlope, 0, 0, lineSlope);
+                let pX = toCanvas(intX.x, intX.y, centerXD, centerYD);
+
+                ctxD.strokeStyle = 'rgba(255, 105, 180, 0.8)'; // HotPink
+                ctxD.lineWidth = 2; 
+                ctxD.setLineDash([3, 3]);
+                
+                // Do osi Czasu O'
+                ctxD.beginPath(); ctxD.moveTo(pos.x, pos.y); ctxD.lineTo(pT.x, pT.y); ctxD.stroke();
+                // Do osi Przestrzeni O'
+                ctxD.beginPath(); ctxD.moveTo(pos.x, pos.y); ctxD.lineTo(pX.x, pX.y); ctxD.stroke();
+                
+                ctxD.setLineDash([]);
+
+                // Draw Point
+                ctxD.beginPath(); ctxD.arc(pos.x, pos.y, 8, 0, Math.PI*2);
+                ctxD.fillStyle = pt.color; ctxD.fill();
+                ctxD.strokeStyle = '#fff'; ctxD.lineWidth = 2; ctxD.stroke();
+                
+                ctxD.fillStyle = '#fff';
+                ctxD.font = 'bold 12px sans-serif';
+                ctxD.fillText(pt.id, pos.x+12, pos.y-12);
+            });
+
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('vDisplay').innerText = beta.toFixed(2);
+            const lA = lorentz(points[0].x, points[0].t, beta);
+            document.getElementById('gammaDisplay').innerText = lA.gamma.toFixed(2);
+
+            ['A', 'B'].forEach((pid, i) => {
+                const p = points[i];
+                const l = lorentz(p.x, p.t, beta);
+                document.getElementById(`t${pid}`).innerText = p.t.toFixed(2);
+                document.getElementById(`x${pid}`).innerText = p.x.toFixed(2);
+                document.getElementById(`t${pid}p`).innerText = l.tp.toFixed(2);
+                document.getElementById(`x${pid}p`).innerText = l.xp.toFixed(2);
+            });
+        }
+
+
+        // --- DRAWING: SIMULATION ---
+
+        function resizeSimulation() {
+            const rectO = canvasSimO.parentElement.getBoundingClientRect();
+            canvasSimO.width = rectO.width;
+            canvasSimO.height = rectO.height;
+            
+            const rectOp = canvasSimOp.parentElement.getBoundingClientRect();
+            canvasSimOp.width = rectOp.width;
+            canvasSimOp.height = rectOp.height;
+        }
+
+        function drawSimView(ctx, w, h, currentLocalTime, isMovingFrame) {
+            const cx = w / 2;
+            const cy = h / 2;
+            const pxScale = 40; // 1 unit = 40px. Speed of light c = 1 unit/s = 40px/s
+
+            ctx.clearRect(0, 0, w, h);
+
+            // 1. Grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+            for(let x = -20; x <= 20; x++) {
+                let px = cx + x * pxScale;
+                ctx.beginPath(); ctx.moveTo(px, cy-5); ctx.lineTo(px, cy+5); ctx.stroke();
+            }
+
+            // 2. Observer O (White Box)
+            let posO_x;
+            if (!isMovingFrame) posO_x = 0; 
+            else posO_x = -beta * currentLocalTime;
+            let screenXO = cx + posO_x * pxScale;
+            
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(screenXO - 10, cy - 20, 20, 20);
+            ctx.fillStyle = '#aaa'; ctx.textAlign = 'center'; ctx.fillText("O", screenXO, cy - 25);
+
+            // 3. Observer O' (Red Box)
+            let posOp_x;
+            if (!isMovingFrame) posOp_x = beta * currentLocalTime;
+            else posOp_x = 0;
+            let screenXOp = cx + posOp_x * pxScale;
+
+            ctx.fillStyle = '#ff4444';
+            ctx.fillRect(screenXOp - 10, cy + 5, 20, 20); 
+            ctx.fillStyle = '#ff8888'; ctx.fillText("O'", screenXOp, cy + 40);
+
+            // 4. Events & LIGHT WAVES
+            points.forEach(pt => {
+                let eventTime, eventPos;
+                
+                if (!isMovingFrame) {
+                    eventTime = pt.t;
+                    eventPos = pt.x;
+                } else {
+                    const l = lorentz(pt.x, pt.t, beta);
+                    eventTime = l.tp;
+                    eventPos = l.xp;
+                }
+
+                const age = currentLocalTime - eventTime;
+                
+                // Draw Expanding Light Circle (if event happened)
+                if (age > 0) {
+                     const radius = age * pxScale; // radius = c * t (c=1)
+                     const screenX = cx + eventPos * pxScale;
+
+                     // Light Wave Ring
+                     ctx.beginPath();
+                     ctx.arc(screenX, cy, radius, 0, Math.PI*2);
+                     ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; // Yellow light
+                     ctx.lineWidth = 2;
+                     ctx.stroke();
+                     
+                     // Optional: Inner glow
+                     ctx.beginPath();
+                     ctx.arc(screenX, cy, radius, 0, Math.PI*2);
+                     ctx.strokeStyle = 'rgba(255, 255, 0, 0.2)';
+                     ctx.lineWidth = 6;
+                     ctx.stroke();
+                }
+
+                // Draw Event Dot (Fade effect)
+                const fadeDuration = 1.8; 
+                if (age >= 0 && age < fadeDuration) {
+                    const screenX = cx + eventPos * pxScale;
+                    const progress = age / fadeDuration; 
+                    const alpha = 1 - Math.pow(progress, 2); 
+                    const radiusScale = 1 + progress * 0.5; 
+                    
+                    ctx.save();
+                    ctx.shadowColor = pt.color;
+                    ctx.shadowBlur = 20 * alpha;
+                    
+                    ctx.beginPath();
+                    ctx.arc(screenX, cy, 10 * radiusScale, 0, Math.PI*2);
+                    ctx.fillStyle = pt.color;
+                    ctx.globalAlpha = alpha;
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = pt.color;
+                    ctx.font = "bold 14px sans-serif";
+                    ctx.fillText(pt.id, screenX, cy - 30);
+                    ctx.globalAlpha = 1.0;
+                    ctx.font = "10px sans-serif";
+                }
+            });
+            
+            // Labels
+            ctx.fillStyle = '#888';
+            ctx.textAlign = 'left';
+            if(!isMovingFrame) ctx.fillText("Widok O: O stoi, O' ucieka w prawo. Światło rozchodzi się z c.", 10, h-10);
+            else ctx.fillText("Widok O': O' stoi, O ucieka w lewo. Światło rozchodzi się z c.", 10, h-10);
+        }
+
+        function drawSimulation() {
+            if(activeTab !== 'simulation') return;
+
+            document.getElementById('simTimeO').innerText = simTime.toFixed(2);
+            document.getElementById('simTimeOp').innerText = simTime.toFixed(2);
+            document.getElementById('timeSlider').value = simTime;
+
+            drawSimView(ctxSimO, canvasSimO.width, canvasSimO.height, simTime, false);
+            drawSimView(ctxSimOp, canvasSimOp.width, canvasSimOp.height, simTime, true);
+        }
+
+        function animLoop() {
+            if (activeTab === 'simulation' && isPlaying) {
+                // Uwzględnij suwak prędkości
+                simTime += 0.05 * playbackSpeed;
+                
+                if(simTime > 15) simTime = -5; // Loop
+                drawSimulation();
+            }
+            requestAnimationFrame(animLoop);
+        }
+
+
+        // --- EVENTS & HANDLERS ---
+        
+        canvasD.addEventListener('mousedown', e => {
+            if(activeTab !== 'diagram') return;
+            const rect = canvasD.getBoundingClientRect();
+            const px = e.clientX - rect.left;
+            const py = e.clientY - rect.top;
+            
+            points.forEach((p, idx) => {
+                const pos = toCanvas(p.x, p.t, centerXD, centerYD);
+                if (Math.hypot(px - pos.x, py - pos.y) < 15) dragIndex = idx;
+            });
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (activeTab === 'diagram' && dragIndex !== -1) {
+                const rect = canvasD.getBoundingClientRect();
+                const m = toMath(e.clientX - rect.left, e.clientY - rect.top, centerXD, centerYD);
+                points[dragIndex].x = m.x;
+                points[dragIndex].t = m.t;
+                drawDiagram();
+            }
+        });
+
+        window.addEventListener('mouseup', () => dragIndex = -1);
+
+        document.getElementById('velocitySlider').addEventListener('input', (e) => {
+            beta = parseFloat(e.target.value);
+            drawDiagram();
+        });
+
+        // Sim Controls
+        const btnPlay = document.getElementById('btnPlayPause');
+        btnPlay.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            btnPlay.innerText = isPlaying ? "Pauza" : "Start";
+        });
+
+        document.getElementById('timeSlider').addEventListener('input', (e) => {
+            simTime = parseFloat(e.target.value);
+            isPlaying = false;
+            btnPlay.innerText = "Start";
+            drawSimulation();
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            playbackSpeed = parseFloat(e.target.value);
+        });
+
+        window.addEventListener('resize', () => {
+            resizeDiagram();
+            resizeSimulation();
+            drawDiagram();
+            drawSimulation();
+        });
+
+        // INIT
+        resizeDiagram();
+        resizeSimulation();
+        drawDiagram();
+        animLoop();
+
+    </script>
+</body>
+</html>
