@@ -102,7 +102,8 @@
             </div>
 
             <div class="legend-item"><span class="dot" style="background:rgba(68, 136, 255, 0.8)"></span> Stożek Świetlny</div>
-            <div class="legend-item"><span class="dot" style="background:#ffaa00"></span> Promienie Światła</div>
+            <div class="legend-item"><span class="dot" style="background:#ffaa00"></span> Promienie (Animacja)</div>
+            <div class="legend-item"><span class="dot" style="background:#ff69b4; border:1px solid #666;"></span> Geodezyjne (Różowe)</div>
             <div class="legend-item"><span class="dot" style="background:#fff; border:1px solid #444;"></span> Obserwator</div>
             
             <div class="status-panel">
@@ -120,7 +121,7 @@
         const container = document.getElementById('canvasContainer');
 
         // Physics Constants
-        let M = 25; // Mniejsza domyślna masa pozwala pokazać większy dystans
+        let M = 25; 
         let horizonR = 2 * M;
         
         // Observer Position
@@ -128,7 +129,7 @@
         
         // Rays for background visualization
         let rays = [];
-        const NUM_RAYS = 25; // Więcej promieni
+        const NUM_RAYS = 25; 
 
         // --- SETUP ---
         function resize() {
@@ -139,19 +140,12 @@
         window.addEventListener('resize', resize);
 
         // --- PHYSICS: GULLSTRAND-PAINLEVE ---
-        // beta = sqrt(2M/r) is the velocity of space falling in.
-        // Outgoing light speed (relative to grid) = 1 - beta
-        // Ingoing light speed (relative to grid) = -1 - beta
-        
         function getMetricData(r) {
-            if (r < 0.1) r = 0.1; // Avoid singularity crash
-            
-            const beta = Math.sqrt((2 * M) / r); // Escape velocity at r
-            
-            // Local light cones slope
-            const slopeOut = 1 - beta;  // Right edge of cone
-            const slopeIn = -1 - beta;  // Left edge of cone
-            
+            if (r < 0.1) r = 0.1; 
+            const beta = Math.sqrt((2 * M) / r); 
+            // Local light cones slope (Time is Y axis, Radius is X axis)
+            const slopeOut = 1 - beta;  // Right edge
+            const slopeIn = -1 - beta;  // Left edge
             return { beta, slopeOut, slopeIn };
         }
 
@@ -161,17 +155,102 @@
                 rays.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    type: i % 2 === 0 ? 'out' : 'in', // mixing ingoing/outgoing
+                    type: i % 2 === 0 ? 'out' : 'in', 
                     offset: Math.random() * 100
                 });
             }
         }
 
-        // --- DRAWING ---
+        // --- DRAWING THE STATIC GRID ---
+        function drawStaticGrid(w, h, singX) {
+            const horizonX = singX + 2 * M;
+            
+            // RÓŻOWA SIATKA
+            ctx.strokeStyle = 'rgba(255, 105, 180, 0.25)'; // Pinkish, faint
+            ctx.lineWidth = 1.2;
+
+            const stepSize = 4; // Integration step size (pixels)
+
+            // 1. OUTGOING RAYS (Uciekające, Slope = 1 - beta)
+            // ZAGĘSZCZENIE PRZY HORYZONCIE
+            // Generujemy punkty startowe (na dole ekranu, y=h) nieliniowo.
+            // Dużo punktów blisko horyzontu, rzadziej dalej.
+            
+            let startPoints = [];
+            // Bardzo gęsto tuż za horyzontem (np. od 0 do 200px za horyzontem)
+            for(let d = 0; d < 200; d += 8) startPoints.push(horizonX + d);
+            // Średnio gęsto dalej
+            for(let d = 200; d < w; d += 40) startPoints.push(horizonX + d);
+
+            // Dodatkowe linie startujące z "lewej" strony (jeśli chcemy wypełnić górę), 
+            // ale skoro ucinamy na horyzoncie, to wystarczy startować z dołu, byle gęsto.
+
+            startPoints.forEach(startX => {
+                if (startX < horizonX) return; // Nie rysujemy wewnątrz
+
+                ctx.beginPath();
+                let x = startX;
+                let y = h; // Start at bottom
+                ctx.moveTo(x, y);
+
+                while (y > 0) {
+                    let r = x - singX;
+                    if (r < 2 * M) break; // STOP AT HORIZON (Nie przedłużaj w czarną dziurę)
+                    
+                    let m = getMetricData(r);
+                    
+                    // Move UP in time (y decreases)
+                    y -= stepSize;
+                    x += m.slopeOut * stepSize; 
+
+                    ctx.lineTo(x, y);
+                    
+                    if (x < horizonX) break; // Extra safety clip
+                }
+                ctx.stroke();
+            });
+
+            // 2. INGOING RAYS (Wpadające, Slope = -1 - beta)
+            // Te wpadają szybko, więc nie trzeba ich tak zagęszczać, ale dla estetyki rysujemy
+            ctx.strokeStyle = 'rgba(255, 105, 180, 0.15)'; // Nieco słabsze
+            
+            for (let startX = horizonX; startX < w + h; startX += 50) {
+                ctx.beginPath();
+                let x = startX;
+                let y = h; // Start mostly bottom/right
+                
+                // Dla wpadających startujemy też z prawej krawędzi, bo idą w lewo
+                // Ale uprośćmy: startujemy z dołu dla spójności
+                if (startX > w) { 
+                    // Start from right edge? x = w, y varies?
+                    // Let's keep loop simple from bottom
+                }
+                
+                ctx.moveTo(x, y);
+
+                while (y > 0) {
+                    let r = x - singX;
+                    
+                    // STOP AT HORIZON (Zgodnie z życzeniem "nie przedłużaj")
+                    if (r < 2 * M) break; 
+
+                    let m = getMetricData(r);
+                    
+                    y -= stepSize;
+                    x += m.slopeIn * stepSize; // Always negative
+
+                    ctx.lineTo(x, y);
+                    if (x < horizonX) break;
+                }
+                ctx.stroke();
+            }
+        }
+
+        // --- MAIN DRAW LOOP ---
         function draw() {
             const w = canvas.width;
             const h = canvas.height;
-            const singX = 50; // Singularity position (left margin)
+            const singX = 50; 
 
             // 1. CLEAR & BACKGROUND
             ctx.fillStyle = '#000';
@@ -181,150 +260,123 @@
             horizonR = 2 * M;
             const horizonX = singX + horizonR;
 
-            // 2. DRAW ZONES (Singularity & Horizon)
-            // Singularity
-            ctx.fillStyle = '#111';
+            // 2. DRAW ZONES (Zamiast rysować wnętrze, zostawiamy je ciemne/wyróżnione)
+            // Wnętrze czarnej dziury (Singularity to Horizon)
+            const holeGrad = ctx.createLinearGradient(0, 0, horizonX, 0);
+            holeGrad.addColorStop(0, '#000');
+            holeGrad.addColorStop(1, '#1a0505'); // Lekko czerwonawy mrok
+            ctx.fillStyle = holeGrad;
             ctx.fillRect(0, 0, horizonX, h);
             
             // Horizon Line
-            ctx.strokeStyle = '#333';
+            ctx.strokeStyle = '#444';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(horizonX, 0);
-            ctx.lineTo(horizonX, h);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(horizonX, 0); ctx.lineTo(horizonX, h); ctx.stroke();
             ctx.setLineDash([]);
             
-            ctx.fillStyle = '#555';
-            ctx.font = '12px monospace';
+            ctx.fillStyle = '#666'; ctx.font = '12px monospace';
             ctx.fillText("HORYZONT (r=2M)", horizonX + 5, 20);
 
-            // 3. DRAW GEODESICS (Background Flow)
-            // We draw paths of photons to visualize curvature
-            ctx.strokeStyle = 'rgba(255, 170, 0, 0.4)'; // Jaśniejszy żółty
-            ctx.lineWidth = 1.5;
+            // 3. DRAW STATIC GRID (BACKGROUND) - PINK
+            drawStaticGrid(w, h, singX);
+
+            // 4. DRAW ANIMATED RAYS (FOREGROUND)
+            ctx.strokeStyle = 'rgba(255, 170, 0, 0.6)'; // Brighter Yellow
+            ctx.lineWidth = 2;
 
             rays.forEach(ray => {
                 ctx.beginPath();
+                let tx = ray.x;
+                let ty = ray.y;
                 
-                // Tracing a segment of the ray
-                let cx = ray.x;
-                let cy = ray.y;
-                
-                // Move 'ray' forward for animation
-                // Time flows UP on screen (standard diagram convention is Time Y-axis)
-                // But let's make flow downwards for "falling"? 
-                // Let's stick to: Y is Time (UP).
-                
-                ray.y -= 1.5; // Move up in time
-
-                // Apply Metric to move X
+                // Animate
+                ray.y -= 1.5; // Flow UP in time
                 let r = ray.x - singX;
                 let m = getMetricData(r);
                 let dx = (ray.type === 'out' ? m.slopeOut : m.slopeIn) * 1.5;
                 ray.x += dx;
 
-                // Reset loop
+                // Loop reset
+                // Jeśli wpadnie do dziury (x < horizonX) też resetujemy, żeby nie rysować w środku?
+                // Niech wpadają, to wygląda dobrze jako "znikające" w otchłani.
+                // Ale tło statyczne ucięliśmy.
+                
                 if (ray.y < 0 || ray.x < singX + 2 || ray.x > w) {
                     ray.y = h;
-                    ray.x = singX + 5 + Math.random() * (w - singX);
+                    // Respawn outside horizon mostly
+                    ray.x = horizonX + Math.random() * (w - horizonX);
                 }
 
-                // Draw trail (integral curve) backward
-                let tx = ray.x;
-                let ty = ray.y;
-                ctx.moveTo(tx, ty);
-
-                for(let k=0; k<15; k++) {
-                    let tr = tx - singX;
+                // Draw trail
+                ctx.moveTo(ray.x, ray.y);
+                let trailX = ray.x;
+                let trailY = ray.y;
+                
+                // Draw tail backward
+                for(let k=0; k<12; k++) {
+                    let tr = trailX - singX;
                     if(tr < 1) break;
-                    
                     let tm = getMetricData(tr);
                     let slope = (ray.type === 'out' ? tm.slopeOut : tm.slopeIn);
                     
-                    tx -= slope * 5; // back in X
-                    ty += 5;         // back in Time (down)
-                    ctx.lineTo(tx, ty);
+                    trailX -= slope * 6; 
+                    trailY += 6; 
+                    ctx.lineTo(trailX, trailY);
                 }
                 ctx.stroke();
+                
+                // Draw head dot
+                ctx.fillStyle = '#ffaa00';
+                ctx.beginPath(); ctx.arc(ray.x, ray.y, 1.5, 0, Math.PI*2); ctx.fill();
             });
 
-            // 4. OBSERVER & CONE
+            // 5. OBSERVER & CONE
             const obsR = obs.x - singX;
             const obsM = getMetricData(obsR);
             
-            // UI Update
+            // UI Data
             const rInM = obsR / M;
             document.getElementById('rVal').innerText = rInM.toFixed(1);
             document.getElementById('betaVal').innerText = obsM.beta.toFixed(3);
-            
             const zoneText = document.getElementById('zoneText');
             if (obsR < horizonR) {
-                zoneText.innerText = "WEWNĄTRZ CZARNEJ DZIURY\nStożki skierowane do osobliwości.";
-                zoneText.style.color = "#ff4444";
+                zoneText.innerText = "WEWNĄTRZ CZARNEJ DZIURY\nBrak powrotu."; zoneText.style.color = "#ff4444";
             } else if (rInM > 15) {
-                zoneText.innerText = "STREFA MINKOWSKIEGO\nCzasoprzestrzeń prawie płaska.";
-                zoneText.style.color = "#4488ff";
+                zoneText.innerText = "STREFA MINKOWSKIEGO\nCzasoprzestrzeń prawie płaska."; zoneText.style.color = "#4488ff";
             } else {
-                zoneText.innerText = "ZAKRZYWIONA CZASOPRZESTRZEŃ\nZauważalne przechylenie stożków.";
-                zoneText.style.color = "#e0e0e0";
+                zoneText.innerText = "ZAKRZYWIONA CZASOPRZESTRZEŃ\nZauważalne przechylenie stożków."; zoneText.style.color = "#e0e0e0";
             }
 
-
             // Draw Light Cone
-            const coneH = 100; // Height of cone in pixels (Time duration)
-            
-            // Right edge of cone (Outgoing photon)
+            const coneH = 100; 
             const dxRight = obsM.slopeOut * coneH;
             const pRightX = obs.x + dxRight;
             const pRightY = obs.y - coneH;
-            
-            // Left edge of cone (Ingoing photon)
             const dxLeft = obsM.slopeIn * coneH;
             const pLeftX = obs.x + dxLeft;
             const pLeftY = obs.y - coneH;
 
-            // Gradient for cone body
             const coneGrad = ctx.createLinearGradient(obs.x, obs.y, obs.x, obs.y - coneH);
             coneGrad.addColorStop(0, 'rgba(68, 136, 255, 0.7)');
             coneGrad.addColorStop(1, 'rgba(68, 136, 255, 0.1)');
 
             ctx.fillStyle = coneGrad;
-            ctx.beginPath();
-            ctx.moveTo(obs.x, obs.y); // Vertex
-            ctx.lineTo(pRightX, pRightY);
-            ctx.lineTo(pLeftX, pLeftY);
-            ctx.closePath();
-            ctx.fill();
+            ctx.beginPath(); ctx.moveTo(obs.x, obs.y); 
+            ctx.lineTo(pRightX, pRightY); ctx.lineTo(pLeftX, pLeftY); 
+            ctx.closePath(); ctx.fill();
             
-            // Outline
-            ctx.strokeStyle = '#4488ff';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(pRightX, pRightY); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(pLeftX, pLeftY); ctx.stroke();
             
-            // 5. MINKOWSKI REFERENCE (Vertical Line Guide)
-            // Shows "Straight Up" (Time in flat space) vs "Local Time" (Tilted)
-            // In GP coords, the stationary observer moves at -beta relative to the river.
-            // So the "axis of time" for the observer is tilted left.
+            // Local Time Axis
             const tiltX = obs.x - (obsM.beta * coneH);
-            
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.setLineDash([2,4]);
-            ctx.beginPath();
-            ctx.moveTo(obs.x, obs.y);
-            ctx.lineTo(tiltX, obs.y - coneH);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.setLineDash([2,4]);
+            ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(tiltX, obs.y - coneH); ctx.stroke(); ctx.setLineDash([]);
 
             // Observer Dot
-            ctx.beginPath();
-            ctx.arc(obs.x, obs.y, 6, 0, Math.PI * 2);
-            ctx.fillStyle = '#fff';
-            ctx.fill();
-
-            // Glow if interacting
+            ctx.beginPath(); ctx.arc(obs.x, obs.y, 6, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
             if(obs.dragging) {
                 ctx.beginPath(); ctx.arc(obs.x, obs.y, 12, 0, Math.PI*2);
                 ctx.strokeStyle = '#fff'; ctx.stroke();
@@ -338,12 +390,10 @@
             const r = canvas.getBoundingClientRect();
             return { x: e.clientX - r.left, y: e.clientY - r.top };
         }
-
         canvas.addEventListener('mousedown', e => {
             const p = getPos(e);
             if(Math.hypot(p.x - obs.x, p.y - obs.y) < 30) obs.dragging = true;
         });
-        
         window.addEventListener('mousemove', e => {
             const p = getPos(e);
             if(obs.dragging) {
@@ -353,18 +403,11 @@
                 canvas.style.cursor = Math.hypot(p.x-obs.x, p.y-obs.y)<30 ? 'grab' : 'crosshair';
             }
         });
-        
         window.addEventListener('mouseup', () => obs.dragging = false);
-        
-        // Touch support
         canvas.addEventListener('touchstart', e => {
              const p = getPos(e.touches[0]);
-             if(Math.hypot(p.x - obs.x, p.y - obs.y) < 40) {
-                 obs.dragging = true;
-                 e.preventDefault();
-             }
+             if(Math.hypot(p.x - obs.x, p.y - obs.y) < 40) { obs.dragging = true; e.preventDefault(); }
         }, {passive: false});
-        
         canvas.addEventListener('touchmove', e => {
             if(obs.dragging) {
                 const p = getPos(e.touches[0]);
@@ -373,12 +416,8 @@
                 e.preventDefault();
             }
         }, {passive: false});
-        
         canvas.addEventListener('touchend', () => obs.dragging = false);
-
-        document.getElementById('massSlider').addEventListener('input', (e) => {
-            M = parseInt(e.target.value);
-        });
+        document.getElementById('massSlider').addEventListener('input', (e) => { M = parseInt(e.target.value); });
 
         resize();
         initRays();
