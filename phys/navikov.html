@@ -6,55 +6,84 @@
     <title>Zasada Samospójności Nowikowa - Animacja</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        canvas { display: block; background: #1e293b; box-shadow: inset 0 0 50px #000; }
-        .panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(15, 23, 42, 0.95);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #334155;
-            max-width: 350px;
-            backdrop-filter: blur(5px);
-            z-index: 10;
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #0f172a; 
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
-        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-top: 4px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        
+        /* Panel teraz jest statycznym elementem na górze, nie unosi się nad animacją */
+        .panel {
+            position: relative;
+            background: #1e293b;
+            padding: 15px 20px;
+            border-bottom: 1px solid #334155;
+            z-index: 10;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background: #0f172a;
+        }
+
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: 100%;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; white-space: nowrap; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        
+        .panel-left { max-width: 600px; }
+        .panel-right { display: flex; flex-direction: column; gap: 5px; min-width: 250px; }
     </style>
 </head>
 <body>
 
     <div class="panel">
-        <h1 class="text-xl font-bold mb-2 text-blue-400">Zasada Nowikowa</h1>
-        <p class="text-sm text-gray-300 mb-4">
-            To jest oskryptowana animacja demonstrująca paradoks. 
-            <br><br>
-            Bila "Starsza" (Czerwona) uderza bilę "Młodą" (Zieloną), co zmienia jej tor tak, że wpada ona do tunelu czasowego, by stać się bilą Starszą.
-        </p>
-        
-        <div class="bg-slate-800 p-3 rounded border border-slate-700">
-            <div class="legend-item"><div class="dot bg-green-500"></div> Młoda Bila (Przed podróżą)</div>
-            <div class="legend-item"><div class="dot bg-red-500"></div> Starsza Bila (Po podróży)</div>
-            <div class="legend-item"><div class="dot border-2 border-cyan-400"></div> Wejście (A)</div>
-            <div class="legend-item"><div class="dot border-2 border-orange-400"></div> Wyjście (B)</div>
+        <div class="panel-left">
+            <h1 class="text-lg font-bold text-blue-400 inline-block mr-2">Zasada Nowikowa</h1>
+            <span class="text-xs text-gray-400 block sm:inline">
+                Bila z przyszłości (Czerwona) uderza siebie z przeszłości (Zielona), zamykając pętlę przyczynową.
+            </span>
+            <div class="flex flex-wrap gap-4 mt-2">
+                <div class="legend-item"><div class="dot bg-green-500"></div> Młoda (Przed skokiem)</div>
+                <div class="legend-item"><div class="dot bg-red-500"></div> Starsza (Po skoku)</div>
+                <div class="legend-item"><div class="dot border border-cyan-400"></div> Wejście A</div>
+                <div class="legend-item"><div class="dot border border-orange-400"></div> Wyjście B</div>
+            </div>
         </div>
-        
-        <p class="text-xs text-yellow-400 mt-2 font-bold border-t border-slate-700 pt-2">
-            PĘTLA: Zielona wpada do A -> podróżuje w czasie -> wylatuje z B jako Czerwona.
-        </p>
 
-        <div class="mt-4 w-full bg-slate-700 h-2 rounded overflow-hidden">
-            <div id="progressBar" class="bg-blue-500 h-full w-0"></div>
+        <div class="panel-right">
+            <p id="statusText" class="text-right text-xs text-blue-300 font-mono h-4">Inicjalizacja...</p>
+            <div class="w-full bg-slate-700 h-1.5 rounded overflow-hidden">
+                <div id="progressBar" class="bg-blue-500 h-full w-0 transition-all duration-75"></div>
+            </div>
         </div>
-        <p id="statusText" class="text-center text-xs text-blue-300 mt-1 font-mono">Oczekiwanie...</p>
     </div>
 
-    <canvas id="animCanvas"></canvas>
+    <div id="canvas-container">
+        <canvas id="animCanvas"></canvas>
+    </div>
 
 <script>
 const canvas = document.getElementById('animCanvas');
+const container = document.getElementById('canvas-container');
 const ctx = canvas.getContext('2d');
 const progressBar = document.getElementById('progressBar');
 const statusText = document.getElementById('statusText');
@@ -62,145 +91,123 @@ const statusText = document.getElementById('statusText');
 let width, height;
 
 // Konfiguracja animacji
-const ANIMATION_DURATION = 4000; // ms (czas trwania jednej pętli)
+const ANIMATION_DURATION = 5000; // Spowolniłem nieco dla lepszej czytelności (5s)
 let startTime = null;
 
-// Pozycje (w procentach szerokości/wysokości ekranu, by było responsywne)
-// Definiujemy to w funkcji resize()
+// Pozycje
 let points = {};
 
 function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
+    // Pobieramy wymiary kontenera, który wypełnia resztę ekranu
+    const rect = container.getBoundingClientRect();
+    width = rect.width;
+    height = rect.height;
+    
+    // Ustawiamy rozdzielczość canvas na te wymiary
     canvas.width = width;
     canvas.height = height;
 
-    // Punkty kluczowe (współrzędne logiczne)
-    // A: Tunel Wejściowy (do którego wpada młoda)
-    // B: Tunel Wyjściowy (z którego wypada stara)
-    // C: Punkt kolizji (środek)
-    // S: Start młodej bili
-    // E: Koniec starej bili (po odbiciu)
-    
+    // Punkty kluczowe - dostosowane do nowego obszaru roboczego
+    // Centrum obszaru roboczego
     const cx = width / 2;
     const cy = height / 2;
     
+    // Skalowanie odległości w zależności od mniejszego wymiaru
+    const scale = Math.min(width, height) * 0.35;
+
     points = {
         collision: { x: cx, y: cy },
         
-        // Młoda startuje z lewej
-        youngStart: { x: width * 0.1, y: cy }, 
+        // Młoda startuje z lewej strony
+        youngStart: { x: cx - scale * 1.5, y: cy }, 
         
         // Tunel wejściowy (A) - prawy dół
-        holeIn: { x: width * 0.8, y: height * 0.8 },
+        holeIn: { x: cx + scale, y: cy + scale * 0.6 },
         
-        // Tunel wyjściowy (B) - lewa góra (żeby była symetria "czasowa")
-        holeOut: { x: width * 0.2, y: height * 0.2 },
+        // Tunel wyjściowy (B) - lewa góra
+        holeOut: { x: cx - scale, y: cy - scale * 0.6 },
         
         // Gdzie leci stara bila po zderzeniu? (prawy górny róg)
-        oldEnd: { x: width * 0.9, y: height * 0.2 }
+        oldEnd: { x: cx + scale * 1.2, y: cy - scale * 0.8 }
     };
 }
 
-// Funkcja liniowej interpolacji (Lerp)
 function lerp(start, end, t) {
     return start + (end - start) * t;
 }
 
-// Główna pętla
 function loop(timestamp) {
     if (!startTime) startTime = timestamp;
     const elapsed = timestamp - startTime;
     
-    // Oblicz postęp pętli (0.0 do 1.0)
     let progress = (elapsed % ANIMATION_DURATION) / ANIMATION_DURATION;
     
-    // Rysowanie
     draw(progress);
     
-    // UI Update
     progressBar.style.width = `${progress * 100}%`;
     
     requestAnimationFrame(loop);
 }
 
 function draw(t) {
-    // Czyścimy ekran
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, width, height);
+    // Czyścimy
+    ctx.clearRect(0, 0, width, height); // Przezroczystość, tło jest w CSS
     
-    // Rysujemy siatkę tła (dla klimatu)
     drawGrid();
-
-    // Rysujemy wizualne połączenie czasu (PĘTLĘ)
     drawTimeLoopConnection();
 
-    // Rysujemy Tunele
-    // Tunel A (Wejście)
-    drawWormhole(points.holeIn.x, points.holeIn.y, '#22d3ee', 'A (Wejście)');
-    // Tunel B (Wyjście)
-    drawWormhole(points.holeOut.x, points.holeOut.y, '#f97316', 'B (Wyjście)');
+    // Tunele
+    drawWormhole(points.holeIn.x, points.holeIn.y, '#22d3ee', 'A (Wlot)');
+    drawWormhole(points.holeOut.x, points.holeOut.y, '#f97316', 'B (Wylot)');
 
-    // LOGIKA RUCHU
-    // Dzielimy animację na dwie fazy:
-    // Faza 1 (0.0 - 0.5): Zbliżanie się do zderzenia
-    // Faza 2 (0.5 - 1.0): Po zderzeniu
-    
     let youngPos = { x: 0, y: 0 };
     let oldPos = { x: 0, y: 0 };
     
-    // Zmienna 'localT' to czas wewnątrz danej fazy (0..1)
-    
+    // Logika faz
     if (t < 0.5) {
-        // --- PRZED ZDERZENIEM ---
-        let localT = t / 0.5; // Skalujemy 0..0.5 na 0..1
+        // Faza 1: Zbliżanie
+        let localT = t / 0.5;
+        // Funkcja ease-in dla naturalniejszego ruchu
+        let ease = localT * localT; 
+        // Liniowy ruch jest czytelniejszy w tym przypadku
+        ease = localT;
+
+        youngPos.x = lerp(points.youngStart.x, points.collision.x, ease);
+        youngPos.y = lerp(points.youngStart.y, points.collision.y, ease);
         
-        // Młoda: Start -> Kolizja
-        youngPos.x = lerp(points.youngStart.x, points.collision.x, localT);
-        youngPos.y = lerp(points.youngStart.y, points.collision.y, localT);
+        oldPos.x = lerp(points.holeOut.x, points.collision.x, ease);
+        oldPos.y = lerp(points.holeOut.y, points.collision.y, ease);
         
-        // Stara: Tunel B -> Kolizja
-        oldPos.x = lerp(points.holeOut.x, points.collision.x, localT);
-        oldPos.y = lerp(points.holeOut.y, points.collision.y, localT);
-        
-        statusText.textContent = "FAZA 1: Zbliżanie do paradoksu...";
-        statusText.style.color = "#94a3b8";
+        statusText.textContent = "1. ZBLIŻANIE: Starsza wylatuje z przeszłości, by uderzyć Młodą";
+        statusText.style.color = "#94a3b8"; // szary
         
     } else {
-        // --- PO ZDERZENIU ---
-        let localT = (t - 0.5) / 0.5; // Skalujemy 0.5..1.0 na 0..1
+        // Faza 2: Po zderzeniu
+        let localT = (t - 0.5) / 0.5;
         
-        // Młoda: Kolizja -> Tunel A
         youngPos.x = lerp(points.collision.x, points.holeIn.x, localT);
         youngPos.y = lerp(points.collision.y, points.holeIn.y, localT);
         
-        // Stara: Kolizja -> Koniec (odbija się gdzieś w bok)
         oldPos.x = lerp(points.collision.x, points.oldEnd.x, localT);
         oldPos.y = lerp(points.collision.y, points.oldEnd.y, localT);
         
-        // Rysujemy "BANG" w miejscu kolizji (przez chwilę)
         if (localT < 0.2) {
             drawCollisionEffect(points.collision.x, points.collision.y, 1.0 - localT * 5);
         }
         
-        statusText.textContent = "FAZA 2: Pętla domknięta (Młoda wchodzi do tunelu)";
-        statusText.style.color = "#4ade80";
+        statusText.textContent = "2. PĘTLA: Uderzona Młoda wpada do tunelu, by stać się Starszą";
+        statusText.style.color = "#4ade80"; // zielony
     }
 
-    // Rysowanie linii pomocniczych (torów)
     drawPathLines();
 
     // Rysowanie Bil
-    // Młoda (Zielona)
-    // Jeśli t > 0.95 (blisko końca), zaczynamy ją "wciągać" w tunel (zmniejszać)
     let youngScale = 1.0;
     if (t > 0.9) youngScale = 1.0 - (t - 0.9) * 10;
     if (youngScale < 0) youngScale = 0;
     
     drawBall(youngPos.x, youngPos.y, '#22c55e', 'Młoda', youngScale);
 
-    // Stara (Czerwona)
-    // Jeśli t < 0.1 (początek), wyłania się z tunelu (powiększa)
     let oldScale = 1.0;
     if (t < 0.1) oldScale = t * 10;
     drawBall(oldPos.x, oldPos.y, '#ef4444', 'Starsza', oldScale);
@@ -208,111 +215,104 @@ function draw(t) {
 
 function drawBall(x, y, color, label, scale) {
     if (scale <= 0) return;
-    
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
     
-    // Cień/Poświata
     ctx.shadowColor = color;
     ctx.shadowBlur = 15;
     
-    // Kula
     ctx.beginPath();
-    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    ctx.arc(0, 0, 14, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
     
-    // Obwódka
-    ctx.strokeStyle = 'white';
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 2;
     ctx.stroke();
     
-    // Etykieta
+    // Label nad bilą
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(label, 0, -20);
+    ctx.fillText(label, 0, -22);
     
     ctx.restore();
 }
 
-// Funkcja, której brakowało:
 function drawWormhole(x, y, color, label) {
-    // Prosty efekt wiru
     ctx.save();
     ctx.translate(x, y);
     
-    // Glow
-    const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 40);
-    grad.addColorStop(0, 'rgba(0,0,0,1)');
-    grad.addColorStop(0.5, color);
+    // Efekt pulsowania
+    const time = Date.now() / 1000;
+    const pulse = 1 + Math.sin(time * 2) * 0.05;
+    ctx.scale(pulse, pulse);
+    
+    const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, 35);
+    grad.addColorStop(0, '#000');
+    grad.addColorStop(0.6, color);
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(0, 0, 40, 0, Math.PI * 2);
+    ctx.arc(0, 0, 35, 0, Math.PI * 2);
     ctx.fill();
     
-    // Tekst
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.restore(); // Reset scale for text
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.textAlign = 'center';
-    ctx.font = '12px monospace';
-    ctx.fillText(label, 0, 55);
-    
-    ctx.restore();
+    ctx.font = '11px monospace';
+    ctx.fillText(label, x, y + 50);
 }
 
 function drawTimeLoopConnection() {
-    // Rysuje krzywą łączącą otwór A z otworem B, sugerującą tunel poza planszą
+    // FIX: Sprawdź czy punkty istnieją, zanim spróbujesz ich użyć.
+    if (!points.holeIn || !points.holeOut) return;
+
     const start = points.holeIn;
     const end = points.holeOut;
     
-    // Punkt kontrolny krzywej (żeby była ładnie wygięta)
-    // Ustawiamy go "poza" planszą, np. na dole po prawej lub środku
-    const cpX = width * 0.5;
-    const cpY = height * 1.2; // Wygięcie w dół poza ekran
-
-    ctx.save();
+    // Obliczamy punkt kontrolny w dół od środka ekranu, aby łuk był symetryczny
+    const midX = width / 2;
+    // const curveDepth = Math.min(width, height) * 0.4;
     
-    // Rysowanie linii tunelu
+    // Rysujemy łuk "pod spodem"
+    ctx.save();
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    ctx.quadraticCurveTo(cpX, cpY, end.x, end.y);
+    // Krzywa Beziera przechodząca dołem
+    ctx.quadraticCurveTo(midX, height - 50, end.x, end.y);
     
-    // Styl linii - przerywana, sugerująca "poza przestrzenią"
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 40; // Szeroki tunel
-    ctx.setLineDash([10, 20]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 30;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([10, 15]);
     ctx.stroke();
-
-    // Cieńsza linia środkowa
-    ctx.strokeStyle = 'rgba(100, 200, 255, 0.3)';
+    
+    // Cieńsza linia
+    ctx.strokeStyle = 'rgba(100, 200, 255, 0.2)';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     ctx.stroke();
-
-    // Tekst na środku krzywej (mniej więcej)
-    const midX = (start.x + 2*cpX + end.x) / 4;
-    const midY = (start.y + 2*cpY + end.y) / 4;
     
-    ctx.fillStyle = '#fbbf24'; // amber-400
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText("TUNEL CZASOPRZESTRZENNY", midX, midY - 10);
-    ctx.font = '10px sans-serif';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText("(Podróż w przeszłość)", midX, midY + 5);
-
-    // Strzałki na tunelu (animowane)
-    const time = Date.now() / 1000;
-    const offset = (time % 1) * 20; // Ruch strzałek
+    // Label tunelu
     ctx.setLineDash([]);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    // Przybliżona pozycja etykiety (wierzchołek łuku)
+    // Dla quadratic curve, t=0.5 jest w połowie
+    const t = 0.5;
+    const cpX = midX; 
+    const cpY = height - 50;
+    // Wzór na punkt na krzywej kwadratowej: (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
+    const lx = (1-t)*(1-t)*start.x + 2*(1-t)*t*cpX + t*t*end.x;
+    const ly = (1-t)*(1-t)*start.y + 2*(1-t)*t*cpY + t*t*end.y;
     
-    // Rysujemy kilka "paczek danych" płynących od A do B (prosta wizualizacja)
-    // Używamy przybliżonej pozycji na krzywej dla prostoty
-    
+    ctx.fillText("TUNEL CZASOWY", lx, ly + 5);
     ctx.restore();
 }
 
@@ -324,37 +324,31 @@ function drawCollisionEffect(x, y, alpha) {
     ctx.strokeStyle = '#ffff00';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    // Prosty kształt wybuchu
     for(let i=0; i<8; i++) {
         ctx.rotate(Math.PI / 4);
-        ctx.moveTo(10, 0);
-        ctx.lineTo(30, 0);
+        ctx.moveTo(8, 0);
+        ctx.lineTo(25, 0);
     }
     ctx.stroke();
-    
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(0,0, 10, 0, Math.PI*2);
-    ctx.fill();
-    
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill();
     ctx.restore();
 }
 
 function drawPathLines() {
     ctx.save();
-    ctx.setLineDash([5, 5]);
+    ctx.setLineDash([4, 6]);
     ctx.lineWidth = 1;
     
-    // Ścieżka Młodej (Start -> Collision -> Hole In)
-    ctx.strokeStyle = 'rgba(34, 197, 94, 0.2)';
+    // Ścieżki
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.15)';
     ctx.beginPath();
     ctx.moveTo(points.youngStart.x, points.youngStart.y);
     ctx.lineTo(points.collision.x, points.collision.y);
     ctx.lineTo(points.holeIn.x, points.holeIn.y);
     ctx.stroke();
     
-    // Ścieżka Starej (Hole Out -> Collision -> Old End)
-    ctx.strokeStyle = 'rgba(239, 68, 68, 0.2)';
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.15)';
     ctx.beginPath();
     ctx.moveTo(points.holeOut.x, points.holeOut.y);
     ctx.lineTo(points.collision.x, points.collision.y);
@@ -365,9 +359,10 @@ function drawPathLines() {
 }
 
 function drawGrid() {
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
     ctx.lineWidth = 1;
-    const step = 50;
+    const step = 60;
+    // Przesunięcie siatki dla efektu głębi (opcjonalne)
     for(let x=0; x<width; x+=step) {
         ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke();
     }
@@ -376,8 +371,9 @@ function drawGrid() {
     }
 }
 
-// Obsługa zmiany rozmiaru
 window.addEventListener('resize', resize);
+// Inicjalizacja: Najpierw oblicz wymiary, potem uruchom pętlę.
+// Usunięcie setTimeout rozwiązuje problem undefined points przy starcie.
 resize();
 requestAnimationFrame(loop);
 
