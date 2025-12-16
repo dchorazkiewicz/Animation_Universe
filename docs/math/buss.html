@@ -18,8 +18,10 @@
             --color-phi: #d29922;
             --color-train: #2ea043; /* Green for April */
             --color-incoming: #1f6feb;
-            --color-model: #a371f7; /* Purple for May */
+            --color-model: #a371f7; 
+            --color-pink: #ff1493; /* Deep Pink for May Perspective */
             --state-alert: #da3633;
+            --color-diag: #ffd700; /* Gold for Diagonal */
         }
 
         * { box-sizing: border-box; }
@@ -30,17 +32,16 @@
             font-family: 'Courier New', Courier, monospace;
             margin: 0;
             padding: 20px;
-            /* FLEX COLUMN LAYOUT FOR FULL SCREEN */
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100vh; /* Fixed viewport height */
-            overflow: hidden; /* No body scroll */
+            height: 100vh;
+            overflow: hidden;
         }
 
-        /* --- TABS (FIXED TOP) --- */
+        /* --- TABS --- */
         .tabs {
-            flex: 0 0 auto; /* Don't grow or shrink */
+            flex: 0 0 auto;
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
@@ -63,25 +64,27 @@
 
         .tab-btn.active { background: var(--color-omega); color: #fff; }
         
-        /* --- SINGLE VIEW CONTAINER (FLEXIBLE MIDDLE) --- */
-        #view-evolution {
-            flex: 1 1 auto; /* Grow to fill available space */
+        /* --- VIEWS --- */
+        .view-container {
+            display: none;
+            flex: 1 1 auto;
             width: 100%;
             max-width: 1600px;
-            /* Height is managed by flex, but we need min-height:0 for nested scroll to work */
-            min-height: 0; 
-            
+            min-height: 0;
             border: 1px solid var(--border-color);
             background: var(--bg-panel);
             border-radius: 6px;
-            padding: 0;
-            
-            /* GRID LAYOUT INSIDE */
-            display: grid;
+            overflow: hidden;
+        }
+        .view-container.active { display: flex; }
+
+        /* --- VIEW 1 & 2: EVOLUTION GRID --- */
+        #view-evolution {
+            display: none; /* Controlled by JS class */
             grid-template-columns: 80px 60px 1fr;
             gap: 0;
-            overflow: hidden; /* Prevent container itself from scrolling */
         }
+        #view-evolution.active { display: grid; }
 
         .column {
             display: flex;
@@ -89,12 +92,12 @@
             border-right: 1px solid var(--border-color);
             position: relative;
             background: #0d1117;
-            height: 100%; /* Fill the grid cell */
-            overflow: hidden; /* Manage overflow internally */
+            height: 100%;
+            overflow: hidden;
         }
 
         .column-header {
-            flex: 0 0 40px; /* Fixed height header */
+            flex: 0 0 40px;
             padding: 10px;
             text-align: center;
             font-size: 10px;
@@ -106,10 +109,9 @@
             z-index: 10;
         }
 
-        /* SCROLLABLE AREAS */
         .input-stack-compact, .matrix-container {
-            flex: 1 1 auto; /* Take remaining height */
-            overflow-y: auto; /* Enable scroll */
+            flex: 1 1 auto;
+            overflow-y: auto;
             padding-top: 5px;
             display: flex;
             flex-direction: column;
@@ -117,28 +119,18 @@
         
         .matrix-container { padding-left: 5px; }
 
-        /* ITEMS */
         .source-pill {
-            height: 20px; flex: 0 0 20px; /* Fixed height items */
+            height: 20px; flex: 0 0 20px;
             margin-bottom: 2px;
             display: flex; align-items: center; justify-content: center;
             font-size: 10px; color: #fff;
             animation: slideInLeft 0.2s;
         }
-
-        /* Color coding for Snapshots */
-        .source-pill.april {
-            background: rgba(46, 160, 67, 0.2);
-            border-left: 3px solid var(--color-train);
-        }
-
-        .source-pill.may {
-            background: rgba(163, 113, 247, 0.2);
-            border-left: 3px solid var(--color-model);
-        }
+        .source-pill.april { background: rgba(46, 160, 67, 0.2); border-left: 3px solid var(--color-train); }
+        .source-pill.may { background: rgba(255, 20, 147, 0.2); border-left: 3px solid var(--color-pink); }
 
         .matrix-row {
-            height: 20px; flex: 0 0 20px; /* Fixed height items */
+            height: 20px; flex: 0 0 20px;
             display: flex; align-items: center;
             margin-bottom: 2px;
             animation: fadeIn 0.2s;
@@ -146,14 +138,10 @@
         
         .cells-row { display: flex; gap: 1px; align-items: center; }
         
-        /* Month Separator Line */
         .month-separator {
-            width: 2px;
-            height: 20px;
+            width: 2px; height: 20px;
             background-color: var(--text-secondary);
-            margin: 0 3px;
-            flex: 0 0 2px;
-            opacity: 0.5;
+            margin: 0 3px; flex: 0 0 2px; opacity: 0.5;
         }
 
         .cell {
@@ -167,15 +155,121 @@
         .cell.alert { background: rgba(218, 54, 51, 0.8) !important; color: white !important; font-weight: bold; }
         
         /* MTD Specific Styles */
-        .cell.mtd-aprx { background: #1a2e1d; color: #7ee787; font-size: 8px; } /* MTD April */
-        .cell.mtd-total { background: #2e1a2b; color: #d8b4fe; font-weight:bold; font-size: 8px; border: 1px solid #583857; } /* Total April Plateau */
+        .cell.mtd-aprx { background: #1a2e1d; color: #7ee787; font-size: 8px; }
+        /* CHANGED TO PINK AS REQUESTED */
+        .cell.mtd-total { background: #3b0a22; color: #ff69b4; font-weight:bold; font-size: 8px; border: 1px solid var(--color-pink); }
+
+        /* --- HIGHLIGHTS --- */
+        .cell.diag-real {
+            border: 2px solid var(--color-diag);
+            background: rgba(255, 215, 0, 0.15);
+            color: #fff;
+            z-index: 5;
+            box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        }
+
+        /* PINK PERSPECTIVE */
+        .cell.hist-may-view {
+            background: rgba(255, 20, 147, 0.15); /* Pink Tint */
+            border-top: 1px solid rgba(255, 20, 147, 0.4);
+            border-bottom: 1px solid rgba(255, 20, 147, 0.4);
+            color: #ffccf2;
+        }
+
+        /* --- VIEW 3: ANALYSIS TABLE --- */
+        #view-analysis {
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .y-targets-panel {
+            flex: 0 0 auto;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+
+        .y-targets-grid {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .y-card {
+            background: #1f2428;
+            border: 1px solid #30363d;
+            padding: 5px 10px;
+            border-radius: 4px;
+            text-align: center;
+            min-width: 80px;
+        }
+        .y-card .date { font-size: 10px; color: var(--text-secondary); }
+        .y-card .val { font-size: 14px; font-weight: bold; color: var(--text-primary); }
+        .y-card .val.changed { color: var(--state-alert); }
+
+        .table-scroll-container {
+            flex: 1;
+            overflow: auto; /* Enable scroll for large table */
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        .comparison-table {
+            width: max-content; /* Ensure table expands */
+            border-collapse: collapse;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+        .comparison-table th {
+            text-align: center;
+            padding: 8px;
+            border-bottom: 2px solid var(--border-color);
+            background: #161b22;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .comparison-table th.sticky-left {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+        }
+        .comparison-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #30363d;
+            border-right: 1px solid #21262d;
+            text-align: center;
+        }
+        .comparison-table td.sticky-left {
+            position: sticky;
+            left: 0;
+            background: #0d1117;
+            border-right: 2px solid #30363d;
+            font-weight: bold;
+            color: #fff;
+        }
+        .comparison-table tr:hover td { background: #1f2428; }
+        
+        .col-gold { color: var(--color-diag); font-weight: bold; background: rgba(255, 215, 0, 0.05); }
+        .col-pink { color: var(--color-pink); font-weight: bold; background: rgba(255, 20, 147, 0.05); }
+        
+        .diff-cell { font-size: 10px; color: #666; }
+        .diff-pos { color: #2ea043; font-weight: bold; }
+        .diff-neg { color: #da3633; font-weight: bold; }
 
         @keyframes slideInLeft { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* --- CONTROLS (FIXED BOTTOM) --- */
+        /* --- CONTROLS --- */
         .controls {
-            flex: 0 0 auto; /* Don't grow or shrink */
+            flex: 0 0 auto;
             margin-top: 15px; 
             width: 100%; max-width: 1600px;
             background: var(--bg-panel); padding: 15px; border: 1px solid var(--border-color);
@@ -193,40 +287,73 @@
         }
         button.secondary:hover { background: #30363d; border-color: #8b949e; }
 
+        button.highlight-toggle {
+            background: transparent;
+            border: 1px solid var(--color-diag);
+            color: var(--color-diag);
+        }
+        button.highlight-toggle.active {
+            background: var(--color-diag);
+            color: #000;
+        }
+
     </style>
 </head>
 <body>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchView('daily')">1. Wartości Dzienne (Raw)</button>
+        <button class="tab-btn active" onclick="switchView('daily')">1. Wartości Dzienne</button>
         <button class="tab-btn" onclick="switchView('mtd')">2. MTD & Suma Kwietnia</button>
+        <button class="tab-btn" onclick="switchView('analysis')">3. Analiza Zbiorów Treningowych</button>
     </div>
 
-    <!-- SINGLE VIEW: EVOLUTION -->
-    <div id="view-evolution">
-        <!-- COL 1: SOURCE -->
+    <!-- VIEW 1 & 2: EVOLUTION -->
+    <div id="view-evolution" class="view-container active">
         <div class="column" style="width: 80px;">
             <div class="column-header">SNAPSHOT<br>(&tau;)</div>
             <div id="sourceContainer" class="input-stack-compact"></div>
         </div>
-        
-        <!-- COL 2: PHI -->
         <div class="column" style="display:flex; justify-content:center; align-items:center; background: #0d1117;">
             <div style="font-size:24px; color:var(--color-phi);">&Phi;</div>
         </div>
-        
-        <!-- COL 3: MATRIX -->
         <div class="column" style="flex:1;">
             <div class="column-header" style="justify-content: flex-start; padding-left: 20px;" id="matrixHeader">
-                MACIERZ HISTORII (V) - [Oś Pozioma = Czas Zdarzenia t] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Linia = Granica Kwietnia</span>
+                MACIERZ HISTORII (V)
             </div>
             <div id="matrix1" class="matrix-container"></div>
+        </div>
+    </div>
+
+    <!-- VIEW 3: ANALYSIS -->
+    <div id="view-analysis" class="view-container">
+        <div class="y-targets-panel">
+            <div style="font-size: 14px; font-weight: bold; color: var(--color-train); margin-bottom: 5px;">
+                Ewolucja Celu Treningowego ($Y$: Suma Kwietnia)
+            </div>
+            <div id="yTargetsGrid" class="y-targets-grid">
+                <!-- Cards generated here -->
+            </div>
+        </div>
+
+        <div class="table-scroll-container">
+            <table class="comparison-table">
+                <thead id="analysisTableHead">
+                    <!-- Headers generated here -->
+                </thead>
+                <tbody id="analysisTableBody">
+                    <!-- Rows generated here -->
+                </tbody>
+            </table>
         </div>
     </div>
 
     <div class="controls">
         <div id="status">Gotowy. Zakres: 01.04 - 10.05 (40 dni).</div>
         <div style="display:flex; gap:10px;">
+            <button id="toggleDiagBtn" onclick="toggleDiagonal()" class="highlight-toggle" style="display:none;">
+                <i class="fas fa-highlighter"></i> Pokaż Ścieżkę Rzeczywistości
+            </button>
+            <div style="width: 20px;"></div> 
             <button id="resetBtn" onclick="resetSim()" class="secondary">Reset</button>
             <button id="mainBtn" onclick="nextStep()">Krok +1 (01.04)</button>
             <button id="autoBtn" onclick="toggleAuto()" class="secondary">Auto-Play</button>
@@ -244,9 +371,10 @@
         let stepIndex = 0; 
         let scenarioMatrix = []; 
         let autoInterval = null;
-        let viewMode = 'daily'; // 'daily' or 'mtd'
+        let viewMode = 'daily'; 
+        let showDiagonal = false; 
 
-        // --- PSEUDO-RANDOM GENERATOR ---
+        // --- RNG ---
         let seed = 12345;
         function seededRandom() {
             var x = Math.sin(seed++) * 10000;
@@ -267,10 +395,8 @@
             let currentVector = new Array(TOTAL_DAYS).fill(null);
 
             for(let row=0; row<TOTAL_DAYS; row++) {
-                // 1. Add NEW day
                 currentVector[row] = getBaseValue(row);
-
-                // 2. Changes
+                
                 let startCheck = Math.max(0, row - CHANGE_WINDOW);
                 let endCheck = row - 1; 
 
@@ -296,47 +422,88 @@
             }
         }
 
+        // --- HELPER: CALCULATE MTD VECTOR ---
+        function getMTDVector(rawVector) {
+            let mtdVec = new Array(TOTAL_DAYS).fill(null);
+            let runningSum = 0;
+            for(let t=0; t<TOTAL_DAYS; t++) {
+                if (rawVector[t] !== null) {
+                    if (t < APR_DAYS) {
+                        runningSum += rawVector[t];
+                    }
+                    mtdVec[t] = runningSum; // April cumulative or Plateau
+                }
+            }
+            return mtdVec;
+        }
+
+        // --- VIEW MANAGEMENT ---
         function switchView(mode) {
             viewMode = mode;
-            // Update buttons
+            
+            // Buttons
             const btns = document.querySelectorAll('.tab-btn');
             btns.forEach(b => b.classList.remove('active'));
             if(mode === 'daily') btns[0].classList.add('active');
-            else btns[1].classList.add('active');
+            else if(mode === 'mtd') btns[1].classList.add('active');
+            else btns[2].classList.add('active');
 
-            // Update Header
-            const header = document.getElementById('matrixHeader');
-            if (mode === 'daily') {
-                header.innerHTML = `MACIERZ HISTORII (V) - [Oś Pozioma = Czas Zdarzenia t] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Linia = Granica Kwietnia</span>`;
+            // Containers
+            document.getElementById('view-evolution').classList.remove('active');
+            document.getElementById('view-analysis').classList.remove('active');
+
+            const diagBtn = document.getElementById('toggleDiagBtn');
+            const controls = document.querySelector('.controls .secondary').parentNode;
+            const mainBtn = document.getElementById('mainBtn');
+            const autoBtn = document.getElementById('autoBtn');
+
+            diagBtn.style.display = 'none';
+
+            if(mode === 'analysis') {
+                document.getElementById('view-analysis').classList.add('active');
+                // Disable simulation controls in analysis view to show static "full" data
+                mainBtn.style.display = 'none';
+                autoBtn.style.display = 'none';
+                document.getElementById('status').innerText = "Widok Analityczny: Pełne dane (Post-Factum).";
+                renderAnalysis();
             } else {
-                header.innerHTML = `MTD KWIETNIA & SUMA CAŁKOWITA - [Oś Pozioma = Dni Kwietnia + Projekcja Maja] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Prawa Strona = Ostateczna Suma Kwietnia</span>`;
+                document.getElementById('view-evolution').classList.add('active');
+                mainBtn.style.display = 'block';
+                autoBtn.style.display = 'block';
+                document.getElementById('status').innerText = "Tryb Symulacji: " + getLabel(stepIndex > 0 ? stepIndex -1 : 0);
+                
+                // Header
+                const header = document.getElementById('matrixHeader');
+                if (mode === 'daily') {
+                    header.innerHTML = `MACIERZ HISTORII (V) - [Oś Pozioma = Czas Zdarzenia t] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Linia = Granica Kwietnia</span>`;
+                } else {
+                    header.innerHTML = `MTD KWIETNIA - [Oś Pozioma = Dni] <span style="margin-left: 20px; font-size: 9px; color: #666;">| Różowy = Ostateczna Suma</span>`;
+                    diagBtn.style.display = 'block';
+                }
+                refreshMatrixView();
             }
-
-            // Re-render
-            refreshView();
         }
 
-        function refreshView() {
-            // Clear and redraw all rows up to current step
-            document.getElementById('sourceContainer').innerHTML = '';
-            document.getElementById('matrix1').innerHTML = '';
-            
-            for(let i=0; i<stepIndex; i++) {
-                renderRow(i);
-            }
-            scrollToBottom('matrix1');
-            scrollToBottom('sourceContainer');
+        function toggleDiagonal() {
+            showDiagonal = !showDiagonal;
+            const btn = document.getElementById('toggleDiagBtn');
+            if(showDiagonal) btn.classList.add('active');
+            else btn.classList.remove('active');
+            refreshMatrixView();
         }
 
+        // --- RENDER LOGIC ---
         function resetSim() {
             clearInterval(autoInterval);
             stepIndex = 0;
-            document.getElementById('sourceContainer').innerHTML = '';
-            document.getElementById('matrix1').innerHTML = '';
             document.getElementById('mainBtn').innerText = "Krok +1 (01.04)";
             document.getElementById('mainBtn').disabled = false;
             document.getElementById('status').innerText = "Zresetowano.";
             seed = 500;
+            initScenario(); // Re-init to ensure consistency
+            
+            if(viewMode === 'analysis') renderAnalysis();
+            else refreshMatrixView();
         }
 
         function toggleAuto() {
@@ -357,155 +524,181 @@
                 return;
             }
 
-            renderRow(stepIndex);
-            
             stepIndex++;
-            
+            if(viewMode !== 'analysis') {
+                renderMatrixRow(stepIndex - 1);
+                scrollToBottom('matrix1');
+                scrollToBottom('sourceContainer');
+            }
+
             if(stepIndex < TOTAL_DAYS) {
                 document.getElementById('mainBtn').innerText = `Krok +1 (${getLabel(stepIndex)})`;
             }
-            
-            scrollToBottom('matrix1');
-            scrollToBottom('sourceContainer');
         }
 
         function scrollToBottom(id) {
             const el = document.getElementById(id);
-            requestAnimationFrame(() => {
-                el.scrollTop = el.scrollHeight;
-            });
+            requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
         }
 
-        function renderRow(idx) {
-            const currentVec = scenarioMatrix[idx];
-            const prevVec = idx > 0 ? scenarioMatrix[idx-1] : null;
+        function refreshMatrixView() {
+            document.getElementById('sourceContainer').innerHTML = '';
+            document.getElementById('matrix1').innerHTML = '';
+            for(let i=0; i<stepIndex; i++) {
+                renderMatrixRow(i);
+            }
+            scrollToBottom('matrix1');
+            scrollToBottom('sourceContainer');
+        }
+
+        function renderMatrixRow(idx) {
+            const rawVec = scenarioMatrix[idx];
+            const prevRawVec = idx > 0 ? scenarioMatrix[idx-1] : null;
             const label = getLabel(idx);
 
-            // 1. Source Label
+            // Source Label
             const sourceBox = document.getElementById('sourceContainer');
             const pill = document.createElement('div');
-            
             const isMay = idx >= APR_DAYS;
             pill.className = `source-pill ${isMay ? 'may' : 'april'}`;
-            
             pill.innerText = label;
             sourceBox.appendChild(pill);
 
-            // 2. Matrix Row
+            // Matrix Row
             const matrixBox = document.getElementById('matrix1');
             const rowDiv = document.createElement('div');
             rowDiv.className = 'matrix-row';
             
+            let displayVec = viewMode === 'mtd' ? getMTDVector(rawVec) : rawVec;
+            let prevDisplayVec = (prevRawVec && viewMode === 'mtd') ? getMTDVector(prevRawVec) : prevRawVec;
+
             let html = `<div class="cells-row">`;
             
-            // Calc MTD Vector if needed
-            let displayVec = [];
-            let prevDisplayVec = [];
-
-            if (viewMode === 'mtd') {
-                // Calculate MTD for current row
-                let runningSum = 0;
-                for(let t=0; t<TOTAL_DAYS; t++) {
-                    if (currentVec[t] !== null) {
-                        // Crucial Logic:
-                        // If t < 30 (April): Add to running sum.
-                        // If t >= 30 (May): Don't add May value. KEEP the April Total (Plateau).
-                        if (t < APR_DAYS) {
-                            runningSum += currentVec[t];
-                        }
-                        displayVec[t] = runningSum; // For t>=30, this repeats the April Total
-                    } else {
-                        displayVec[t] = null;
-                    }
-                }
-
-                // Calculate MTD for prev row (for comparison)
-                if (prevVec) {
-                    let prevSum = 0;
-                    for(let t=0; t<TOTAL_DAYS; t++) {
-                        if (prevVec[t] !== null) {
-                            if (t < APR_DAYS) {
-                                prevSum += prevVec[t];
-                            }
-                            prevDisplayVec[t] = prevSum;
-                        }
-                    }
-                }
-            } else {
-                displayVec = currentVec;
-                prevDisplayVec = prevVec;
-            }
-
-            // RENDER COLS
             for(let t=0; t<TOTAL_DAYS; t++) {
-                // Separator
-                if (t === APR_DAYS) {
-                    html += `<div class="month-separator" title="Granica Miesiąca"></div>`;
-                }
+                if (t === APR_DAYS) html += `<div class="month-separator"></div>`;
 
                 let val = displayVec[t];
                 let cssClass = 'cell empty';
                 let displayVal = '.';
 
-                if (val !== null && val !== undefined) {
-                    // It exists in history
-                    // Check bounds: In raw mode check vs index. In MTD check if data existed.
-                    if (t <= idx) {
-                        displayVal = val;
-                        
-                        if (viewMode === 'daily') {
-                            cssClass = 'cell val';
-                            if (t === idx) cssClass = 'cell new'; 
-                            else if (prevDisplayVec && prevDisplayVec[t] !== val) cssClass = 'cell alert'; 
-                        } 
-                        else {
-                            // MTD MODE
-                            if (t < APR_DAYS) {
-                                cssClass = 'cell mtd-aprx'; // April MTD
-                            } else {
-                                cssClass = 'cell mtd-total'; // April Total Plateau (in May cols)
-                            }
+                if (val !== null && t <= idx) {
+                    displayVal = val;
+                    
+                    if (viewMode === 'daily') {
+                        cssClass = 'cell val';
+                        if (t === idx) cssClass = 'cell new'; 
+                        else if (prevDisplayVec && prevDisplayVec[t] !== val) cssClass = 'cell alert'; 
+                    } 
+                    else {
+                        // MTD MODE
+                        if (t < APR_DAYS) cssClass = 'cell mtd-aprx';
+                        else cssClass = 'cell mtd-total'; // Updated to PINK
 
-                            // Highlight change in Cumulative Value
-                            if (prevDisplayVec && prevDisplayVec[t] !== val) {
-                                cssClass += ' alert';
-                            }
+                        // --- HIGHLIGHTS ---
+                        if (showDiagonal) {
+                            if (idx < APR_DAYS && t === idx) cssClass += ' diag-real';
+                            if (idx >= APR_DAYS && t < APR_DAYS) cssClass += ' hist-may-view';
                         }
+
+                        if (prevDisplayVec && prevDisplayVec[t] !== val) cssClass += ' alert';
                     }
                 }
-                
                 html += `<div class="${cssClass}">${displayVal}</div>`;
             }
             html += `</div>`;
-            
             rowDiv.innerHTML = html;
             matrixBox.appendChild(rowDiv);
             
-            // Status Update
+            updateStatus(idx, rawVec, prevRawVec, label);
+        }
+
+        function updateStatus(idx, currentVec, prevVec, label) {
             let restatementCount = 0;
-            if(idx > 0) {
-                // Determine raw changes for status
+            if(prevVec) {
                 for(let k=0; k<idx; k++) {
-                    if(scenarioMatrix[idx-1][k] !== scenarioMatrix[idx][k]) restatementCount++;
+                    if(prevVec[k] !== currentVec[k]) restatementCount++;
                 }
             }
-            
             let month = idx < APR_DAYS ? "Kwiecień" : "Maj";
-            let sumApril = 0;
-            if(viewMode === 'mtd') {
-                // Calculate April Sum
-                for(let k=0; k<APR_DAYS; k++) if(scenarioMatrix[idx][k]) sumApril += scenarioMatrix[idx][k];
-            }
-
             let statusHtml = `Dzień: <b>${label}</b> (${month}). ` + 
-                (restatementCount > 0 ? `<span style="color:#da3633">Zmiany historyczne: ${restatementCount}</span>` : `<span style="color:#2ea043">Stabilnie</span>`);
+                (restatementCount > 0 ? `<span style="color:#da3633">Zmiany: ${restatementCount}</span>` : `<span style="color:#2ea043">Stabilnie</span>`);
             
-            if(viewMode === 'mtd') {
-                statusHtml += ` | Suma Kwietnia: <b>${sumApril}</b>`;
-            }
-
             document.getElementById('status').innerHTML = statusHtml;
         }
+
+        // --- ANALYSIS TAB LOGIC ---
+        function renderAnalysis() {
+            // Populate Y Targets (Top Panel)
+            const targetGrid = document.getElementById('yTargetsGrid');
+            targetGrid.innerHTML = '';
+            
+            let lastVal = null;
+            // Iterate all May snapshots (Indices 30-39)
+            for(let i=APR_DAYS; i < TOTAL_DAYS; i++) {
+                const mtdVec = getMTDVector(scenarioMatrix[i]);
+                const aprSum = mtdVec[APR_DAYS-1]; // Index 29
+                
+                const card = document.createElement('div');
+                card.className = 'y-card';
+                
+                let changeHtml = '';
+                if (lastVal !== null && lastVal !== aprSum) {
+                    card.style.borderColor = 'var(--state-alert)';
+                    changeHtml = ' <span style="color:#da3633; font-size:10px;">(zmiana)</span>';
+                }
+                
+                card.innerHTML = `<div class="date">${getLabel(i)}</div><div class="val">${aprSum}</div>${changeHtml}`;
+                targetGrid.appendChild(card);
+                lastVal = aprSum;
+            }
+
+            // Populate Table
+            const thead = document.getElementById('analysisTableHead');
+            const tbody = document.getElementById('analysisTableBody');
+            
+            // Generate Headers
+            let headerRow = '<tr><th class="sticky-left">Data (t)</th><th>Prawda<br><span style="font-weight:normal; font-size:9px; color:#ffd700;">(Diagonal)</span></th>';
+            
+            // Loop for May Snapshots (10 days)
+            for(let m=0; m<MAY_DAYS; m++) {
+                let mayDate = getLabel(APR_DAYS + m);
+                headerRow += `<th>Widok(${mayDate})</th><th>&Delta;</th>`;
+            }
+            headerRow += '</tr>';
+            thead.innerHTML = headerRow;
+
+            tbody.innerHTML = '';
+
+            // Generate Rows (April Days 0-29)
+            for(let t=0; t<APR_DAYS; t++) {
+                let dateLabel = getLabel(t);
+                
+                // 1. Truth (Value at snapshot t, index t)
+                // Need MTD value at that time
+                const diagVec = getMTDVector(scenarioMatrix[t]);
+                let trueVal = diagVec[t];
+
+                let rowHtml = `<tr><td class="sticky-left">${dateLabel}</td><td class="col-gold">${trueVal}</td>`;
+
+                // 2. Pink Views (May 1 to May 10)
+                for(let m=0; m<MAY_DAYS; m++) {
+                    const snapIdx = APR_DAYS + m;
+                    const mayVec = getMTDVector(scenarioMatrix[snapIdx]);
+                    let viewVal = mayVec[t]; // View of April day t from May snapshot m
+                    
+                    let diff = viewVal - trueVal;
+                    let diffHtml = diff === 0 ? '<span style="opacity:0.2">0</span>' : 
+                                   diff > 0 ? `<span class="diff-pos">+${diff}</span>` : 
+                                   `<span class="diff-neg">${diff}</span>`;
+
+                    rowHtml += `<td class="col-pink">${viewVal}</td><td class="diff-cell">${diffHtml}</td>`;
+                }
+                
+                rowHtml += '</tr>';
+                tbody.innerHTML += rowHtml;
+            }
+        }
+
     </script>
 </body>
 </html>
