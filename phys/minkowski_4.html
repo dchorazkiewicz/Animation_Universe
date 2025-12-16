@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metryka Schwarzschilda - Stożki Świetlne</title>
+    <title>Od Czarnej Dziury do Minkowskiego</title>
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -18,16 +18,15 @@
         }
 
         h1 { margin: 15px 0 5px 0; font-size: 1.4rem; letter-spacing: 1px; text-transform: uppercase; color: #fff; }
-        p { color: #888; font-size: 0.9rem; margin-bottom: 20px; }
+        p { color: #888; font-size: 0.9rem; margin-bottom: 20px; text-align: center;}
 
         .container {
             position: relative;
-            width: 90vw;
-            max-width: 1000px;
-            height: 70vh;
+            width: 95vw;
+            height: 75vh;
             border: 1px solid #333;
             border-radius: 8px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            box-shadow: 0 0 40px rgba(0,0,0,0.9);
             background: #000;
             overflow: hidden;
             cursor: crosshair;
@@ -39,18 +38,18 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(20, 20, 20, 0.9);
-            padding: 15px;
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(5px);
+            padding: 20px;
             border-radius: 8px;
             border: 1px solid #444;
-            width: 280px;
-            pointer-events: none; /* Let clicks pass through except inputs */
+            width: 300px;
+            pointer-events: none;
         }
         
         .ui-element { pointer-events: auto; }
-
-        .slider-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
+        .slider-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 8px; }
         input[type=range] { width: 100%; accent-color: #ffaa00; cursor: pointer; }
         
         .legend-item {
@@ -58,85 +57,102 @@
             align-items: center;
             gap: 10px;
             font-size: 0.85rem;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             color: #ccc;
         }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
         .status-panel {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #444;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
             font-family: monospace;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .zone-label {
+            position: absolute;
+            bottom: 20px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 2rem;
+            font-weight: bold;
+            pointer-events: none;
+            user-select: none;
         }
     </style>
 </head>
 <body>
 
-    <h1>Czarna Dziura Schwarzschilda</h1>
-    <p>Wizualizacja we współrzędnych Gullstranda-Painlevé (Model Rzeki)</p>
+    <h1>Od Czarnej Dziury do Minkowskiego</h1>
+    <p>Przesuń obserwatora w prawo, aby zobaczyć jak czasoprzestrzeń się "prostuje" (zanik grawitacji).</p>
 
     <div class="container" id="canvasContainer">
         <canvas id="grCanvas"></canvas>
         
+        <!-- Background Text Labels -->
+        <div class="zone-label" style="left: 20px;">GRAWITACJA (Silna)</div>
+        <div class="zone-label" style="right: 20px;">MINKOWSKI (Płaska)</div>
+
         <div class="ui-overlay">
             <div class="slider-group ui-element">
                 <label>Masa Czarnej Dziury (M)</label>
-                <input type="range" id="massSlider" min="20" max="100" value="50">
+                <!-- Domyślnie mniejsza masa, żeby zmieścić więcej "przestrzeni" -->
+                <input type="range" id="massSlider" min="10" max="60" value="25">
             </div>
 
-            <div class="legend-item"><span class="dot" style="background:#4488ff"></span> Stożek Świetlny (Przyszłość)</div>
-            <div class="legend-item"><span class="dot" style="background:#ffaa00"></span> Geodezyjne zerowe (Światło)</div>
-            <div class="legend-item"><span class="dot" style="background:#fff; border:1px solid #444;"></span> Obserwator (Przesuń mnie!)</div>
+            <div class="legend-item"><span class="dot" style="background:rgba(68, 136, 255, 0.8)"></span> Stożek Świetlny</div>
+            <div class="legend-item"><span class="dot" style="background:#ffaa00"></span> Promienie Światła</div>
+            <div class="legend-item"><span class="dot" style="background:#fff; border:1px solid #444;"></span> Obserwator</div>
             
             <div class="status-panel">
-                r (promień): <span id="rVal" style="color:#fff">0.00</span> M<br>
-                Status: <span id="statusText" style="color:#0f0">Bezpieczny</span>
+                Promień r: <span id="rVal" style="color:#fff">0.00</span> M<br>
+                Prędkość rzeki: <span id="betaVal" style="color:#ffaa00">0.00</span> c<br>
+                <small id="zoneText" style="color:#888">...</small>
             </div>
         </div>
     </div>
 
     <script>
-    (function() { // Wrap code in IIFE to prevent global scope pollution
+    (function() {
         const canvas = document.getElementById('grCanvas');
         const ctx = canvas.getContext('2d');
         const container = document.getElementById('canvasContainer');
 
-        // Physics Constants & State
-        let M = 50; // Mass (in pixels basically)
+        // Physics Constants
+        let M = 25; // Mniejsza domyślna masa pozwala pokazać większy dystans
         let horizonR = 2 * M;
         
-        // Observer
-        let obs = { x: 400, y: 300, dragging: false };
+        // Observer Position
+        let obs = { x: 600, y: 350, dragging: false };
         
-        // Background Geodesics (Light rays)
+        // Rays for background visualization
         let rays = [];
-        const NUM_RAYS = 15;
+        const NUM_RAYS = 25; // Więcej promieni
 
-        // --- SETUP & RESIZE ---
+        // --- SETUP ---
         function resize() {
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
-            // Reset rays on resize
             initRays();
         }
         window.addEventListener('resize', resize);
 
-        // --- PHYSICS: Gullstrand-Painleve Coordinates ---
+        // --- PHYSICS: GULLSTRAND-PAINLEVE ---
+        // beta = sqrt(2M/r) is the velocity of space falling in.
+        // Outgoing light speed (relative to grid) = 1 - beta
+        // Ingoing light speed (relative to grid) = -1 - beta
         
-        function getSlopes(r) {
-            // Safety to avoid div by zero at singularity
-            if (r < 1) r = 1;
+        function getMetricData(r) {
+            if (r < 0.1) r = 0.1; // Avoid singularity crash
             
-            // "River" speed beta = sqrt(2M/r)
-            const beta = Math.sqrt((2 * M) / r);
-
-            // Light slopes dr/dt
-            const slopeOut = 1 - beta;
-            const slopeIn = -1 - beta;
-
-            return { slopeOut, slopeIn, beta };
+            const beta = Math.sqrt((2 * M) / r); // Escape velocity at r
+            
+            // Local light cones slope
+            const slopeOut = 1 - beta;  // Right edge of cone
+            const slopeIn = -1 - beta;  // Left edge of cone
+            
+            return { beta, slopeOut, slopeIn };
         }
 
         function initRays() {
@@ -145,7 +161,8 @@
                 rays.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    type: i % 2 === 0 ? 'out' : 'in'
+                    type: i % 2 === 0 ? 'out' : 'in', // mixing ingoing/outgoing
+                    offset: Math.random() * 100
                 });
             }
         }
@@ -154,26 +171,23 @@
         function draw() {
             const w = canvas.width;
             const h = canvas.height;
-            const singX = 50; // X position of singularity (left side)
+            const singX = 50; // Singularity position (left margin)
 
-            // Clear
-            ctx.fillStyle = '#050505';
+            // 1. CLEAR & BACKGROUND
+            ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, w, h);
 
-            // Update Horizon Position
+            // Update Horizon
             horizonR = 2 * M;
             const horizonX = singX + horizonR;
 
-            // 1. Draw Singularity & Horizon Areas
-            const grad = ctx.createLinearGradient(0, 0, horizonX, 0);
-            grad.addColorStop(0, '#000000');
-            grad.addColorStop(1, '#1a1a1a');
-            
-            ctx.fillStyle = grad;
+            // 2. DRAW ZONES (Singularity & Horizon)
+            // Singularity
+            ctx.fillStyle = '#111';
             ctx.fillRect(0, 0, horizonX, h);
-
+            
             // Horizon Line
-            ctx.strokeStyle = '#444';
+            ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
             ctx.beginPath();
@@ -181,198 +195,195 @@
             ctx.lineTo(horizonX, h);
             ctx.stroke();
             ctx.setLineDash([]);
-
-            // Labels
-            ctx.fillStyle = '#666';
-            ctx.font = '12px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText("HORYZONT (r=2M)", horizonX - 10, 20);
-            ctx.textAlign = 'left';
-            ctx.fillText("OSOBLIWOŚĆ (r=0)", 5, 20);
-
-            // 2. Draw Background Geodesics (The "River")
-            ctx.strokeStyle = 'rgba(255, 170, 0, 0.15)';
-            ctx.lineWidth = 1;
             
+            ctx.fillStyle = '#555';
+            ctx.font = '12px monospace';
+            ctx.fillText("HORYZONT (r=2M)", horizonX + 5, 20);
+
+            // 3. DRAW GEODESICS (Background Flow)
+            // We draw paths of photons to visualize curvature
+            ctx.strokeStyle = 'rgba(255, 170, 0, 0.4)'; // Jaśniejszy żółty
+            ctx.lineWidth = 1.5;
+
             rays.forEach(ray => {
                 ctx.beginPath();
+                
+                // Tracing a segment of the ray
                 let cx = ray.x;
                 let cy = ray.y;
                 
-                ctx.moveTo(cx, cy);
+                // Move 'ray' forward for animation
+                // Time flows UP on screen (standard diagram convention is Time Y-axis)
+                // But let's make flow downwards for "falling"? 
+                // Let's stick to: Y is Time (UP).
                 
-                let r = cx - singX;
-                const slopes = getSlopes(r);
-                const slope = ray.type === 'out' ? slopes.slopeOut : slopes.slopeIn;
-                
-                ray.y -= 1; // Animation speed: move up in time
-                ray.x += slope * 1; 
+                ray.y -= 1.5; // Move up in time
 
-                // Reset if out of bounds
-                if (ray.y < 0 || ray.x < singX + 5 || ray.x > w) {
+                // Apply Metric to move X
+                let r = ray.x - singX;
+                let m = getMetricData(r);
+                let dx = (ray.type === 'out' ? m.slopeOut : m.slopeIn) * 1.5;
+                ray.x += dx;
+
+                // Reset loop
+                if (ray.y < 0 || ray.x < singX + 2 || ray.x > w) {
                     ray.y = h;
-                    ray.x = singX + 5 + Math.random() * (w - singX - 5);
+                    ray.x = singX + 5 + Math.random() * (w - singX);
                 }
-                
-                // Draw a trail
-                ctx.moveTo(ray.x, ray.y);
-                let tailX = ray.x;
-                let tailY = ray.y;
-                for(let k=0; k<10; k++) {
-                    let tr = tailX - singX;
+
+                // Draw trail (integral curve) backward
+                let tx = ray.x;
+                let ty = ray.y;
+                ctx.moveTo(tx, ty);
+
+                for(let k=0; k<15; k++) {
+                    let tr = tx - singX;
                     if(tr < 1) break;
-                    let s = getSlopes(tr);
-                    let m = ray.type === 'out' ? s.slopeOut : s.slopeIn;
-                    tailX -= m * 5; 
-                    tailY += 5; 
-                    ctx.lineTo(tailX, tailY);
+                    
+                    let tm = getMetricData(tr);
+                    let slope = (ray.type === 'out' ? tm.slopeOut : tm.slopeIn);
+                    
+                    tx -= slope * 5; // back in X
+                    ty += 5;         // back in Time (down)
+                    ctx.lineTo(tx, ty);
                 }
                 ctx.stroke();
             });
 
-
-            // 3. Observer & Light Cone
+            // 4. OBSERVER & CONE
             const obsR = obs.x - singX;
-            const slopes = getSlopes(obsR);
+            const obsM = getMetricData(obsR);
             
-            // Update UI
-            document.getElementById('rVal').innerText = (obsR / M).toFixed(2);
-            const statusEl = document.getElementById('statusText');
-            if (obsR <= 0) {
-                 statusEl.innerText = "Zmiażdżony"; statusEl.style.color = "#f00";
-            } else if (obsR < horizonR) {
-                 statusEl.innerText = "Za horyzontem (Brak powrotu)"; statusEl.style.color = "#ff4444";
+            // UI Update
+            const rInM = obsR / M;
+            document.getElementById('rVal').innerText = rInM.toFixed(1);
+            document.getElementById('betaVal').innerText = obsM.beta.toFixed(3);
+            
+            const zoneText = document.getElementById('zoneText');
+            if (obsR < horizonR) {
+                zoneText.innerText = "WEWNĄTRZ CZARNEJ DZIURY\nStożki skierowane do osobliwości.";
+                zoneText.style.color = "#ff4444";
+            } else if (rInM > 15) {
+                zoneText.innerText = "STREFA MINKOWSKIEGO\nCzasoprzestrzeń prawie płaska.";
+                zoneText.style.color = "#4488ff";
             } else {
-                 statusEl.innerText = "Na zewnątrz (Bezpieczny)"; statusEl.style.color = "#0f0";
+                zoneText.innerText = "ZAKRZYWIONA CZASOPRZESTRZEŃ\nZauważalne przechylenie stożków.";
+                zoneText.style.color = "#e0e0e0";
             }
 
-            // Draw Cone
-            const coneHeight = 80;
-            const dxOut = slopes.slopeOut * coneHeight;
-            const pOutX = obs.x + dxOut;
-            const pOutY = obs.y - coneHeight; 
 
-            const dxIn = slopes.slopeIn * coneHeight;
-            const pInX = obs.x + dxIn;
-            const pInY = obs.y - coneHeight;
+            // Draw Light Cone
+            const coneH = 100; // Height of cone in pixels (Time duration)
+            
+            // Right edge of cone (Outgoing photon)
+            const dxRight = obsM.slopeOut * coneH;
+            const pRightX = obs.x + dxRight;
+            const pRightY = obs.y - coneH;
+            
+            // Left edge of cone (Ingoing photon)
+            const dxLeft = obsM.slopeIn * coneH;
+            const pLeftX = obs.x + dxLeft;
+            const pLeftY = obs.y - coneH;
 
-            // Gradient Cone
-            const coneGrad = ctx.createLinearGradient(obs.x, obs.y, obs.x, obs.y - coneHeight);
-            coneGrad.addColorStop(0, 'rgba(68, 136, 255, 0.6)');
+            // Gradient for cone body
+            const coneGrad = ctx.createLinearGradient(obs.x, obs.y, obs.x, obs.y - coneH);
+            coneGrad.addColorStop(0, 'rgba(68, 136, 255, 0.7)');
             coneGrad.addColorStop(1, 'rgba(68, 136, 255, 0.1)');
 
             ctx.fillStyle = coneGrad;
             ctx.beginPath();
-            ctx.moveTo(obs.x, obs.y);
-            ctx.lineTo(pOutX, pOutY);
-            ctx.lineTo(pInX, pInY);
+            ctx.moveTo(obs.x, obs.y); // Vertex
+            ctx.lineTo(pRightX, pRightY);
+            ctx.lineTo(pLeftX, pLeftY);
             ctx.closePath();
             ctx.fill();
             
-            // Cone Edges
+            // Outline
             ctx.strokeStyle = '#4488ff';
             ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(pRightX, pRightY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(pLeftX, pLeftY); ctx.stroke();
+            
+            // 5. MINKOWSKI REFERENCE (Vertical Line Guide)
+            // Shows "Straight Up" (Time in flat space) vs "Local Time" (Tilted)
+            // In GP coords, the stationary observer moves at -beta relative to the river.
+            // So the "axis of time" for the observer is tilted left.
+            const tiltX = obs.x - (obsM.beta * coneH);
+            
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.setLineDash([2,4]);
             ctx.beginPath();
             ctx.moveTo(obs.x, obs.y);
-            ctx.lineTo(pOutX, pOutY);
+            ctx.lineTo(tiltX, obs.y - coneH);
             ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(obs.x, obs.y);
-            ctx.lineTo(pInX, pInY);
-            ctx.stroke();
-
-            // Draw Future Direction Arrow
-            const dxTime = -slopes.beta * (coneHeight * 0.7);
-            const pTimeX = obs.x + dxTime;
-            const pTimeY = obs.y - (coneHeight * 0.7);
-            
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.setLineDash([2, 2]);
-            ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(pTimeX, pTimeY); ctx.stroke();
             ctx.setLineDash([]);
 
-
-            // Draw Observer Dot
+            // Observer Dot
             ctx.beginPath();
             ctx.arc(obs.x, obs.y, 6, 0, Math.PI * 2);
             ctx.fillStyle = '#fff';
             ctx.fill();
-            
-            if (obs.dragging) {
-                ctx.beginPath();
-                ctx.arc(obs.x, obs.y, 10, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-                ctx.stroke();
+
+            // Glow if interacting
+            if(obs.dragging) {
+                ctx.beginPath(); ctx.arc(obs.x, obs.y, 12, 0, Math.PI*2);
+                ctx.strokeStyle = '#fff'; ctx.stroke();
             }
 
             requestAnimationFrame(draw);
         }
 
         // --- INTERACTION ---
-        function getMousePos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
+        function getPos(e) {
+            const r = canvas.getBoundingClientRect();
+            return { x: e.clientX - r.left, y: e.clientY - r.top };
         }
 
         canvas.addEventListener('mousedown', e => {
-            const m = getMousePos(e);
-            const dist = Math.hypot(m.x - obs.x, m.y - obs.y);
-            if (dist < 20) {
-                obs.dragging = true;
-                canvas.style.cursor = 'grabbing';
-            }
-        });
-
-        window.addEventListener('mousemove', e => {
-            const m = getMousePos(e);
-            if (obs.dragging) {
-                obs.x = Math.max(55, Math.min(canvas.width - 10, m.x)); 
-                obs.y = Math.max(10, Math.min(canvas.height - 10, m.y));
-            } else {
-                const dist = Math.hypot(m.x - obs.x, m.y - obs.y);
-                canvas.style.cursor = dist < 20 ? 'grab' : 'crosshair';
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            obs.dragging = false;
+            const p = getPos(e);
+            if(Math.hypot(p.x - obs.x, p.y - obs.y) < 30) obs.dragging = true;
         });
         
-        canvas.addEventListener('touchstart', e => {
-            const m = getMousePos(e.touches[0]);
-            const dist = Math.hypot(m.x - obs.x, m.y - obs.y);
-            if (dist < 30) {
-                obs.dragging = true;
-                e.preventDefault();
+        window.addEventListener('mousemove', e => {
+            const p = getPos(e);
+            if(obs.dragging) {
+                obs.x = Math.max(55, Math.min(canvas.width, p.x));
+                obs.y = Math.max(50, Math.min(canvas.height - 50, p.y));
+            } else {
+                canvas.style.cursor = Math.hypot(p.x-obs.x, p.y-obs.y)<30 ? 'grab' : 'crosshair';
             }
+        });
+        
+        window.addEventListener('mouseup', () => obs.dragging = false);
+        
+        // Touch support
+        canvas.addEventListener('touchstart', e => {
+             const p = getPos(e.touches[0]);
+             if(Math.hypot(p.x - obs.x, p.y - obs.y) < 40) {
+                 obs.dragging = true;
+                 e.preventDefault();
+             }
         }, {passive: false});
         
         canvas.addEventListener('touchmove', e => {
-            if (obs.dragging) {
-                const m = getMousePos(e.touches[0]);
-                obs.x = Math.max(55, Math.min(canvas.width - 10, m.x));
-                obs.y = Math.max(10, Math.min(canvas.height - 10, m.y));
+            if(obs.dragging) {
+                const p = getPos(e.touches[0]);
+                obs.x = Math.max(55, Math.min(canvas.width, p.x));
+                obs.y = Math.max(50, Math.min(canvas.height - 50, p.y));
                 e.preventDefault();
             }
         }, {passive: false});
         
         canvas.addEventListener('touchend', () => obs.dragging = false);
 
-
         document.getElementById('massSlider').addEventListener('input', (e) => {
             M = parseInt(e.target.value);
-            initRays();
         });
 
-        // Init
         resize();
         initRays();
         draw();
-    })(); // End IIFE
+    })();
     </script>
 </body>
 </html>
