@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metryka Schwarzschilda - Stożki Świetlne</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #050505;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 { margin: 15px 0 5px 0; font-size: 1.4rem; letter-spacing: 1px; text-transform: uppercase; color: #fff; }
+        p { color: #888; font-size: 0.9rem; margin-bottom: 20px; }
+
+        .container {
+            position: relative;
+            width: 90vw;
+            max-width: 1000px;
+            height: 70vh;
+            border: 1px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background: #000;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        .ui-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            width: 280px;
+            pointer-events: none; /* Let clicks pass through except inputs */
+        }
+        
+        .ui-element { pointer-events: auto; }
+
+        .slider-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
+        input[type=range] { width: 100%; accent-color: #ffaa00; cursor: pointer; }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+        .status-panel {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Czarna Dziura Schwarzschilda</h1>
+    <p>Wizualizacja we współrzędnych Gullstranda-Painlevé (Model Rzeki)</p>
+
+    <div class="container" id="canvasContainer">
+        <canvas id="grCanvas"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="slider-group ui-element">
+                <label>Masa Czarnej Dziury (M)</label>
+                <input type="range" id="massSlider" min="20" max="100" value="50">
+            </div>
+
+            <div class="legend-item"><span class="dot" style="background:#4488ff"></span> Stożek Świetlny (Przyszłość)</div>
+            <div class="legend-item"><span class="dot" style="background:#ffaa00"></span> Geodezyjne zerowe (Światło)</div>
+            <div class="legend-item"><span class="dot" style="background:#fff; border:1px solid #444;"></span> Obserwator (Przesuń mnie!)</div>
+            
+            <div class="status-panel">
+                r (promień): <span id="rVal" style="color:#fff">0.00</span> M<br>
+                Status: <span id="statusText" style="color:#0f0">Bezpieczny</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() { // Wrap code in IIFE to prevent global scope pollution
+        const canvas = document.getElementById('grCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+
+        // Physics Constants & State
+        let M = 50; // Mass (in pixels basically)
+        let horizonR = 2 * M;
+        
+        // Observer
+        let obs = { x: 400, y: 300, dragging: false };
+        
+        // Background Geodesics (Light rays)
+        let rays = [];
+        const NUM_RAYS = 15;
+
+        // --- SETUP & RESIZE ---
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            // Reset rays on resize
+            initRays();
+        }
+        window.addEventListener('resize', resize);
+
+        // --- PHYSICS: Gullstrand-Painleve Coordinates ---
+        
+        function getSlopes(r) {
+            // Safety to avoid div by zero at singularity
+            if (r < 1) r = 1;
+            
+            // "River" speed beta = sqrt(2M/r)
+            const beta = Math.sqrt((2 * M) / r);
+
+            // Light slopes dr/dt
+            const slopeOut = 1 - beta;
+            const slopeIn = -1 - beta;
+
+            return { slopeOut, slopeIn, beta };
+        }
+
+        function initRays() {
+            rays = [];
+            for(let i=0; i<NUM_RAYS; i++) {
+                rays.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    type: i % 2 === 0 ? 'out' : 'in'
+                });
+            }
+        }
+
+        // --- DRAWING ---
+        function draw() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const singX = 50; // X position of singularity (left side)
+
+            // Clear
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, w, h);
+
+            // Update Horizon Position
+            horizonR = 2 * M;
+            const horizonX = singX + horizonR;
+
+            // 1. Draw Singularity & Horizon Areas
+            const grad = ctx.createLinearGradient(0, 0, horizonX, 0);
+            grad.addColorStop(0, '#000000');
+            grad.addColorStop(1, '#1a1a1a');
+            
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, horizonX, h);
+
+            // Horizon Line
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(horizonX, 0);
+            ctx.lineTo(horizonX, h);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText("HORYZONT (r=2M)", horizonX - 10, 20);
+            ctx.textAlign = 'left';
+            ctx.fillText("OSOBLIWOŚĆ (r=0)", 5, 20);
+
+            // 2. Draw Background Geodesics (The "River")
+            ctx.strokeStyle = 'rgba(255, 170, 0, 0.15)';
+            ctx.lineWidth = 1;
+            
+            rays.forEach(ray => {
+                ctx.beginPath();
+                let cx = ray.x;
+                let cy = ray.y;
+                
+                ctx.moveTo(cx, cy);
+                
+                let r = cx - singX;
+                const slopes = getSlopes(r);
+                const slope = ray.type === 'out' ? slopes.slopeOut : slopes.slopeIn;
+                
+                ray.y -= 1; // Animation speed: move up in time
+                ray.x += slope * 1; 
+
+                // Reset if out of bounds
+                if (ray.y < 0 || ray.x < singX + 5 || ray.x > w) {
+                    ray.y = h;
+                    ray.x = singX + 5 + Math.random() * (w - singX - 5);
+                }
+                
+                // Draw a trail
+                ctx.moveTo(ray.x, ray.y);
+                let tailX = ray.x;
+                let tailY = ray.y;
+                for(let k=0; k<10; k++) {
+                    let tr = tailX - singX;
+                    if(tr < 1) break;
+                    let s = getSlopes(tr);
+                    let m = ray.type === 'out' ? s.slopeOut : s.slopeIn;
+                    tailX -= m * 5; 
+                    tailY += 5; 
+                    ctx.lineTo(tailX, tailY);
+                }
+                ctx.stroke();
+            });
+
+
+            // 3. Observer & Light Cone
+            const obsR = obs.x - singX;
+            const slopes = getSlopes(obsR);
+            
+            // Update UI
+            document.getElementById('rVal').innerText = (obsR / M).toFixed(2);
+            const statusEl = document.getElementById('statusText');
+            if (obsR <= 0) {
+                 statusEl.innerText = "Zmiażdżony"; statusEl.style.color = "#f00";
+            } else if (obsR < horizonR) {
+                 statusEl.innerText = "Za horyzontem (Brak powrotu)"; statusEl.style.color = "#ff4444";
+            } else {
+                 statusEl.innerText = "Na zewnątrz (Bezpieczny)"; statusEl.style.color = "#0f0";
+            }
+
+            // Draw Cone
+            const coneHeight = 80;
+            const dxOut = slopes.slopeOut * coneHeight;
+            const pOutX = obs.x + dxOut;
+            const pOutY = obs.y - coneHeight; 
+
+            const dxIn = slopes.slopeIn * coneHeight;
+            const pInX = obs.x + dxIn;
+            const pInY = obs.y - coneHeight;
+
+            // Gradient Cone
+            const coneGrad = ctx.createLinearGradient(obs.x, obs.y, obs.x, obs.y - coneHeight);
+            coneGrad.addColorStop(0, 'rgba(68, 136, 255, 0.6)');
+            coneGrad.addColorStop(1, 'rgba(68, 136, 255, 0.1)');
+
+            ctx.fillStyle = coneGrad;
+            ctx.beginPath();
+            ctx.moveTo(obs.x, obs.y);
+            ctx.lineTo(pOutX, pOutY);
+            ctx.lineTo(pInX, pInY);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Cone Edges
+            ctx.strokeStyle = '#4488ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(obs.x, obs.y);
+            ctx.lineTo(pOutX, pOutY);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(obs.x, obs.y);
+            ctx.lineTo(pInX, pInY);
+            ctx.stroke();
+
+            // Draw Future Direction Arrow
+            const dxTime = -slopes.beta * (coneHeight * 0.7);
+            const pTimeX = obs.x + dxTime;
+            const pTimeY = obs.y - (coneHeight * 0.7);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath(); ctx.moveTo(obs.x, obs.y); ctx.lineTo(pTimeX, pTimeY); ctx.stroke();
+            ctx.setLineDash([]);
+
+
+            // Draw Observer Dot
+            ctx.beginPath();
+            ctx.arc(obs.x, obs.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            
+            if (obs.dragging) {
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, 10, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- INTERACTION ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        canvas.addEventListener('mousedown', e => {
+            const m = getMousePos(e);
+            const dist = Math.hypot(m.x - obs.x, m.y - obs.y);
+            if (dist < 20) {
+                obs.dragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', e => {
+            const m = getMousePos(e);
+            if (obs.dragging) {
+                obs.x = Math.max(55, Math.min(canvas.width - 10, m.x)); 
+                obs.y = Math.max(10, Math.min(canvas.height - 10, m.y));
+            } else {
+                const dist = Math.hypot(m.x - obs.x, m.y - obs.y);
+                canvas.style.cursor = dist < 20 ? 'grab' : 'crosshair';
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            obs.dragging = false;
+        });
+        
+        canvas.addEventListener('touchstart', e => {
+            const m = getMousePos(e.touches[0]);
+            const dist = Math.hypot(m.x - obs.x, m.y - obs.y);
+            if (dist < 30) {
+                obs.dragging = true;
+                e.preventDefault();
+            }
+        }, {passive: false});
+        
+        canvas.addEventListener('touchmove', e => {
+            if (obs.dragging) {
+                const m = getMousePos(e.touches[0]);
+                obs.x = Math.max(55, Math.min(canvas.width - 10, m.x));
+                obs.y = Math.max(10, Math.min(canvas.height - 10, m.y));
+                e.preventDefault();
+            }
+        }, {passive: false});
+        
+        canvas.addEventListener('touchend', () => obs.dragging = false);
+
+
+        document.getElementById('massSlider').addEventListener('input', (e) => {
+            M = parseInt(e.target.value);
+            initRays();
+        });
+
+        // Init
+        resize();
+        initRays();
+        draw();
+    })(); // End IIFE
+    </script>
+</body>
+</html>
