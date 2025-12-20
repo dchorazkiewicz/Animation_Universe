@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wizualizacja Składania Funkcji (Mapping Diagram)</title>
+    
+    <!-- Fonty -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Math.js do parsowania funkcji -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+
+    <style>
+        body { background-color: #020617; color: #e2e8f0; overflow: hidden; }
+        
+        canvas { 
+            cursor: grab;
+            background-image: linear-gradient(rgba(30, 41, 59, 0.5) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(30, 41, 59, 0.5) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        canvas:active { cursor: grabbing; }
+
+        .input-group {
+            position: relative;
+        }
+        .input-group label {
+            position: absolute;
+            top: -8px;
+            left: 10px;
+            background: #1e293b;
+            padding: 0 4px;
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Header -->
+    <nav class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white font-bold font-mono">∘</div>
+            <h1 class="font-semibold text-lg tracking-tight">Składanie Funkcji <span class="text-slate-500 font-normal">| Diagram Mapowania</span></h1>
+        </div>
+        <div class="text-xs text-slate-400 font-mono hidden md:block">
+            $x \xrightarrow{f} y \xrightarrow{g} z$
+        </div>
+    </nav>
+
+    <!-- Main Layout -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Controls Sidebar -->
+        <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shrink-0 shadow-xl overflow-y-auto">
+            
+            <div class="p-5 border-b border-slate-800">
+                <h2 class="text-sm font-bold text-white mb-4 uppercase tracking-wider">Definicje Funkcji</h2>
+                
+                <!-- Funkcja f(x) -->
+                <div class="input-group mb-4">
+                    <label>f(x)</label>
+                    <input type="text" id="func-f" value="2*x + 1" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-blue-400 focus:outline-none focus:border-blue-500 transition">
+                    <div class="text-[10px] text-slate-500 mt-1 text-right">Wewnętrzna</div>
+                </div>
+
+                <!-- Funkcja g(x) -->
+                <div class="input-group">
+                    <label>g(x)</label>
+                    <input type="text" id="func-g" value="x^2" class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-emerald-400 focus:outline-none focus:border-emerald-500 transition">
+                    <div class="text-[10px] text-slate-500 mt-1 text-right">Zewnętrzna</div>
+                </div>
+                
+                <div id="error-msg" class="text-red-400 text-xs mt-2 min-h-[1.5em]"></div>
+            </div>
+
+            <div class="p-5 border-b border-slate-800">
+                <h2 class="text-sm font-bold text-white mb-4 uppercase tracking-wider">Sterowanie Osią</h2>
+                
+                <!-- Zoom -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>Zakres Osi (Zoom)</span>
+                        <span id="scale-val">10</span>
+                    </div>
+                    <input type="range" id="scale-slider" min="2" max="50" value="10" step="1" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+
+                <!-- Input Value Slider -->
+                <div>
+                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>Wartość wejściowa x</span>
+                        <span id="input-val-display" class="font-mono text-white">0.00</span>
+                    </div>
+                    <input type="range" id="input-slider" min="-10" max="10" value="0" step="0.01" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    <div class="text-[10px] text-slate-500 mt-2 italic">Możesz też przesuwać kropkę na wykresie.</div>
+                </div>
+            </div>
+
+            <div class="p-5">
+                <h2 class="text-sm font-bold text-white mb-4 uppercase tracking-wider">Opcje Widoku</h2>
+                
+                <label class="flex items-center gap-3 mb-3 cursor-pointer group">
+                    <input type="checkbox" id="chk-flow" class="accent-indigo-500 w-4 h-4">
+                    <div class="text-sm text-slate-300 group-hover:text-white transition">Pokaż pole mapowania</div>
+                </label>
+                <p class="text-[10px] text-slate-500 ml-7 mb-4">Rysuje wiele linii w tle, aby pokazać kształt przekształcenia.</p>
+
+                <div class="bg-slate-800/50 p-3 rounded border border-slate-700 text-xs text-slate-300">
+                    <div class="flex justify-between mb-1">
+                        <span class="text-slate-500">Wejście (x):</span>
+                        <span id="res-x" class="font-mono font-bold text-blue-400">0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-1">
+                        <span class="text-slate-500">Po f(x):</span>
+                        <span id="res-y" class="font-mono font-bold text-emerald-400">1.00</span>
+                    </div>
+                    <div class="flex justify-between border-t border-slate-700 pt-1 mt-1">
+                        <span class="text-slate-500">Wynik g(f(x)):</span>
+                        <span id="res-z" class="font-mono font-bold text-indigo-400">1.00</span>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Canvas Container -->
+        <main class="flex-1 bg-slate-950 relative overflow-hidden flex flex-col items-center justify-center">
+            <canvas id="mainCanvas"></canvas>
+            
+            <!-- Axis Labels Overlay (Absolute positioning over canvas) -->
+            <div class="absolute top-4 w-full flex justify-around pointer-events-none px-20">
+                <div class="text-center">
+                    <div class="text-blue-400 font-bold text-lg">Oś X</div>
+                    <div class="text-slate-500 text-xs">Domena wejściowa</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-emerald-400 font-bold text-lg">Oś Y = f(x)</div>
+                    <div class="text-slate-500 text-xs">Wartość pośrednia (nowy X)</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-indigo-400 font-bold text-lg">Oś Z = g(y)</div>
+                    <div class="text-slate-500 text-xs">Wynik końcowy</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const inputF = document.getElementById('func-f');
+    const inputG = document.getElementById('func-g');
+    const errorMsg = document.getElementById('error-msg');
+    const scaleSlider = document.getElementById('scale-slider');
+    const inputSlider = document.getElementById('input-slider');
+    const chkFlow = document.getElementById('chk-flow');
+    
+    // Displays
+    const scaleValDisp = document.getElementById('scale-val');
+    const inputValDisp = document.getElementById('input-val-display');
+    const resX = document.getElementById('res-x');
+    const resY = document.getElementById('res-y');
+    const resZ = document.getElementById('res-z');
+
+    // State
+    const state = {
+        x: 0,
+        yRange: 10, // +/- range
+        f_node: null,
+        g_node: null,
+        isDragging: false,
+        dragTarget: null // 'axis1', 'background'
+    };
+
+    // --- MATH PARSING ---
+    function updateFunctions() {
+        try {
+            state.f_node = math.compile(inputF.value);
+            state.g_node = math.compile(inputG.value);
+            errorMsg.innerText = "";
+            inputF.classList.remove('border-red-500');
+            inputG.classList.remove('border-red-500');
+            draw();
+            updateResults();
+        } catch (err) {
+            errorMsg.innerText = "Błąd składni: " + err.message;
+            if (err.message.includes(inputF.value)) inputF.classList.add('border-red-500');
+            else inputG.classList.add('border-red-500'); // Haurystyczne zgadywanie
+        }
+    }
+
+    function evalF(x) {
+        try { return state.f_node.evaluate({x: x}); } catch(e) { return NaN; }
+    }
+    
+    function evalG(x) {
+        try { return state.g_node.evaluate({x: x}); } catch(e) { return NaN; }
+    }
+
+    // --- DRAWING HELPERS ---
+
+    function toScreenY(val, height, range) {
+        // Mapuje wartość matematyczną (-range do +range) na piksele (height do 0)
+        // Środek ekranu to 0
+        const center = height / 2;
+        const scale = (height / 2) / range; 
+        // Minus val, bo w canvas Y rośnie w dół, a w matmie w górę
+        return center - val * scale;
+    }
+
+    function fromScreenY(pixelY, height, range) {
+        const center = height / 2;
+        const scale = (height / 2) / range;
+        return (center - pixelY) / scale;
+    }
+
+    function drawAxis(xPos, height, range, label, color) {
+        // Linia główna
+        ctx.beginPath();
+        ctx.moveTo(xPos, 0);
+        ctx.lineTo(xPos, height);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Ticki
+        const step = range >= 20 ? 5 : (range >= 5 ? 1 : 0.5);
+        const center = height / 2;
+        const scale = (height / 2) / range;
+
+        ctx.font = "10px JetBrains Mono";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#64748b";
+
+        for (let v = 0; v <= range; v += step) {
+            // Dodatnie
+            let y = center - v * scale;
+            ctx.beginPath(); ctx.moveTo(xPos - 4, y); ctx.lineTo(xPos + 4, y); ctx.stroke();
+            if (v !== 0) ctx.fillText(v, xPos - 8, y);
+
+            // Ujemne
+            y = center + v * scale;
+            ctx.beginPath(); ctx.moveTo(xPos - 4, y); ctx.lineTo(xPos + 4, y); ctx.stroke();
+            if (v !== 0) ctx.fillText(-v, xPos - 8, y);
+        }
+        
+        // Zero
+        ctx.fillStyle = color;
+        ctx.font = "bold 12px JetBrains Mono";
+        ctx.fillText("0", xPos - 8, center);
+    }
+
+    function drawArrow(x1, y1, x2, y2, color) {
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headLen = 10;
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Grot strzałki (na środku lub końcu? Dajmy przy końcu, ale lekko cofnięte dla czytelności punktu)
+        const arrowX = x2 - (x2-x1)*0.1; // 10% przed końcem
+        const arrowY = y2 - (y2-y1)*0.1;
+
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.lineTo(x2, y2);
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function drawFlowField(ax1, ax2, ax3, h, range) {
+        if (!chkFlow.checked) return;
+
+        const density = 40; // Liczba linii
+        ctx.lineWidth = 1;
+        
+        for (let i = 0; i <= density; i++) {
+            // Wartość wejściowa dla linii tła
+            const val = -range + (i / density) * 2 * range;
+            const y1 = toScreenY(val, h, range);
+            
+            const fVal = evalF(val);
+            // Nie rysuj jeśli wyskakuje poza zakres (dla estetyki)
+            if (Math.abs(fVal) > range * 1.5) continue;
+            
+            const y2 = toScreenY(fVal, h, range);
+            const gVal = evalG(fVal);
+
+            // Linia f (niebieska)
+            ctx.strokeStyle = 'rgba(96, 165, 250, 0.1)'; // Blue very low opacity
+            ctx.beginPath(); ctx.moveTo(ax1, y1); ctx.lineTo(ax2, y2); ctx.stroke();
+
+            if (Math.abs(gVal) > range * 1.5) continue;
+            const y3 = toScreenY(gVal, h, range);
+
+            // Linia g (fioletowa)
+            ctx.strokeStyle = 'rgba(129, 140, 248, 0.1)'; // Indigo very low opacity
+            ctx.beginPath(); ctx.moveTo(ax2, y2); ctx.lineTo(ax3, y3); ctx.stroke();
+        }
+    }
+
+    function draw() {
+        // Resize canvas
+        const rect = canvas.parentNode.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // Axis positions
+        const ax1 = w * 0.2;
+        const ax2 = w * 0.5;
+        const ax3 = w * 0.8;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Tło/Przepływ
+        drawFlowField(ax1, ax2, ax3, h, state.yRange);
+
+        // Rysuj osie
+        drawAxis(ax1, h, state.yRange, "X", "#60a5fa");
+        drawAxis(ax2, h, state.yRange, "Y", "#34d399");
+        drawAxis(ax3, h, state.yRange, "Z", "#818cf8");
+
+        // Obliczenia dla głównego punktu
+        const valX = state.x;
+        const valY = evalF(valX);
+        const valZ = evalG(valY);
+
+        const posY1 = toScreenY(valX, h, state.yRange);
+        const posY2 = toScreenY(valY, h, state.yRange);
+        const posY3 = toScreenY(valZ, h, state.yRange);
+
+        // --- WARSTWA 1: LINIE ---
+        
+        // Linia X -> Y (Funkcja f)
+        drawArrow(ax1, posY1, ax2, posY2, "#60a5fa");
+        
+        // Linia Y -> Z (Funkcja g)
+        drawArrow(ax2, posY2, ax3, posY3, "#818cf8");
+
+        // --- WARSTWA 2: PUNKTY ---
+
+        // Punkt X
+        ctx.beginPath(); ctx.arc(ax1, posY1, 6, 0, Math.PI*2);
+        ctx.fillStyle = "#60a5fa"; ctx.fill(); 
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+
+        // Punkt Y (Złożenie)
+        // To jest kluczowy moment: pokazujemy że to jest Output f i Input g
+        ctx.beginPath(); ctx.arc(ax2, posY2, 6, 0, Math.PI*2);
+        ctx.fillStyle = "#34d399"; ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+
+        // Punkt Z
+        ctx.beginPath(); ctx.arc(ax3, posY3, 6, 0, Math.PI*2);
+        ctx.fillStyle = "#818cf8"; ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+
+        // --- WARSTWA 3: ETYKIETY (Podążające za punktem) ---
+        
+        // Label X
+        ctx.fillStyle = "white"; ctx.font = "12px JetBrains Mono"; ctx.textAlign = "right";
+        ctx.fillText(`x=${valX.toFixed(2)}`, ax1 - 15, posY1);
+
+        // Label Y
+        ctx.fillStyle = "white"; ctx.textAlign = "center";
+        // Rysujemy tło pod tekstem, żeby nie zlał się z liniami
+        const txtY = `y=${valY.toFixed(2)}`;
+        const metrics = ctx.measureText(txtY);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+        ctx.fillRect(ax2 - metrics.width/2 - 4, posY2 - 20, metrics.width + 8, 16);
+        ctx.fillStyle = "#34d399";
+        ctx.fillText(txtY, ax2, posY2 - 8);
+
+        // Label Z
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#818cf8";
+        ctx.fillText(`z=${valZ.toFixed(2)}`, ax3 + 15, posY3);
+    }
+
+    function updateResults() {
+        const y = evalF(state.x);
+        const z = evalG(y);
+        
+        resX.innerText = state.x.toFixed(2);
+        resY.innerText = isNaN(y) ? "NaN" : y.toFixed(2);
+        resZ.innerText = isNaN(z) ? "NaN" : z.toFixed(2);
+
+        // Sync slider (only if not dragging slider itself, to avoid jitter)
+        if (!state.isDraggingSlider) {
+            inputSlider.value = state.x;
+            inputValDisp.innerText = state.x.toFixed(2);
+        }
+    }
+
+    // --- INTERACTION ---
+
+    canvas.addEventListener('mousedown', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const w = canvas.width;
+        
+        // Sprawdź czy kliknięto w pobliżu osi 1
+        const ax1 = w * 0.2;
+        if (Math.abs(x - ax1) < 40) {
+            state.isDragging = true;
+            state.dragTarget = 'axis1';
+            updateFromMouse(e.clientY);
+        }
+    });
+
+    window.addEventListener('mousemove', e => {
+        if (state.isDragging) {
+            const rect = canvas.getBoundingClientRect();
+            updateFromMouse(e.clientY - rect.top);
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        state.isDragging = false;
+    });
+
+    function updateFromMouse(mouseY) {
+        const h = canvas.height;
+        let val = fromScreenY(mouseY, h, state.yRange);
+        
+        // Clamp to logical limits (optional, but good for UX)
+        if (val > state.yRange) val = state.yRange;
+        if (val < -state.yRange) val = -state.yRange;
+
+        state.x = val;
+        state.isDraggingSlider = false; // Reset slider flag
+        draw();
+        updateResults();
+    }
+
+    // Controls Listeners
+    inputF.addEventListener('change', updateFunctions);
+    inputG.addEventListener('change', updateFunctions);
+    
+    scaleSlider.addEventListener('input', e => {
+        state.yRange = parseInt(e.target.value);
+        scaleValDisp.innerText = state.yRange;
+        draw();
+    });
+
+    inputSlider.addEventListener('input', e => {
+        state.x = parseFloat(e.target.value);
+        state.isDraggingSlider = true;
+        inputValDisp.innerText = state.x.toFixed(2);
+        draw();
+        updateResults();
+    });
+
+    chkFlow.addEventListener('change', draw);
+    window.addEventListener('resize', draw);
+
+    // Init
+    updateFunctions();
+
+</script>
+</body>
+</html>
