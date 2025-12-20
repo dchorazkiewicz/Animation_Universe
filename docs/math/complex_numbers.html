@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wizualizacja Liczb Zespolonych</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; cursor: crosshair; touch-action: none; }
+        
+        .panel {
+            position: absolute;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(4px);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .top-panel { top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 0.5rem; z-index: 10; flex-wrap: wrap; justify-content: center; }
+        .info-panel { bottom: 20px; left: 20px; min-width: 320px; max-width: 380px; z-index: 10; }
+        .zoom-panel { bottom: 20px; right: 20px; z-index: 10; display: flex; flex-direction: column; gap: 5px; padding: 8px; width: auto; }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            background: #334155;
+            color: #94a3b8;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .btn:hover { background: #475569; color: white; }
+        .btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #60a5fa;
+            box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+        }
+        
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: #1e293b;
+            color: #e2e8f0;
+            border: 1px solid #475569;
+            border-radius: 8px;
+        }
+        .zoom-btn:hover { background: #334155; }
+
+        .math-text { font-family: 'Courier New', monospace; font-weight: 600; }
+        .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+        .formula-section {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease;
+            opacity: 0;
+            border-top: 1px solid #334155;
+            margin-top: 0;
+            padding-top: 0;
+        }
+        .formula-section.visible {
+            max-height: 400px;
+            opacity: 1;
+            margin-top: 12px;
+            padding-top: 12px;
+        }
+        .variable { font-style: italic; color: #cbd5e1; }
+        .toggle-btn {
+            font-size: 0.75rem;
+            color: #60a5fa;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-left: auto;
+        }
+        .toggle-btn:hover { color: #93c5fd; }
+        
+        .val-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .val-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .val-label { font-size: 0.9rem; }
+        .val-data { text-align: right; }
+        .val-rect { font-size: 0.9rem; display: block; }
+        .val-polar { font-size: 0.75rem; color: rgba(255,255,255,0.5); display: block; margin-top: 2px; }
+        
+        .formula-box {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+        .formula-label { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+        .formula-def { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; font-style: italic; border-bottom: 1px dashed #334155; padding-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- Panel Sterowania -->
+    <div class="panel top-panel">
+        <button class="btn active" onclick="setMode('add')">Dodawanie (+)</button>
+        <button class="btn" onclick="setMode('sub')">Odejmowanie (-)</button>
+        <button class="btn" onclick="setMode('mul')">Mnożenie (×)</button>
+        <button class="btn" onclick="setMode('div')">Dzielenie (÷)</button>
+    </div>
+
+    <!-- Panel Zoom -->
+    <div class="panel zoom-panel">
+        <button class="zoom-btn" onclick="adjustZoom(10)" title="Przybliż">+</button>
+        <button class="zoom-btn" onclick="adjustZoom(-10)" title="Oddal">-</button>
+        <div class="text-[10px] text-center text-slate-500 mt-1">Scroll</div>
+    </div>
+
+    <!-- Panel Informacyjny -->
+    <div class="panel info-panel">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wide">Wartości</h2>
+            <button class="toggle-btn" onclick="toggleFormula()" id="toggleFormulaBtn">Pokaż wzory</button>
+        </div>
+        
+        <div class="space-y-1 text-sm">
+            <!-- Z1 -->
+            <div class="val-row text-blue-400">
+                <div class="val-label"><span class="legend-dot bg-blue-500"></span>z₁</div>
+                <div class="val-data" id="val-z1"></div>
+            </div>
+            <!-- Z2 -->
+            <div class="val-row text-green-400">
+                <div class="val-label"><span class="legend-dot bg-green-500"></span>z₂</div>
+                <div class="val-data" id="val-z2"></div>
+            </div>
+            
+            <div class="border-t border-slate-600 my-2"></div>
+            
+            <!-- Wynik -->
+            <div class="val-row text-red-400 font-bold">
+                <div class="val-label"><span class="legend-dot bg-red-500"></span>Wynik (w)</div>
+                <div class="val-data" id="val-res"></div>
+            </div>
+        </div>
+
+        <!-- Sekcja Wzorów (Chowana) -->
+        <div id="formula-section" class="formula-section">
+            <div class="formula-def">
+                <strong>Postać Biegunowa:</strong><br>
+                <span class="font-mono text-yellow-200">z = r(cosφ + i·sinφ) = r·e<sup>iφ</sup></span><br>
+                Gdzie: r = długość, φ = kąt
+            </div>
+
+            <div class="formula-box">
+                <div class="formula-label">Wzór dla Postaci Biegunowej (Alternatywa)</div>
+                <div id="polar-formula" class="text-xs font-mono text-yellow-200 leading-relaxed"></div>
+            </div>
+            
+            <div class="formula-box">
+                <div class="formula-label">Standardowy (Algebraiczny)</div>
+                <div id="algebra-formula" class="text-xs font-mono text-blue-200 leading-relaxed"></div>
+            </div>
+        </div>
+
+        <div id="desc-panel" class="mt-3 text-xs text-slate-400 italic border-t border-slate-700 pt-2">
+            Przesuń wektory, aby dodać liczby.
+        </div>
+    </div>
+
+    <canvas id="complexCanvas"></canvas>
+
+<script>
+/**
+ * Logika i Renderowanie
+ */
+const canvas = document.getElementById('complexCanvas');
+const ctx = canvas.getContext('2d');
+
+let width, height, cx, cy;
+let pixelsPerUnit = 50; 
+const MIN_ZOOM = 20;
+const MAX_ZOOM = 200;
+
+// Stan aplikacji
+const state = {
+    z1: { r: 2, i: 1 },  
+    z2: { r: 1, i: 2 },
+    mode: 'add',         
+    dragging: null,      
+    showFormula: false
+};
+
+// Dane tekstowe (Opisy i Wzory)
+const textData = {
+    add: {
+        desc: "Dodawanie wektorów (suma składowych).",
+        rectFormula: "(<span class='variable'>a</span> + <span class='variable'>c</span>) + (<span class='variable'>b</span> + <span class='variable'>d</span>)i",
+        // Twierdzenie cosinusów dla sumy wektorów (kąt to 180 - (phi1-phi2) w trójkącie, stąd +cos różnicy w wzorze na przekątną równoległoboku)
+        polarFormula: "Długość (z tw. cosinusów):<br>|w| = √(<span class='variable'>r₁</span>² + <span class='variable'>r₂</span>² + 2<span class='variable'>r₁r₂</span>cos(<span class='variable'>φ₁</span>-<span class='variable'>φ₂</span>))<br><br>Kąt jest średnią ważoną (trudny wzór)."
+    },
+    sub: {
+        desc: "Odejmowanie wektorów (różnica składowych).",
+        rectFormula: "(<span class='variable'>a</span> - <span class='variable'>c</span>) + (<span class='variable'>b</span> - <span class='variable'>d</span>)i",
+        // Klasyczne twierdzenie cosinusów
+        polarFormula: "Długość (z tw. cosinusów):<br>|w| = √(<span class='variable'>r₁</span>² + <span class='variable'>r₂</span>² - 2<span class='variable'>r₁r₂</span>cos(<span class='variable'>φ₁</span>-<span class='variable'>φ₂</span>))"
+    },
+    mul: {
+        desc: "Mnożenie: Obracanie i skalowanie.",
+        rectFormula: "(<span class='variable'>ac</span> - <span class='variable'>bd</span>) + (<span class='variable'>ad</span> + <span class='variable'>bc</span>)i",
+        polarFormula: "Długość: |w| = |z₁| · |z₂|<br>Kąt: φ = φ₁ + φ₂"
+    },
+    div: {
+        desc: "Dzielenie: Obracanie w drugą stronę i skalowanie.",
+        rectFormula: "<div class='text-center border-b border-white/20 mb-1 pb-1'><span class='variable'>ac</span> + <span class='variable'>bd</span> + (<span class='variable'>bc</span> - <span class='variable'>ad</span>)i</div><div class='text-center'><span class='variable'>c</span>² + <span class='variable'>d</span>²</div>",
+        polarFormula: "Długość: |w| = |z₁| / |z₂|<br>Kąt: φ = φ₁ - φ₂"
+    }
+};
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    cx = width / 2;
+    cy = height / 2;
+    draw();
+}
+
+function adjustZoom(delta) {
+    pixelsPerUnit += delta;
+    if (pixelsPerUnit < MIN_ZOOM) pixelsPerUnit = MIN_ZOOM;
+    if (pixelsPerUnit > MAX_ZOOM) pixelsPerUnit = MAX_ZOOM;
+    draw();
+}
+
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -5 : 5;
+    adjustZoom(delta);
+}, { passive: false });
+
+
+function setMode(mode) {
+    state.mode = mode;
+    
+    const data = textData[mode];
+    document.getElementById('desc-panel').textContent = data.desc;
+    document.getElementById('algebra-formula').innerHTML = data.rectFormula;
+    document.getElementById('polar-formula').innerHTML = data.polarFormula;
+    
+    document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+    const buttons = document.querySelectorAll('.btn'); 
+    const map = { 'add': 0, 'sub': 1, 'mul': 2, 'div': 3 };
+    if(buttons[map[mode]]) buttons[map[mode]].classList.add('active');
+
+    draw();
+}
+
+function toggleFormula() {
+    state.showFormula = !state.showFormula;
+    const el = document.getElementById('formula-section');
+    const btn = document.getElementById('toggleFormulaBtn');
+    
+    if (state.showFormula) {
+        el.classList.add('visible');
+        btn.textContent = "Ukryj wzory";
+    } else {
+        el.classList.remove('visible');
+        btn.textContent = "Pokaż wzory";
+    }
+}
+
+function toScreen(r, i) {
+    return { x: cx + r * pixelsPerUnit, y: cy - i * pixelsPerUnit };
+}
+
+function fromScreen(x, y) {
+    return { r: (x - cx) / pixelsPerUnit, i: (cy - y) / pixelsPerUnit };
+}
+
+function complexAdd(a, b) { return { r: a.r + b.r, i: a.i + b.i }; }
+function complexSub(a, b) { return { r: a.r - b.r, i: a.i - b.i }; }
+function complexMul(a, b) { return { r: a.r * b.r - a.i * b.i, i: a.r * b.i + a.i * b.r }; }
+function complexDiv(a, b) {
+    const denom = b.r * b.r + b.i * b.i;
+    if (denom === 0) return { r: 0, i: 0 }; 
+    return {
+        r: (a.r * b.r + a.i * b.i) / denom,
+        i: (a.i * b.r - a.r * b.i) / denom
+    };
+}
+function getMag(z) { return Math.sqrt(z.r*z.r + z.i*z.i); }
+function getArg(z) { return Math.atan2(z.i, z.r); }
+
+function formatComplexDisplay(z) {
+    const rVal = z.r.toFixed(2);
+    const iAbs = Math.abs(z.i).toFixed(2);
+    const sign = z.i >= 0 ? '+' : '-';
+    const rectStr = `<span class="math-text">${rVal} ${sign} ${iAbs}i</span>`;
+    
+    const mag = getMag(z).toFixed(2);
+    let deg = (getArg(z) * 180 / Math.PI).toFixed(1);
+    const polarStr = `<span class="val-polar">r=${mag}, φ=${deg}°</span>`;
+    
+    return `<span class="val-rect">${rectStr}</span>${polarStr}`;
+}
+
+function drawGrid() {
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = '10px sans-serif';
+    ctx.fillStyle = '#64748b';
+
+    const startX = Math.floor(-cx / pixelsPerUnit);
+    const endX = Math.ceil((width - cx) / pixelsPerUnit);
+    const startY = Math.floor(-(height - cy) / pixelsPerUnit); 
+    const endY = Math.ceil(cy / pixelsPerUnit); 
+
+    ctx.beginPath();
+    
+    for (let i = startX; i <= endX; i++) {
+        const x = cx + i * pixelsPerUnit;
+        ctx.moveTo(x, 0); 
+        ctx.lineTo(x, height);
+        
+        if (i !== 0) {
+            ctx.fillText(i.toString(), x, cy + 4);
+            ctx.moveTo(x, cy - 3);
+            ctx.lineTo(x, cy + 3);
+        }
+    }
+
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    
+    const topLogic = Math.ceil(cy / pixelsPerUnit);
+    const bottomLogic = Math.floor(-(height - cy) / pixelsPerUnit);
+
+    for (let i = bottomLogic; i <= topLogic; i++) {
+        const y = cy - i * pixelsPerUnit;
+        ctx.moveTo(0, y); 
+        ctx.lineTo(width, y);
+
+        if (i !== 0) {
+            ctx.fillText(i.toString(), cx - 4, y);
+             ctx.moveTo(cx - 3, y);
+             ctx.lineTo(cx + 3, y);
+        }
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, cy); ctx.lineTo(width, cy); 
+    ctx.moveTo(cx, 0); ctx.lineTo(cx, height); 
+    ctx.stroke();
+
+    ctx.strokeStyle = '#475569';
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, pixelsPerUnit, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Re', width - 10, cy - 10);
+    ctx.textAlign = 'left';
+    ctx.fillText('Im', cx + 10, 15);
+}
+
+function drawArrow(from, to, color, label) {
+    const headlen = 10;
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(to.x, to.y);
+    ctx.lineTo(to.x - headlen * Math.cos(angle - Math.PI / 6), to.y - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(to.x - headlen * Math.cos(angle + Math.PI / 6), to.y - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.lineTo(to.x, to.y);
+    ctx.fill();
+
+    if (label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = color;
+        ctx.fillText(label, to.x + 10, to.y);
+    }
+}
+
+function drawPoint(pos, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 6, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function drawDashedLine(p1, p2, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawAngleArc(radius, endAngle, color) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, 0, -endAngle, endAngle > 0); 
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.6;
+    ctx.stroke();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, width, height);
+    drawGrid();
+
+    const origin = { x: cx, y: cy };
+    const p1 = toScreen(state.z1.r, state.z1.i);
+    const p2 = toScreen(state.z2.r, state.z2.i);
+
+    let res;
+    if (state.mode === 'add') res = complexAdd(state.z1, state.z2);
+    else if (state.mode === 'sub') res = complexSub(state.z1, state.z2);
+    else if (state.mode === 'mul') res = complexMul(state.z1, state.z2);
+    else if (state.mode === 'div') res = complexDiv(state.z1, state.z2);
+    
+    const pRes = toScreen(res.r, res.i);
+
+    if (state.mode === 'add') {
+        drawDashedLine(p1, pRes, '#4ade80'); 
+        drawDashedLine(p2, pRes, '#60a5fa'); 
+    } else if (state.mode === 'sub') {
+        drawDashedLine(p2, p1, '#f87171'); 
+    } else if (state.mode === 'mul' || state.mode === 'div') {
+        const magRes = getMag(res);
+        drawAngleArc(30, getArg(state.z1), '#60a5fa');
+        drawAngleArc(45, getArg(state.z2), '#4ade80');
+        if(magRes > 0.01) drawAngleArc(60, getArg(res), '#f87171');
+    }
+
+    drawArrow(origin, p2, '#22c55e', 'z₂');
+    drawPoint(p2, '#22c55e');
+
+    drawArrow(origin, p1, '#3b82f6', 'z₁');
+    drawPoint(p1, '#3b82f6');
+
+    drawArrow(origin, pRes, '#ef4444', 'w');
+    
+    document.getElementById('val-z1').innerHTML = formatComplexDisplay(state.z1);
+    document.getElementById('val-z2').innerHTML = formatComplexDisplay(state.z2);
+    document.getElementById('val-res').innerHTML = formatComplexDisplay(res);
+}
+
+function getMousePos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.clientX || (evt.touches ? evt.touches[0].clientX : 0);
+    const clientY = evt.clientY || (evt.touches ? evt.touches[0].clientY : 0);
+    return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function handleStart(evt) {
+    if (evt.target.tagName === 'BUTTON') return;
+    
+    const pos = getMousePos(evt);
+    const p1 = toScreen(state.z1.r, state.z1.i);
+    const p2 = toScreen(state.z2.r, state.z2.i);
+    
+    const d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
+    const d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
+    
+    const HIT_RADIUS = 20;
+
+    if (d1 < HIT_RADIUS && d1 < d2) {
+        state.dragging = 'z1';
+    } else if (d2 < HIT_RADIUS) {
+        state.dragging = 'z2';
+    }
+}
+
+function handleMove(evt) {
+    if (!state.dragging) return;
+    evt.preventDefault();
+    const pos = getMousePos(evt);
+    const logicPos = fromScreen(pos.x, pos.y);
+    
+    const snap = (val) => {
+        const rounded = Math.round(val);
+        if (Math.abs(val - rounded) < 0.15) return rounded;
+        return val;
+    };
+
+    if (state.dragging === 'z1') {
+        state.z1 = { r: snap(logicPos.r), i: snap(logicPos.i) };
+    } else {
+        state.z2 = { r: snap(logicPos.r), i: snap(logicPos.i) };
+    }
+    draw();
+}
+
+function handleEnd() {
+    state.dragging = null;
+}
+
+window.addEventListener('resize', resize);
+canvas.addEventListener('mousedown', handleStart);
+canvas.addEventListener('mousemove', handleMove);
+canvas.addEventListener('mouseup', handleEnd);
+
+canvas.addEventListener('touchstart', handleStart, {passive: false});
+canvas.addEventListener('touchmove', handleMove, {passive: false});
+canvas.addEventListener('touchend', handleEnd);
+
+setMode('add'); 
+resize();
+
+</script>
+</body>
+</html>

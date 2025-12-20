@@ -41,6 +41,7 @@ nav:
     - Fraktale: math/fraktale.html
     - Równania Liniowe: math/rownania_liniowe.html
     - Arytmetyka: math/arytmetyka.md
+    - Liczby Złożone: math/complex_numbers.html
   - Fizyka:
     - Rzut Ukośny: phys/rzut_ukosny.html
     - Wahadła i Sprężyny: phys/wahadla_i_sprezyny.html
@@ -50,12 +51,14 @@ nav:
     - Lorenz Attractor: phys/lorenz_attractor.html
     - Logistic Map: phys/logistic_map.html
     - Grawitacja i Orbity: phys/grawitacja_orbity.html
+    - Huygens: phys/Huygens.html
     - Tunelowanie: phys/tunelowanie.html
     - Mechanika Numeryczna 1: phys/mechanics_numeric_1.html
     - Minkowski: phys/minkowski.html
     - Minkowski 2: phys/minkowski_2.html
     - Minkowski 3: phys/minkowski_3.html
     - Minkowski 4: phys/minkowski_4.html
+    - Navikov: phys/navikov.html
   - Dokumentacja:
     - How To MkDocs (PL): how_to_mkdocs_pl.md
     - How To MkDocs (EN): how_to_mkdocs_en.md
