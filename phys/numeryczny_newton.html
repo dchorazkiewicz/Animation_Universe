@@ -396,7 +396,7 @@
                         this.checkBounds(truePos.x, truePos.y);
 
                         // Stop if ground hit
-                        if (truePos.y < -50 && this.stateEuler[1] < -50 && this.stateRK4[1] < -50) {
+                        if (truePos.y < 0) {
                             this.isRunning = false;
                             break;
                         }
