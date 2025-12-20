@@ -59,6 +59,7 @@ nav:
     - Minkowski 3: phys/minkowski_3.html
     - Minkowski 4: phys/minkowski_4.html
     - Navikov: phys/navikov.html
+    - Numeryczny Newton: phys/numeryczny_newton.html
   - Dokumentacja:
     - How To MkDocs (PL): how_to_mkdocs_pl.md
     - How To MkDocs (EN): how_to_mkdocs_en.md
