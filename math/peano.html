@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aksjomatyka Peano - Laboratorium</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" xintegrity="sha384-n8MVd4RsNIUjK/cObnoHbKWcYv5vN7FK1/3P9rY+WqSX5G1T3P7L+0X7L/4P6k9" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" xintegrity="sha384-XjKyZH1y0eL3W+Z3b3kX1y0eL3W+Z3b3kX1y0eL3W+Z3b3kX1y0eL3W+Z3" crossorigin="anonymous"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* slate-950 */
+            color: #e2e8f0; /* slate-200 */
+        }
+        .math-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar - Dark Mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; /* slate-700 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; /* slate-600 */
+        }
+        /* KaTeX overrides fix */
+        .katex { font-size: 1.1em; color: inherit; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- IKONY ---
+        const BookOpenIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>);
+        const CalculatorIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>);
+        const PlayIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>);
+        const NextIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>);
+        const ResetIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/><path d="M3 3v9h9"/></svg>);
+
+        // --- Komponent do renderowania matematyki (KaTeX) ---
+        const MathJax = ({ children, block = false }) => {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (containerRef.current && window.katex) {
+                    try {
+                        window.katex.render(children, containerRef.current, {
+                            throwOnError: false,
+                            displayMode: block
+                        });
+                    } catch (e) {
+                        console.error("KaTeX render error:", e);
+                        containerRef.current.innerText = children; // Fallback
+                    }
+                }
+            }, [children, block]);
+
+            return <span ref={containerRef} className={block ? "block my-2 text-center" : ""}></span>;
+        };
+
+
+        // --- SILNIK LOGICZNY PEANO ---
+        const createVal = (n) => ({ type: 'val', val: n });
+        const createExpr = (type, left, right) => ({ type, left, right });
+        const createSuc = (inner) => ({ type: 'suc', inner });
+
+        const renderExpr = (expr) => {
+            if (expr.type === 'val') return expr.val.toString();
+            if (expr.type === 'suc') return `S(${renderExpr(expr.inner)})`;
+            
+            const left = renderExpr(expr.left);
+            const right = renderExpr(expr.right);
+            
+            let symbol = '';
+            if (expr.type === 'add') symbol = '+';
+            if (expr.type === 'mul') symbol = '×';
+            if (expr.type === 'pow') symbol = '^';
+            
+            const needsParensLeft = (expr.type === 'mul' || expr.type === 'pow') && expr.left.type === 'add';
+            const needsParensRight = (expr.type === 'mul' || expr.type === 'pow') && expr.right.type === 'add';
+
+            const lStr = needsParensLeft ? `(${left})` : left;
+            const rStr = needsParensRight ? `(${right})` : right;
+
+            return `${lStr} ${symbol} ${rStr}`;
+        };
+
+        const reduceStep = (expr) => {
+            if (expr.type === 'val') return null;
+
+            // 1. Redukcja następnika (S)
+            // Najpierw redukujemy wnętrze, np. S(2+2) -> S(2+S(1))
+            if (expr.type === 'suc') {
+                const reducedInner = reduceStep(expr.inner);
+                if (reducedInner) {
+                    return {
+                        newExpr: createSuc(reducedInner.newExpr),
+                        rule: reducedInner.rule
+                    };
+                }
+                // Jeśli wnętrze jest już liczbą, zamieniamy na wynik (obliczenie wartości końcowej)
+                // S(n) -> n+1
+                if (expr.inner.type === 'val') {
+                    return {
+                        newExpr: createVal(expr.inner.val + 1),
+                        rule: `S(${expr.inner.val}) = ${expr.inner.val + 1}`
+                    };
+                }
+                return null;
+            }
+
+            // 2. Redukcja argumentów
+            if (expr.right.type !== 'val' && expr.right.type !== 'suc') {
+                const reducedRight = reduceStep(expr.right);
+                if (reducedRight) {
+                    return {
+                        newExpr: { ...expr, right: reducedRight.newExpr },
+                        rule: reducedRight.rule
+                    };
+                }
+            }
+
+            if (expr.left.type !== 'val' && expr.left.type !== 'suc') {
+                const reducedLeft = reduceStep(expr.left);
+                if (reducedLeft) {
+                    return {
+                        newExpr: { ...expr, left: reducedLeft.newExpr },
+                        rule: reducedLeft.rule
+                    };
+                }
+            }
+
+            const a = expr.left;
+            const b = expr.right;
+
+            // --- REGUŁY PEANO ---
+
+            // DODAWANIE
+            if (expr.type === 'add') {
+                if (b.type === 'val') {
+                    if (b.val === 0) {
+                        return { newExpr: a, rule: 'a + 0 = a' };
+                    }
+                    return {
+                        newExpr: { ...expr, right: createSuc(createVal(b.val - 1)) },
+                        rule: `${b.val} = S(${b.val - 1})`
+                    };
+                }
+                if (b.type === 'suc') {
+                    return {
+                        newExpr: createSuc(createExpr('add', a, b.inner)),
+                        rule: 'a + S(b) = S(a + b)'
+                    };
+                }
+            }
+
+            // MNOŻENIE
+            if (expr.type === 'mul') {
+                if (b.type === 'val') {
+                    if (b.val === 0) {
+                        return { newExpr: createVal(0), rule: 'a \\times 0 = 0' };
+                    }
+                    return {
+                        newExpr: { ...expr, right: createSuc(createVal(b.val - 1)) },
+                        rule: `${b.val} = S(${b.val - 1})`
+                    };
+                }
+                if (b.type === 'suc') {
+                    return {
+                        newExpr: createExpr('add', createExpr('mul', a, b.inner), a),
+                        rule: 'a \\times S(b) = (a \\times b) + a'
+                    };
+                }
+            }
+
+            // POTĘGOWANIE
+            if (expr.type === 'pow') {
+                if (b.type === 'val') {
+                    if (b.val === 0) {
+                        return { newExpr: createVal(1), rule: 'a^0 = 1' };
+                    }
+                    return {
+                        newExpr: { ...expr, right: createSuc(createVal(b.val - 1)) },
+                        rule: `${b.val} = S(${b.val - 1})`
+                    };
+                }
+                if (b.type === 'suc') {
+                    return {
+                        newExpr: createExpr('mul', createExpr('pow', a, b.inner), a),
+                        rule: 'a^{S(b)} = (a^b) \\times a'
+                    };
+                }
+            }
+
+            return null;
+        };
+
+        const generateTrace = (numA, numB, operation) => {
+            let currentExpr = createExpr(operation, createVal(numA), createVal(numB));
+            const trace = [{ expr: renderExpr(currentExpr), rule: "Start", isResult: false }];
+            let steps = 0;
+            const MAX_STEPS = 200;
+            
+            while (steps < MAX_STEPS) {
+                const stepResult = reduceStep(currentExpr);
+                if (!stepResult) {
+                    trace[trace.length - 1].isResult = true;
+                    break;
+                }
+                currentExpr = stepResult.newExpr;
+                trace.push({ expr: renderExpr(currentExpr), rule: stepResult.rule, isResult: false });
+                steps++;
+            }
+            if (steps >= MAX_STEPS) { trace.push({ expr: "...", rule: "Przekroczono limit kroków", isResult: true }); }
+            return trace;
+        };
+
+
+        // --- KOMPONENTY UI ---
+
+        const TheorySection = () => (
+            <div className="space-y-8 animate-fade-in">
+                <div className="bg-slate-900 p-6 rounded-xl shadow-lg border border-slate-800">
+                    <h2 className="text-2xl font-bold text-slate-100 mb-4 flex items-center gap-2">
+                        <BookOpenIcon /> Aksjomatyka Peano
+                    </h2>
+                    <p className="text-slate-400 mb-6">
+                        Giuseppe Peano sformułował zestaw aksjomatów definiujących zbiór liczb naturalnych <MathJax>{'N'}</MathJax>. 
+                        Poniżej przedstawiamy pełne pięć aksjomatów oraz kluczowe definicje działań.
+                    </p>
+                    
+                    <div className="grid md:grid-cols-5 gap-6">
+                        <div className="md:col-span-3 bg-slate-950 p-5 rounded-lg border border-slate-800">
+                            <h3 className="font-semibold text-slate-300 mb-4">Pięć Aksjomatów Peano</h3>
+                            <ol className="list-decimal list-inside space-y-3 text-sm text-slate-400">
+                                <li>
+                                    <MathJax>{'0'}</MathJax> jest liczbą naturalną.
+                                </li>
+                                <li>
+                                    Dla każdej liczby naturalnej <MathJax>{'n'}</MathJax>, istnieje dokładnie jedna liczba naturalna <MathJax>{'S(n)'}</MathJax>, zwana jej następnikiem.
+                                </li>
+                                <li>
+                                    Dla żadnej liczby naturalnej <MathJax>{'n'}</MathJax>, jej następnik <MathJax>{'S(n)'}</MathJax> nie jest równy <MathJax>{'0'}</MathJax> (czyli <MathJax>{'S(n) \\neq 0'}</MathJax>).
+                                </li>
+                                <li>
+                                    Różne liczby naturalne mają różne następniki: jeśli <MathJax>{'n \\neq m'}</MathJax>, to <MathJax>{'S(n) \\neq S(m)'}</MathJax>.
+                                </li>
+                                <li>
+                                    (Aksjomat indukcji) Jeżeli zbiór <MathJax>{'K'}</MathJax> zawiera <MathJax>{'0'}</MathJax> i dla każdej liczby <MathJax>{'n'}</MathJax> należącej do <MathJax>{'K'}</MathJax>, jej następnik <MathJax>{'S(n)'}</MathJax> również należy do <MathJax>{'K'}</MathJax>, to <MathJax>{'K'}</MathJax> zawiera wszystkie liczby naturalne.
+                                </li>
+                            </ol>
+                        </div>
+                        <div className="md:col-span-2 bg-slate-950 p-5 rounded-lg border border-slate-800 h-fit">
+                            <h3 className="font-semibold text-slate-300 mb-4">Notacja i Przykłady</h3>
+                            <div className="space-y-2 text-sm text-slate-400">
+                                <p>Zapis dziesiętny to tylko skrót:</p>
+                                <ul className="space-y-3 mt-3">
+                                    <li className="flex items-center gap-2"><MathJax>{'1 = S(0)'}</MathJax></li>
+                                    <li className="flex items-center gap-2"><MathJax>{'2 = S(S(0)) = S(1)'}</MathJax></li>
+                                    <li className="flex items-center gap-2"><MathJax>{'3 = S(S(S(0))) = S(2)'}</MathJax></li>
+                                    <li className="mt-2 text-slate-600">...itd.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-slate-900 p-6 rounded-xl shadow-lg border border-slate-800">
+                    <h2 className="text-xl font-bold text-slate-100 mb-6">Definicje Rekurencyjne Działań</h2>
+                    <p className="text-slate-400 mb-6 text-sm">
+                        Działania są definiowane poprzez określenie wartości dla <MathJax>{'0'}</MathJax> (baza indukcji) oraz określenie, jak działanie zachowuje się dla następnika <MathJax>{'S(b)'}</MathJax> (krok indukcyjny).
+                    </p>
+                    <div className="grid md:grid-cols-3 gap-6">
+                        
+                        {/* Dodawanie */}
+                        <div className="border border-indigo-900 rounded-lg p-5 bg-indigo-950/30 hover:bg-indigo-950/40 transition-colors">
+                            <h3 className="font-bold text-indigo-300 mb-4 flex items-center gap-2">
+                                Dodawanie <MathJax>{'(+)'}</MathJax>
+                            </h3>
+                            <div className="text-sm space-y-4 text-indigo-200">
+                                <div className="flex items-center gap-3 pb-3 border-b border-indigo-900/50">
+                                    <span className="font-semibold text-xs uppercase tracking-wider text-indigo-400">Baza:</span>
+                                    <MathJax>{'a + 0 = a'}</MathJax>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-xs uppercase tracking-wider text-indigo-400">Krok:</span>
+                                    <MathJax>{'a + S(b) = S(a + b)'}</MathJax>
+                                </div>
+                            </div>
+                            <p className="text-xs text-indigo-400 mt-4 italic">
+                                "Dodanie następnika to następnik sumy."
+                            </p>
+                        </div>
+
+                        {/* Mnożenie */}
+                        <div className="border border-emerald-900 rounded-lg p-5 bg-emerald-950/30 hover:bg-emerald-950/40 transition-colors">
+                            <h3 className="font-bold text-emerald-300 mb-4 flex items-center gap-2">
+                                Mnożenie <MathJax>{'(\\times)'}</MathJax>
+                            </h3>
+                            <div className="text-sm space-y-4 text-emerald-200">
+                                <div className="flex items-center gap-3 pb-3 border-b border-emerald-900/50">
+                                    <span className="font-semibold text-xs uppercase tracking-wider text-emerald-400">Baza:</span>
+                                    <MathJax>{'a \\times 0 = 0'}</MathJax>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-xs uppercase tracking-wider text-emerald-400">Krok:</span>
+                                    <MathJax>{'a \\times S(b) = (a \\times b) + a'}</MathJax>
+                                </div>
+                            </div>
+                            <p className="text-xs text-emerald-400 mt-4 italic">
+                                "Mnożenie przez następnik sprowadzamy do mnożenia i dodawania."
+                            </p>
+                        </div>
+
+                        {/* Potęgowanie */}
+                        <div className="border border-amber-900 rounded-lg p-5 bg-amber-950/30 hover:bg-amber-950/40 transition-colors">
+                            <h3 className="font-bold text-amber-300 mb-4 flex items-center gap-2">
+                                Potęgowanie <MathJax>{'(a^b)'}</MathJax>
+                            </h3>
+                            <div className="text-sm space-y-4 text-amber-200">
+                                <div className="flex items-center gap-3 pb-3 border-b border-amber-900/50">
+                                    <span className="font-semibold text-xs uppercase tracking-wider text-amber-400">Baza:</span>
+                                    <MathJax>{'a^0 = 1'}</MathJax>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-xs uppercase tracking-wider text-amber-400">Krok:</span>
+                                    <MathJax>{'a^{S(b)} = (a^b) \\times a'}</MathJax>
+                                </div>
+                            </div>
+                            <p className="text-xs text-amber-400 mt-4 italic">
+                                "Potęgowanie przez następnik sprowadzamy do potęgowania i mnożenia."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- SOLVER SECTION ---
+        const SolverSection = () => {
+            const [numA, setNumA] = useState(2);
+            const [numB, setNumB] = useState(2);
+            const [operation, setOperation] = useState('add');
+            
+            const [trace, setTrace] = useState([]);
+            const [currentStepIndex, setCurrentStepIndex] = useState(0);
+            const [isComputing, setIsComputing] = useState(false);
+
+            const scrollRef = useRef(null);
+
+            useEffect(() => {
+                if (scrollRef.current) {
+                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                }
+            }, [currentStepIndex]);
+
+            const startProof = () => {
+                let limit = 20;
+                // Ponieważ teraz rozbijamy każdy krok, mnożenie generuje dużo kroków
+                if (operation === 'mul') limit = 5; 
+                if (operation === 'pow') limit = 4;
+
+                if (numA > limit || numB > limit) {
+                    alert(`Dla wybranej operacji i trybu liczby są zbyt duże dla czytelnej prezentacji (limit: ${limit}). Zmniejsz liczby.`);
+                    return;
+                }
+
+                const generatedTrace = generateTrace(numA, numB, operation);
+                setTrace(generatedTrace);
+                setCurrentStepIndex(0);
+                setIsComputing(true);
+            };
+
+            const nextStep = () => {
+                if (currentStepIndex < trace.length - 1) {
+                    setCurrentStepIndex(prev => prev + 1);
+                }
+            };
+
+            const reset = () => {
+                setIsComputing(false);
+                setTrace([]);
+                setCurrentStepIndex(0);
+            };
+
+            return (
+                <div className="grid lg:grid-cols-12 gap-6 h-full">
+                    {/* Panel sterowania */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-slate-900 p-6 rounded-xl shadow-lg border border-slate-800">
+                            <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+                                <CalculatorIcon /> Konfiguracja
+                            </h3>
+                            
+                            {/* Wybór liczb */}
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Liczba A</label>
+                                    <input 
+                                        type="number" 
+                                        min="0" max="10"
+                                        value={numA} 
+                                        onChange={(e) => setNumA(parseInt(e.target.value) || 0)}
+                                        className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none font-mono text-center"
+                                        disabled={isComputing}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Liczba B</label>
+                                    <input 
+                                        type="number" 
+                                        min="0" max="10"
+                                        value={numB} 
+                                        onChange={(e) => setNumB(parseInt(e.target.value) || 0)}
+                                        className="w-full p-2 bg-slate-950 border border-slate-700 text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none font-mono text-center"
+                                        disabled={isComputing}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Wybór operacji */}
+                            <div className="mb-6">
+                                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Działanie</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { id: 'add', label: 'Dodawanie (+)' },
+                                        { id: 'mul', label: 'Mnożenie (×)' },
+                                        { id: 'pow', label: 'Potęgowanie (^)' }
+                                    ].map(op => (
+                                        <button
+                                            key={op.id}
+                                            onClick={() => setOperation(op.id)}
+                                            disabled={isComputing}
+                                            className={`p-2 text-sm rounded-md transition-all flex justify-center items-center ${
+                                                operation === op.id 
+                                                ? 'bg-blue-600 text-white shadow-md' 
+                                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                                            }`}
+                                        >
+                                            {op.id === 'add' && <MathJax>{'+'}</MathJax>}
+                                            {op.id === 'mul' && <MathJax>{'\\times'}</MathJax>}
+                                            {op.id === 'pow' && <MathJax>{'a^b'}</MathJax>}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Przyciski akcji */}
+                            {!isComputing ? (
+                                <button 
+                                    onClick={startProof}
+                                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95"
+                                >
+                                    <PlayIcon size={18} /> Rozpocznij Dowód
+                                </button>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button 
+                                        onClick={nextStep}
+                                        disabled={currentStepIndex >= trace.length - 1}
+                                        className="py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow"
+                                    >
+                                        <NextIcon size={18} /> Następny krok
+                                    </button>
+                                    <button 
+                                        onClick={reset}
+                                        className="py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        <ResetIcon size={18} /> Reset
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Wizualizacja */}
+                    <div className="lg:col-span-8 flex flex-col h-[600px] bg-slate-900 rounded-xl shadow-lg border border-slate-800 overflow-hidden relative">
+                        {/* Nagłówek wizualizacji */}
+                        <div className="p-4 border-b border-slate-800 bg-slate-950 flex justify-between items-center">
+                            <h3 className="font-semibold text-slate-300">Tablica Dowodowa</h3>
+                            <span className="text-xs font-mono text-slate-500">
+                                Krok {isComputing ? currentStepIndex + 1 : 0} / {isComputing ? trace.length : '?'}
+                            </span>
+                        </div>
+
+                        {/* Obszar roboczy */}
+                        {isComputing ? (
+                            <div className="flex-1 overflow-auto p-6 space-y-4 bg-slate-950/50" ref={scrollRef}>
+                                {trace.map((step, idx) => {
+                                    if (idx > currentStepIndex) return null;
+                                    const isCurrent = idx === currentStepIndex;
+                                    const isLast = idx === trace.length - 1;
+
+                                    return (
+                                        <div key={idx} className={`flex flex-col gap-1 transition-all duration-500 ${isCurrent ? 'opacity-100 translate-y-0' : 'opacity-60'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                                                    {idx + 1}
+                                                </div>
+                                                <div className={`p-4 rounded-lg font-mono text-lg md:text-xl shadow-sm border ${
+                                                    isCurrent 
+                                                        ? isLast ? 'bg-green-900/20 border-green-800 text-green-400' : 'bg-slate-800 border-blue-900 text-slate-100 ring-2 ring-blue-900/50' 
+                                                        : 'bg-slate-900 border-transparent text-slate-500'
+                                                }`}>
+                                                    {/* Używamy MathJax do wyświetlania kroków, bezpiecznie jako string */}
+                                                    <MathJax>{step.expr.replace(/×/g, '\\times').replace(/\^/g, '^')}</MathJax>
+                                                </div>
+                                            </div>
+                                            {/* Opis reguły */}
+                                            {idx > 0 && (
+                                                <div className="ml-12 text-xs text-slate-500 italic pl-2 border-l-2 border-slate-700">
+                                                    Użyto: <MathJax>{step.rule.replace(/×/g, '\\times').replace(/\^/g, '^')}</MathJax>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                                
+                                {currentStepIndex === trace.length - 1 && (
+                                    <div className="ml-12 mt-4 p-4 bg-green-900/20 text-green-400 rounded-lg inline-block font-bold border border-green-900 animate-bounce">
+                                        Wynik: <MathJax>{trace[trace.length-1].expr}</MathJax> ■
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 text-center">
+                                <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center mb-4 text-slate-600">
+                                    <CalculatorIcon />
+                                </div>
+                                <h3 className="text-lg font-medium text-slate-400">Gotowy do obliczeń</h3>
+                                <p className="max-w-md mt-2 text-sm text-slate-600">
+                                    Wybierz liczby i działanie po lewej stronie, a następnie kliknij "Rozpocznij Dowód", aby zobaczyć rekurencyjną konstrukcję wyniku.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('theory');
+
+            return (
+                <div className="min-h-screen bg-slate-950 pb-12">
+                    {/* Header */}
+                    <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
+                        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">P</div>
+                                <h1 className="text-xl font-bold text-slate-100 tracking-tight">Aksjomaty Peano</h1>
+                            </div>
+                            
+                            <nav className="flex gap-1 bg-slate-800 p-1 rounded-lg">
+                                <button 
+                                    onClick={() => setActiveTab('theory')}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'theory' ? 'bg-slate-900 text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                >
+                                    Teoria
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('solver')}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'solver' ? 'bg-slate-900 text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                >
+                                    Symulacja
+                                </button>
+                            </nav>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="max-w-6xl mx-auto px-4 py-8">
+                        {activeTab === 'theory' ? <TheorySection /> : <SolverSection />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
