@@ -30,36 +30,49 @@ extra_javascript:
 nav:
   - Home: index.md
   - Matematyka:
-    - Kalkulator Ułamków 1: math/kalkulator_ulamkow_krok_po_kroku.html
-    - Kalkulator Ułamków 2: math/kalkulator_ulamkow_2.html
-    - Kolejność Działań 1: math/kolejnosc_dzialan.html
-    - Kolejność Działań 2: math/kolejnosc_dzialan_2.html
-    - Dzialania Pisemne: math/dzialania_pisemne.html
-    - Laboratorium Rekurencji: math/Laboratorium_Rekurencji.html
-    - Conway's Game of Life: math/conway_life.html
-    - Mandelbrot Set: math/maldenbrot.html
-    - Fraktale: math/fraktale.html
-    - Równania Liniowe: math/rownania_liniowe.html
-    - Arytmetyka: math/arytmetyka.md
-    - Liczby Złożone: math/complex_numbers.html
+    - Arytmetyka:
+      - Arytmetyka: math/arytmetyka.md
+      - Działania Pisemne: math/dzialania_pisemne.html
+      - Kolejność Działań: math/kolejnosc_dzialan.html
+      - Kolejność Działań 2: math/kolejnosc_dzialan_2.html
+      - Kalkulator Ułamków: math/kalkulator_ulamkow_krok_po_kroku.html
+      - Kalkulator Ułamków 2: math/kalkulator_ulamkow_2.html
+    - Algebra:
+      - Równania Liniowe: math/rownania_liniowe.html
+      - Liczby Zespolone: math/complex_numbers.html
+      - Zmiana Bazy Algebra: math/zmiana_bazy_algebra.html
+    - Analiza Funkcjonalna:
+      - Analiza Funkcjonalna 1: math/analiza_funkcjonalna_1.html
+    - Geometria i Fraktale:
+      - Fraktale: math/fraktale.html
+      - Zbiór Mandelbrota: math/maldenbrot.html
+    - Algorytmy i Rekurencja:
+      - Laboratorium Rekurencji: math/Laboratorium_Rekurencji.html
+      - Gra w Życie Conwaya: math/conway_life.html
+    - Logika:
+      - Aksjomaty Peano: math/peano.html
   - Fizyka:
-    - Rzut Ukośny: phys/rzut_ukosny.html
-    - Wahadła i Sprężyny: phys/wahadla_i_sprezyny.html
-    - Chaos Wahadła: phys/chaos_wahadla.html
-    - Logistyczny Chaos: phys/logistyczny-chaos.html
-    - Atraktor Lorentza: phys/atraktor_lorentza.html
-    - Lorenz Attractor: phys/lorenz_attractor.html
-    - Logistic Map: phys/logistic_map.html
-    - Grawitacja i Orbity: phys/grawitacja_orbity.html
-    - Huygens: phys/Huygens.html
-    - Tunelowanie: phys/tunelowanie.html
-    - Mechanika Numeryczna 1: phys/mechanics_numeric_1.html
-    - Minkowski: phys/minkowski.html
-    - Minkowski 2: phys/minkowski_2.html
-    - Minkowski 3: phys/minkowski_3.html
-    - Minkowski 4: phys/minkowski_4.html
-    - Navikov: phys/navikov.html
-    - Numeryczny Newton: phys/numeryczny_newton.html
+    - Mechanika Klasyczna:
+      - Rzut Ukośny: phys/rzut_ukosny.html
+      - Wahadła i Sprężyny: phys/wahadla_i_sprezyny.html
+      - Grawitacja i Orbity: phys/grawitacja_orbity.html
+      - Mechanika Numeryczna: phys/mechanics_numeric_1.html
+      - Metoda Newtona: phys/numeryczny_newton.html
+    - Teoria Względności:
+      - Czasoprzestrzeń Minkowskiego: phys/minkowski.html
+      - Czasoprzestrzeń Minkowskiego 2: phys/minkowski_2.html
+      - Czasoprzestrzeń Minkowskiego 3: phys/minkowski_3.html
+      - Czasoprzestrzeń Minkowskiego 4: phys/minkowski_4.html
+      - Układ Novikova: phys/navikov.html
+    - Chaos i Atraktory:
+      - Chaos Wahadła: phys/chaos_wahadla.html
+      - Mapa Logistyczna: phys/logistic_map.html
+      - Chaos Logistyczny: phys/logistyczny-chaos.html
+      - Atraktor Lorentza: phys/atraktor_lorentza.html
+      - Lorenz Attractor: phys/lorenz_attractor.html
+    - Fale i Fizyka Kwantowa:
+      - Zasada Huygensa: phys/Huygens.html
+      - Efekt Tunelowy: phys/tunelowanie.html
   - Dokumentacja:
     - How To MkDocs (PL): how_to_mkdocs_pl.md
     - How To MkDocs (EN): how_to_mkdocs_en.md
