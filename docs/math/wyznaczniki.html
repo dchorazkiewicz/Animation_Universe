@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorium Wyznaczników Macierzy</title>
+    
+    <!-- Fonty -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- MathJax -->
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body { background-color: #020617; color: #e2e8f0; }
+        
+        /* Custom matrix brackets */
+        .matrix-bracket {
+            position: relative;
+            padding: 0 10px;
+        }
+        .matrix-bracket::before, .matrix-bracket::after {
+            content: "";
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 8px;
+            border: 2px solid #94a3b8;
+        }
+        .matrix-bracket::before { left: 0; border-right: none; }
+        .matrix-bracket::after { right: 0; border-left: none; }
+        
+        /* Determinant bars */
+        .det-bracket {
+            position: relative;
+            padding: 0 10px;
+        }
+        .det-bracket::before, .det-bracket::after {
+            content: "";
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 2px;
+            background-color: #94a3b8;
+        }
+        .det-bracket::before { left: 0; }
+        .det-bracket::after { right: 0; }
+
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; margin: 0; 
+        }
+
+        /* Laplace specific styles */
+        .selection-btn {
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+        .selection-btn:hover {
+            opacity: 1;
+            background-color: #3b82f6;
+            color: white;
+            transform: scale(1.1);
+        }
+        .highlight-row { background-color: rgba(59, 130, 246, 0.3) !important; border-color: #3b82f6 !important; }
+        .highlight-col { background-color: rgba(16, 185, 129, 0.3) !important; border-color: #10b981 !important; }
+
+        /* Recursive Containers */
+        .laplace-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px dashed #334155;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.5);
+            margin: 5px;
+            min-width: fit-content;
+        }
+        .laplace-term {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 10px;
+        }
+
+        /* Gauss Value Change Animation - IMPROVED */
+        .val-changed-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
+            padding: 2px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.3);
+        }
+        .val-old {
+            font-size: 0.75em;
+            text-decoration: line-through;
+            color: #ef4444; /* red-500 - Stronger Red */
+            opacity: 0.9;
+            margin-bottom: 2px;
+        }
+        .val-new {
+            color: #4ade80; /* green-400 - Bright Green */
+            font-weight: bold;
+            font-size: 1.1em;
+            text-shadow: 0 0 5px rgba(74, 222, 128, 0.3);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-purple-600 rounded flex items-center justify-center text-white font-bold text-lg">|A|</div>
+            <h1 class="font-semibold text-lg tracking-tight">Kalkulator Wyznaczników</h1>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="flex bg-slate-800 rounded-lg p-1 gap-1">
+            <button onclick="switchTab('sarrus')" id="tab-sarrus" class="tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition bg-slate-700 text-white shadow">Metoda Sarrusa</button>
+            <button onclick="switchTab('laplace')" id="tab-laplace" class="tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition text-slate-400 hover:text-white">Rozwinięcie Laplace'a</button>
+            <button onclick="switchTab('gauss')" id="tab-gauss" class="tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition text-slate-400 hover:text-white">Eliminacja Gaussa</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- INPUT PANEL (Left) -->
+        <aside class="w-96 bg-slate-900 border-r border-slate-800 flex flex-col p-6 overflow-y-auto shrink-0 z-20">
+            
+            <div id="controls-sarrus" class="control-group">
+                <h2 class="text-purple-400 font-bold mb-4 uppercase text-xs tracking-wider">Konfiguracja Sarrusa</h2>
+                <div class="mb-6">
+                    <label class="block text-sm text-slate-400 mb-2">Wymiar macierzy:</label>
+                    <div class="flex gap-2">
+                        <button onclick="setSarrusSize(2)" id="sar-2" class="flex-1 py-2 bg-blue-600 text-white rounded text-sm transition">2 x 2</button>
+                        <button onclick="setSarrusSize(3)" id="sar-3" class="flex-1 py-2 bg-slate-800 text-slate-400 rounded text-sm hover:bg-slate-700 transition">3 x 3</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="controls-laplace" class="control-group hidden">
+                <h2 class="text-emerald-400 font-bold mb-4 uppercase text-xs tracking-wider">Konfiguracja Laplace'a</h2>
+                <div class="mb-6">
+                    <label class="block text-sm text-slate-400 mb-2">Wymiar macierzy (N x N):</label>
+                    <input type="range" min="3" max="5" value="3" class="w-full accent-emerald-500 mb-2" oninput="setLaplaceSize(this.value)">
+                    <div class="text-right font-mono text-emerald-400 font-bold" id="laplace-size-display">3</div>
+                </div>
+                <div class="text-xs text-slate-500 mb-4 p-3 border border-emerald-900/50 bg-emerald-900/10 rounded">
+                    Wybierz wiersz lub kolumnę, aby rozbić macierz na mniejsze składniki. Procedura jest rekurencyjna aż do 2x2.
+                </div>
+            </div>
+
+            <div id="controls-gauss" class="control-group hidden">
+                <h2 class="text-orange-400 font-bold mb-4 uppercase text-xs tracking-wider">Konfiguracja Gaussa</h2>
+                <div class="mb-6">
+                    <label class="block text-sm text-slate-400 mb-2">Wymiar macierzy:</label>
+                    <input type="range" min="3" max="5" value="3" class="w-full accent-orange-500 mb-2" oninput="setGaussSize(this.value)">
+                    <div class="text-right font-mono text-orange-400 font-bold" id="gauss-size-display">3</div>
+                </div>
+                 <div class="text-xs text-slate-500 mb-4 p-3 border border-orange-900/50 bg-orange-900/10 rounded">
+                    Używamy ułamków zwykłych, aby zachować precyzję. Kliknij "Następny", by zobaczyć operacje wierszowe.
+                </div>
+            </div>
+
+            <hr class="border-slate-800 my-6">
+
+            <!-- MATRIX EDITOR -->
+            <div>
+                <h3 class="text-xs font-bold text-slate-500 uppercase mb-3">Edytor Macierzy</h3>
+                <div class="flex justify-center">
+                    <div class="matrix-bracket">
+                        <div id="matrix-grid" class="grid gap-2">
+                            <!-- Inputs generated by JS -->
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <button onclick="randomizeMatrix()" class="text-xs text-slate-400 hover:text-white underline decoration-slate-600">Losuj wartości</button>
+                    <span class="text-slate-600 mx-2">|</span>
+                    <button onclick="clearMatrix()" class="text-xs text-slate-400 hover:text-white underline decoration-slate-600">Wyzeruj</button>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- VISUALIZATION PANEL (Right) -->
+        <section class="flex-1 bg-slate-950 relative overflow-y-auto p-8 flex flex-col items-center">
+            
+            <!-- Sarrus View -->
+            <div id="view-sarrus" class="w-full max-w-4xl">
+                <div class="mb-8 text-center">
+                    <h2 class="text-2xl text-white font-bold mb-2">Reguła Sarrusa</h2>
+                    <p class="text-slate-400 text-sm">Tylko dla macierzy 2x2 i 3x3. Mnożenie "na krzyż".</p>
+                </div>
+                
+                <div class="relative bg-slate-900 border border-slate-800 rounded-xl p-10 min-h-[400px] flex flex-col items-center justify-center">
+                    <div id="sarrus-container" class="relative"></div>
+                    <div id="sarrus-result" class="mt-8 text-xl font-mono text-white"></div>
+                </div>
+            </div>
+
+            <!-- Laplace View -->
+            <div id="view-laplace" class="w-full max-w-[95%] hidden flex flex-col items-center">
+                <div class="mb-6 text-center">
+                    <h2 class="text-2xl text-white font-bold mb-2">Rozwinięcie Laplace'a (Rekurencyjne)</h2>
+                    <p class="text-slate-400 text-sm">Wybierz wiersz lub kolumnę, aby rozbić macierz na podwyznaczniki.</p>
+                </div>
+
+                <!-- Recursive Container Root -->
+                <div id="laplace-root" class="w-full flex justify-center overflow-x-auto pb-8">
+                    <!-- Dynamic Content -->
+                </div>
+            </div>
+
+            <!-- Gauss View -->
+            <div id="view-gauss" class="w-full max-w-4xl hidden flex flex-col items-center">
+                <div class="mb-6 text-center">
+                    <h2 class="text-2xl text-white font-bold mb-2">Eliminacja Gaussa</h2>
+                    <p class="text-slate-400 text-sm">Zerowanie elementów pod przekątną krok po kroku (na ułamkach).</p>
+                </div>
+
+                <div class="w-full bg-slate-900 p-8 rounded-xl border border-slate-800 shadow-xl min-h-[400px] flex flex-col">
+                    
+                    <!-- Progress Bar -->
+                    <div class="w-full h-1 bg-slate-800 mb-6 rounded overflow-hidden">
+                        <div id="gauss-progress" class="h-full bg-orange-500 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+
+                    <!-- Step Content -->
+                    <div class="flex-1 flex flex-col items-center justify-center gap-8">
+                        <div id="gauss-desc" class="text-orange-400 font-bold text-lg text-center h-8">
+                            Stan początkowy
+                        </div>
+                        
+                        <div id="gauss-matrix-display" class="transition-all duration-300">
+                            <!-- Matrix Here -->
+                        </div>
+
+                        <div id="gauss-operation" class="text-slate-400 font-mono bg-slate-950 px-4 py-2 rounded border border-slate-800 min-h-[40px] flex items-center">
+                            Przygotuj macierz...
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="mt-8 flex justify-between items-center border-t border-slate-800 pt-6">
+                        <button onclick="prevGaussStep()" id="btn-prev-gauss" class="px-4 py-2 bg-slate-800 text-slate-400 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            ← Poprzedni
+                        </button>
+                        <span id="gauss-step-counter" class="text-slate-500 text-sm font-mono">Krok 0 / 0</span>
+                        <button onclick="nextGaussStep()" id="btn-next-gauss" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Następny →
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+<script>
+    // --- UTILS: FRACTIONS ---
+    class Fraction {
+        constructor(n, d = 1) {
+            if (d === 0) throw new Error("Dzielenie przez zero");
+            if (d < 0) { n = -n; d = -d; }
+            const common = this.gcd(Math.abs(n), Math.abs(d));
+            this.n = n / common;
+            this.d = d / common;
+        }
+        
+        gcd(a, b) { return b ? this.gcd(b, a % b) : a; }
+        
+        add(other) { return new Fraction(this.n * other.d + other.n * this.d, this.d * other.d); }
+        sub(other) { return new Fraction(this.n * other.d - other.n * this.d, this.d * other.d); }
+        mul(other) { return new Fraction(this.n * other.n, this.d * other.d); }
+        div(other) { return new Fraction(this.n * other.d, this.d * other.n); }
+        abs() { return new Fraction(Math.abs(this.n), this.d); }
+        toFloat() { return this.n / this.d; }
+        toString() { 
+            if (this.d === 1) return `${this.n}`;
+            return `${this.n}/${this.d}`;
+        }
+        equals(other) { return this.n === other.n && this.d === other.d; }
+    }
+
+    // --- STATE ---
+    const state = {
+        mode: 'sarrus',
+        size: 3,
+        matrix: [[1, 2, 3], [0, 4, 5], [1, 0, 6]],
+        gaussSteps: [],
+        gaussCurrentStep: 0
+    };
+
+    // --- DOM ELEMENTS ---
+    const matrixGrid = document.getElementById('matrix-grid');
+
+    // --- CORE MATRIX FUNCTIONS ---
+
+    function createMatrix(rows, cols) {
+        return Array(rows).fill().map(() => Array(cols).fill(0));
+    }
+
+    function renderInputGrid() {
+        matrixGrid.innerHTML = '';
+        matrixGrid.style.gridTemplateColumns = `repeat(${state.size}, minmax(40px, 1fr))`;
+        
+        for (let r = 0; r < state.size; r++) {
+            for (let c = 0; c < state.size; c++) {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.value = state.matrix[r][c];
+                input.className = 'w-12 h-10 bg-slate-800 text-white text-center rounded border border-slate-700 focus:border-blue-500 focus:outline-none';
+                input.oninput = (e) => {
+                    const val = parseFloat(e.target.value);
+                    state.matrix[r][c] = isNaN(val) ? 0 : val;
+                    syncViews();
+                };
+                matrixGrid.appendChild(input);
+            }
+        }
+    }
+
+    function syncViews() {
+        if (state.mode === 'sarrus') updateSarrusVisual();
+        if (state.mode === 'laplace') initLaplaceRecursive();
+        if (state.mode === 'gauss') initGauss();
+    }
+
+    function updateMatrixSize(newSize) {
+        const sizeInt = parseInt(newSize);
+        const oldMatrix = state.matrix;
+        const newMatrix = createMatrix(sizeInt, sizeInt);
+        
+        for(let r=0; r<Math.min(state.size, sizeInt); r++) {
+            for(let c=0; c<Math.min(state.size, sizeInt); c++) {
+                if (oldMatrix[r] && newMatrix[r]) {
+                    newMatrix[r][c] = oldMatrix[r][c];
+                }
+            }
+        }
+        state.size = sizeInt;
+        state.matrix = newMatrix;
+        renderInputGrid();
+        syncViews();
+    }
+
+    // --- SARRUS LOGIC ---
+
+    function setSarrusSize(n) {
+        document.getElementById(`sar-2`).className = n===2 ? 'flex-1 py-2 bg-blue-600 text-white rounded text-sm transition' : 'flex-1 py-2 bg-slate-800 text-slate-400 rounded text-sm hover:bg-slate-700 transition';
+        document.getElementById(`sar-3`).className = n===3 ? 'flex-1 py-2 bg-blue-600 text-white rounded text-sm transition' : 'flex-1 py-2 bg-slate-800 text-slate-400 rounded text-sm hover:bg-slate-700 transition';
+        updateMatrixSize(n);
+    }
+
+    function updateSarrusVisual() {
+        const container = document.getElementById('sarrus-container');
+        const resDiv = document.getElementById('sarrus-result');
+        container.innerHTML = '';
+        const m = state.matrix;
+        
+        let html = '<div class="flex items-center gap-4 text-2xl font-mono relative z-10">';
+        html += '<div class="det-bracket grid gap-4 p-2 text-center" style="grid-template-columns: repeat(' + state.size + ', 1fr)">';
+        for(let r=0; r<state.size; r++) for(let c=0; c<state.size; c++) 
+            html += `<div class="w-10 h-10 flex items-center justify-center cell-${r}-${c}">${m[r][c]}</div>`;
+        html += '</div>';
+
+        if (state.size === 3) {
+             html += '<div class="grid gap-4 p-2 text-center opacity-50 border-l border-dashed border-slate-700" style="grid-template-columns: repeat(2, 1fr)">';
+             for(let r=0; r<state.size; r++) {
+                html += `<div class="w-10 h-10 flex items-center justify-center text-slate-400 cell-copy-${r}-0">${m[r][0]}</div>`;
+                html += `<div class="w-10 h-10 flex items-center justify-center text-slate-400 cell-copy-${r}-1">${m[r][1]}</div>`;
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+
+        let det = 0, calcStr = "";
+        if (state.size === 2) {
+            det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
+            calcStr = `<span class="text-green-400">(${m[0][0]}·${m[1][1]})</span> - <span class="text-red-400">(${m[0][1]}·${m[1][0]})</span>`;
+            html = html.replace(`cell-0-0"`, `cell-0-0 bg-green-900/30 text-green-300 rounded"`);
+            html = html.replace(`cell-1-1"`, `cell-1-1 bg-green-900/30 text-green-300 rounded"`);
+            html = html.replace(`cell-0-1"`, `cell-0-1 bg-red-900/30 text-red-300 rounded"`);
+            html = html.replace(`cell-1-0"`, `cell-1-0 bg-red-900/30 text-red-300 rounded"`);
+        } else {
+            const p1 = m[0][0]*m[1][1]*m[2][2], p2 = m[0][1]*m[1][2]*m[0][0], p3 = m[0][2]*m[1][0]*m[2][1];
+            const n1 = m[0][2]*m[1][1]*m[2][0], n2 = m[0][0]*m[1][2]*m[2][1], n3 = m[0][1]*m[1][0]*m[2][2];
+            det = (p1 + p2 + p3) - (n1 + n2 + n3);
+            calcStr = `<div class="text-sm"><span class="text-green-400">(${p1}) + (${p2}) + (${p3})</span><br>- <span class="text-red-400">(${n1}) + (${n2}) + (${n3})</span></div>`;
+        }
+        container.innerHTML = html;
+        resDiv.innerHTML = `Det = ${calcStr} = <span class="text-white font-bold border-b-2 border-purple-500">${det}</span>`;
+    }
+
+    // --- RECURSIVE LAPLACE LOGIC ---
+
+    function setLaplaceSize(val) {
+        document.getElementById('laplace-size-display').innerText = val;
+        updateMatrixSize(val);
+    }
+
+    function initLaplaceRecursive() {
+        const root = document.getElementById('laplace-root');
+        root.innerHTML = '';
+        mountLaplaceNode(state.matrix, root);
+    }
+
+    function mountLaplaceNode(matrix, container) {
+        const N = matrix.length;
+        const nodeDiv = document.createElement('div');
+        nodeDiv.className = 'laplace-node';
+        container.appendChild(nodeDiv);
+
+        const matrixWrapper = document.createElement('div');
+        nodeDiv.appendChild(matrixWrapper);
+
+        const expansionContainer = document.createElement('div');
+        expansionContainer.className = "mt-4 w-full flex flex-col items-center";
+        nodeDiv.appendChild(expansionContainer);
+
+        if (N === 2) {
+            const det = matrix[0][0]*matrix[1][1] - matrix[0][1]*matrix[1][0];
+            let html = `<div class="det-bracket grid gap-1 p-1 text-center mb-2" style="grid-template-columns: repeat(2, 1fr)">`;
+            html += matrix.flat().map(v => `<div class="text-slate-300 w-6 h-6 flex items-center justify-center text-xs">${v}</div>`).join('');
+            html += `</div>`;
+            html += `<div class="text-xs text-slate-400">(${matrix[0][0]}·${matrix[1][1]} - ${matrix[0][1]}·${matrix[1][0]})</div>`;
+            html += `<div class="text-sm font-bold text-emerald-400">= ${det}</div>`;
+            matrixWrapper.innerHTML = html;
+            return;
+        }
+
+        const selectorGrid = document.createElement('div');
+        selectorGrid.className = 'grid gap-1 items-center justify-center';
+        selectorGrid.style.gridTemplateColumns = `30px repeat(${N}, 40px)`;
+
+        selectorGrid.appendChild(document.createElement('div'));
+
+        for (let c = 0; c < N; c++) {
+            const btn = document.createElement('button');
+            btn.innerHTML = '⮟';
+            btn.className = 'selection-btn w-6 h-6 rounded bg-slate-700 text-slate-300 flex items-center justify-center mx-auto text-xs';
+            btn.onclick = () => expandLaplace(matrix, 'col', c, expansionContainer, selectorGrid);
+            btn.onmouseenter = () => highlightLaplaceNode(selectorGrid, 'col', c, N);
+            btn.onmouseleave = () => clearHighlightLaplaceNode(selectorGrid);
+            selectorGrid.appendChild(btn);
+        }
+
+        for (let r = 0; r < N; r++) {
+            const btn = document.createElement('button');
+            btn.innerHTML = '⮞';
+            btn.className = 'selection-btn w-6 h-6 rounded bg-slate-700 text-slate-300 flex items-center justify-center text-xs';
+            btn.onclick = () => expandLaplace(matrix, 'row', r, expansionContainer, selectorGrid);
+            btn.onmouseenter = () => highlightLaplaceNode(selectorGrid, 'row', r, N);
+            btn.onmouseleave = () => clearHighlightLaplaceNode(selectorGrid);
+            selectorGrid.appendChild(btn);
+
+            for (let c = 0; c < N; c++) {
+                const cell = document.createElement('div');
+                cell.className = `w-10 h-10 flex items-center justify-center bg-slate-800 text-white font-mono rounded border border-slate-700 text-xs cell-r${r}-c${c}`;
+                cell.innerText = matrix[r][c];
+                selectorGrid.appendChild(cell);
+            }
+        }
+        
+        const title = document.createElement('div');
+        title.className = "text-xs text-slate-500 mb-2 font-bold uppercase tracking-wide text-center";
+        title.innerText = `Macierz ${N}x${N}`;
+        
+        matrixWrapper.appendChild(title);
+        matrixWrapper.appendChild(selectorGrid);
+    }
+
+    function expandLaplace(matrix, type, index, targetContainer, sourceGrid) {
+        targetContainer.innerHTML = '';
+        clearHighlightLaplaceNode(sourceGrid);
+        highlightLaplaceNode(sourceGrid, type, index, matrix.length);
+
+        const N = matrix.length;
+        const expansionRow = document.createElement('div');
+        expansionRow.className = "flex flex-wrap items-start justify-center gap-2 border-t border-slate-700 pt-4 mt-2 relative";
+        
+        for (let k = 0; k < N; k++) {
+            const r = type === 'row' ? index : k;
+            const c = type === 'col' ? index : k;
+            const val = matrix[r][c];
+            const sign = (r + c) % 2 === 0 ? 1 : -1;
+            const signChar = sign === 1 ? '+' : '-';
+            
+            const termDiv = document.createElement('div');
+            termDiv.className = "laplace-term bg-slate-900/50 p-2 rounded border border-slate-800";
+            
+            const coeffDiv = document.createElement('div');
+            coeffDiv.className = "mb-2 text-center text-sm font-mono";
+            coeffDiv.innerHTML = `<span class="text-slate-500">${k>0 || sign===-1 ? signChar : ''}</span> <span class="text-yellow-400 font-bold">${Math.abs(val)}</span> <span class="text-slate-500">·</span>`;
+            termDiv.appendChild(coeffDiv);
+
+            const subM = getSubMatrix(matrix, r, c);
+            const subContainer = document.createElement('div');
+            mountLaplaceNode(subM, subContainer);
+            termDiv.appendChild(subContainer);
+
+            expansionRow.appendChild(termDiv);
+        }
+        targetContainer.appendChild(expansionRow);
+    }
+
+    function highlightLaplaceNode(container, type, index, N) {
+        if (type === 'row') {
+            for(let c=0; c<N; c++) container.querySelector(`.cell-r${index}-c${c}`).classList.add('highlight-row');
+        } else {
+            for(let r=0; r<N; r++) container.querySelector(`.cell-r${r}-c${index}`).classList.add('highlight-col');
+        }
+    }
+
+    function clearHighlightLaplaceNode(container) {
+        container.querySelectorAll('div[class*="cell-"]').forEach(el => {
+            el.classList.remove('highlight-row', 'highlight-col');
+        });
+    }
+
+    function getSubMatrix(matrix, rowToRemove, colToRemove) {
+        return matrix
+            .filter((_, r) => r !== rowToRemove)
+            .map(row => row.filter((_, c) => c !== colToRemove));
+    }
+
+    // --- GAUSS LOGIC WITH FRACTIONS ---
+
+    function setGaussSize(val) {
+        document.getElementById('gauss-size-display').innerText = val;
+        updateMatrixSize(val);
+    }
+
+    function initGauss() {
+        state.gaussSteps = [];
+        state.gaussCurrentStep = 0;
+        
+        // Init matrix with Fractions
+        let m = state.matrix.map(row => row.map(val => new Fraction(val)));
+        const n = m.length;
+        let detSign = 1;
+
+        state.gaussSteps.push({
+            matrix: cloneMatrixF(m),
+            matrixBefore: null,
+            desc: "Macierz początkowa",
+            op: "Start",
+            highlightRow: -1
+        });
+
+        for (let i = 0; i < n; i++) {
+            let pivot = m[i][i];
+            
+            if (pivot.toFloat() === 0) { // Using float for 0 check is safe for integers
+                let swapRow = -1;
+                for(let k=i+1; k<n; k++) { if(m[k][i].toFloat() !== 0) { swapRow = k; break; } }
+                if (swapRow !== -1) {
+                    const before = cloneMatrixF(m);
+                    [m[i], m[swapRow]] = [m[swapRow], m[i]];
+                    pivot = m[i][i];
+                    detSign *= -1;
+                    state.gaussSteps.push({
+                        matrix: cloneMatrixF(m),
+                        matrixBefore: before,
+                        desc: `Zamiana wierszy (zmiana znaku)`,
+                        op: `W${i+1} ↔ W${swapRow+1}`,
+                        highlightRow: i,
+                        highlightRow2: swapRow
+                    });
+                } else {
+                    state.gaussSteps.push({
+                        matrix: cloneMatrixF(m),
+                        matrixBefore: null, desc: "Zero na przekątnej, brak opcji.", op: "Det = 0", highlightRow: i, isEnd: true
+                    });
+                    renderGaussUI();
+                    return;
+                }
+            }
+
+            for (let j = i + 1; j < n; j++) {
+                if (m[j][i].toFloat() !== 0) {
+                    const before = cloneMatrixF(m);
+                    const factor = m[j][i].div(pivot);
+                    for (let k = i; k < n; k++) { 
+                        // m[j][k] -= factor * m[i][k]
+                        m[j][k] = m[j][k].sub(factor.mul(m[i][k])); 
+                    }
+                    state.gaussSteps.push({
+                        matrix: cloneMatrixF(m),
+                        matrixBefore: before,
+                        desc: `Zerowanie kolumny ${i+1}`,
+                        op: `W${j+1} ← W${j+1} - (${factor.toString()})·W${i+1}`,
+                        highlightRow: j
+                    });
+                }
+            }
+        }
+
+        let det = new Fraction(detSign);
+        let diag = [];
+        for(let i=0; i<n; i++) { 
+            det = det.mul(m[i][i]); 
+            diag.push(m[i][i].toString()); 
+        }
+        
+        state.gaussSteps.push({
+            matrix: cloneMatrixF(m),
+            matrixBefore: null,
+            desc: "Macierz trójkątna",
+            op: `Det = ${detSign===-1?'-1·':''}${diag.join('·')} = ${det.toString()}`,
+            highlightRow: -1, isEnd: true
+        });
+        renderGaussUI();
+    }
+
+    function cloneMatrixF(m) {
+        return m.map(row => row.map(val => new Fraction(val.n, val.d)));
+    }
+
+    function renderGaussMatrixHTML(m, prevM, highlightRow) {
+        let h = '<div class="matrix-bracket inline-block"><div class="grid gap-2" style="grid-template-columns: repeat('+m.length+', 1fr)">';
+        for(let r=0; r<m.length; r++) {
+            for(let c=0; c<m.length; c++) {
+                const isHighlight = r === highlightRow;
+                const val = m[r][c]; // Fraction object
+                
+                let content = val.toString();
+                
+                if (prevM) {
+                    const prevVal = prevM[r][c];
+                    if (!val.equals(prevVal)) {
+                        content = `<div class="val-changed-container">
+                            <span class="val-old">${prevVal.toString()}</span>
+                            <span class="val-new">${val.toString()}</span>
+                        </div>`;
+                    }
+                }
+                const bg = isHighlight ? 'bg-orange-500/20 border border-orange-500 text-white' : 'bg-slate-800 text-slate-300';
+                h += `<div class="w-12 h-12 flex items-center justify-center text-sm rounded transition-all duration-300 ${bg}">${content}</div>`;
+            }
+        }
+        h += '</div></div>';
+        return h;
+    }
+
+    function renderGaussUI() {
+        const step = state.gaussSteps[state.gaussCurrentStep];
+        if (!step) return;
+        document.getElementById('gauss-desc').innerText = step.desc;
+        document.getElementById('gauss-operation').innerText = step.op;
+        document.getElementById('gauss-matrix-display').innerHTML = renderGaussMatrixHTML(step.matrix, step.matrixBefore, step.highlightRow);
+        document.getElementById('gauss-step-counter').innerText = `Krok ${state.gaussCurrentStep} / ${state.gaussSteps.length - 1}`;
+        const pct = (state.gaussCurrentStep / (state.gaussSteps.length - 1)) * 100;
+        document.getElementById('gauss-progress').style.width = `${pct}%`;
+        document.getElementById('btn-prev-gauss').disabled = state.gaussCurrentStep === 0;
+        document.getElementById('btn-next-gauss').disabled = state.gaussCurrentStep === state.gaussSteps.length - 1;
+        
+        const opDiv = document.getElementById('gauss-operation');
+        if (step.isEnd) opDiv.classList.add('text-emerald-400', 'border-emerald-500');
+        else opDiv.classList.remove('text-emerald-400', 'border-emerald-500');
+    }
+
+    function nextGaussStep() { if(state.gaussCurrentStep < state.gaussSteps.length-1) { state.gaussCurrentStep++; renderGaussUI(); } }
+    function prevGaussStep() { if(state.gaussCurrentStep > 0) { state.gaussCurrentStep--; renderGaussUI(); } }
+
+    // --- UTILS ---
+
+    function switchTab(mode) {
+        state.mode = mode;
+        ['sarrus', 'laplace', 'gauss'].forEach(m => {
+            const btn = document.getElementById(`tab-${m}`);
+            const view = document.getElementById(`view-${m}`);
+            const ctrls = document.getElementById(`controls-${m}`);
+            if (m === mode) {
+                btn.className = 'tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition bg-slate-700 text-white shadow';
+                view.classList.remove('hidden');
+                ctrls.classList.remove('hidden');
+            } else {
+                btn.className = 'tab-btn px-4 py-1.5 rounded-md text-sm font-medium transition text-slate-400 hover:text-white';
+                view.classList.add('hidden');
+                ctrls.classList.add('hidden');
+            }
+        });
+        if (mode === 'sarrus') { if (state.size > 3) setSarrusSize(3); else updateSarrusVisual(); }
+        else if (mode === 'laplace') { document.getElementById('laplace-size-display').innerText = state.size; initLaplaceRecursive(); }
+        else if (mode === 'gauss') { document.getElementById('gauss-size-display').innerText = state.size; initGauss(); }
+    }
+
+    function randomizeMatrix() {
+        for(let r=0; r<state.size; r++) for(let c=0; c<state.size; c++) state.matrix[r][c] = Math.floor(Math.random()*10)-2;
+        renderInputGrid(); syncViews();
+    }
+    function clearMatrix() {
+        for(let r=0; r<state.size; r++) for(let c=0; c<state.size; c++) state.matrix[r][c] = 0;
+        renderInputGrid(); syncViews();
+    }
+
+    renderInputGrid();
+    switchTab('sarrus');
+</script>
+</body>
+</html>

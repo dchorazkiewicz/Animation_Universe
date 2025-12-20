@@ -41,8 +41,10 @@ nav:
       - Równania Liniowe: math/rownania_liniowe.html
       - Liczby Zespolone: math/complex_numbers.html
       - Zmiana Bazy Algebra: math/zmiana_bazy_algebra.html
+      - Wyznaczniki: math/wyznaczniki.html
     - Analiza Funkcjonalna:
       - Analiza Funkcjonalna 1: math/analiza_funkcjonalna_1.html
+      - Skladanie Funkcji: math/skladanie_funkcji.html
     - Geometria i Fraktale:
       - Fraktale: math/fraktale.html
       - Zbiór Mandelbrota: math/maldenbrot.html
