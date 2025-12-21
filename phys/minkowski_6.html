@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dylatacja Czasu - Symulacja</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        h1 { margin: 10px 0; font-size: 1.4rem; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+        p { color: #aaa; font-size: 0.9rem; text-align: center; max-width: 800px; margin-bottom: 20px; }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            background: #1e1e1e;
+            padding: 5px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 8px 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+
+        .tab-btn:hover { background-color: #333; }
+        .tab-btn.active {
+            background: #00d4ff;
+            color: #121212;
+            font-weight: bold;
+        }
+
+        .tab-content { display: none; width: 100%; max-width: 1000px; flex-direction: column; align-items: center; }
+        .tab-content.active { display: flex; }
+
+        /* Styles for SR (Train) */
+        .train-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .canvas-card {
+            background: #080808;
+            border: 1px solid #333;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #00d4ff;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .clock-display {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: #fff;
+            background: rgba(0,0,0,0.6);
+            padding: 5px 8px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        /* Math Panel */
+        .math-panel {
+            margin-top: 20px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: 'Times New Roman', serif;
+            color: #ccc;
+        }
+
+        .formula {
+            font-size: 1.6rem;
+            color: #ffcc00;
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            text-align: center;
+            vertical-align: middle;
+            margin: 0 5px;
+        }
+        .frac > span { display: block; padding: 2px 5px; }
+        .frac span.bottom { border-top: 1px solid #ffcc00; }
+        .sqrt-symbol { font-size: 1.1em; margin-right: 2px; }
+        .sqrt-content { border-top: 1px solid #ffcc00; padding-top: 2px; }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+            font-family: monospace;
+        }
+
+        .calc-item { text-align: center; }
+        .calc-val { color: #00d4ff; font-weight: bold; font-size: 1.1rem; display: block; }
+        .calc-desc { font-size: 0.8rem; color: #888; font-family: sans-serif; }
+
+        /* Styles for GR (Gravity) */
+        .gravity-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: radial-gradient(circle at 30% 50%, #1a1a1a 0%, #000 100%);
+            border: 1px solid #333;
+            border-radius: 8px;
+            cursor: grab;
+        }
+
+        .controls {
+            margin-top: 15px;
+            background: #1e1e1e;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        input[type=range] { accent-color: #00d4ff; width: 200px; }
+        
+        .info-panel {
+            position: absolute;
+            bottom: 20px; 
+            right: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 8px;
+            width: 250px;
+            pointer-events: none;
+        }
+
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-family: monospace; }
+        .big-val { font-size: 1.5rem; color: #ffcc00; font-weight: bold; text-align: center; display: block; margin: 10px 0; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Dylatacja Czasu</h1>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="setTab('sr')">1. Zegar Świetlny (Szczególna TW)</button>
+        <button class="tab-btn" onclick="setTab('gr')">2. Grawitacja (Ogólna TW)</button>
+    </div>
+
+    <!-- TAB 1: SPECIAL RELATIVITY -->
+    <div id="tab-sr" class="tab-content active">
+        <p>
+            Porównanie upływu czasu. W układzie własnym (lewa) foton porusza się tylko góra-dół.
+            W układzie peronu (prawa) pociąg jedzie w prawo, więc foton musi pokonać dłuższą drogę po skosie.
+            Skoro <i>c</i> jest stałe, czas na peronie musi płynąć szybciej.
+        </p>
+        
+        <div class="train-container">
+            <div class="canvas-card">
+                <canvas id="cvSrInside" width="300" height="300"></canvas>
+                <div class="card-label">POCIĄG (Układ własny)</div>
+                <div class="clock-display" id="clockInside">t' = 0.00 s</div>
+            </div>
+            <div class="canvas-card">
+                <canvas id="cvSrOutside" width="680" height="300"></canvas>
+                <div class="card-label">PERON (Obserwator)</div>
+                <div class="clock-display" id="clockOutside">t = 0.00 s</div>
+            </div>
+        </div>
+
+        <div class="math-panel">
+            <div class="formula">
+                &Delta;t = 
+                <div class="frac">
+                    <span>&Delta;t'</span>
+                    <span class="bottom">
+                        <span class="sqrt-symbol">&radic;</span><span class="sqrt-content">1 - v<sup>2</sup>/c<sup>2</sup></span>
+                    </span>
+                </div>
+                = &gamma;&Delta;t'
+            </div>
+            <div class="calc-row">
+                <div class="calc-item">
+                    <span class="calc-desc">Prędkość (<i>v</i>)</span>
+                    <span class="calc-val" id="valV">0.00 c</span>
+                </div>
+                <div class="calc-item">
+                    <span class="calc-desc">Czynnik Lorentza (&gamma;)</span>
+                    <span class="calc-val" id="valGamma">1.000</span>
+                </div>
+                <div class="calc-item">
+                    <span class="calc-desc">Czas w Pociągu (&Delta;t')</span>
+                    <span class="calc-val" id="valTimePrime">0.00 s</span>
+                </div>
+                <div class="calc-item">
+                    <span class="calc-desc">Czas na Peronie (&Delta;t)</span>
+                    <span class="calc-val" id="valTime">0.00 s</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <label>Prędkość pociągu (<i>v</i>):</label>
+            <input type="range" id="srSpeed" min="0" max="0.92" step="0.01" value="0.5">
+            <button id="srReset" style="background:#333; color:#fff; border:none; padding:5px 15px; border-radius:4px; cursor:pointer;">Reset Symulacji</button>
+        </div>
+    </div>
+
+    <!-- TAB 2: GENERAL RELATIVITY -->
+    <div id="tab-gr" class="tab-content">
+        <p>
+            Chwyć zegar (sondę) i przesuń go w stronę czarnej dziury.
+            Grawitacja zakrzywia czasoprzestrzeń. Im silniejsze pole grawitacyjne (bliżej masy), tym wolniej płynie czas względem obserwatora w nieskończoności.
+        </p>
+
+        <div class="gravity-container" id="grContainer">
+            <canvas id="cvGr" width="900" height="500"></canvas>
+            
+            <div class="info-panel">
+                <div style="text-align:center; color:#888; margin-bottom:10px;">DANE TELEMETRYCZNE</div>
+                <div class="info-row">
+                    <span>Odległość (<i>r</i>):</span>
+                    <span id="grDist" style="color:#00d4ff">---</span>
+                </div>
+                <div class="info-row">
+                    <span>Horyzont (<i>R<sub>s</sub></i>):</span>
+                    <span>100 j.</span>
+                </div>
+                <hr style="border-color:#333">
+                <div style="text-align:center; margin-top:5px;">Upływ czasu sondy względem Ziemi:</div>
+                <span id="grFactor" class="big-val">100%</span>
+                <div style="font-size:0.8rem; color:#666; text-align:center;">1 sekunda na sondzie = <br><span id="grRatioText" style="color:#ccc">1.0</span> sekundy na Ziemi</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- GLOBAL STATE & UTILS ---
+    let activeTab = 'sr';
+    
+    function setTab(t) {
+        activeTab = t;
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-'+t).classList.add('active');
+        const btns = document.querySelectorAll('.tab-btn');
+        if(t==='sr') btns[0].classList.add('active'); else btns[1].classList.add('active');
+
+        if(t === 'sr') {
+            srState.t = 0;
+            srState.pathPoints = [];
+            srState.camX = 0;
+        }
+    }
+
+    // --- TAB 1: SPECIAL RELATIVITY (LIGHT CLOCK) ---
+    const cvSrIn = document.getElementById('cvSrInside').getContext('2d');
+    const cvSrOut = document.getElementById('cvSrOutside').getContext('2d');
+    
+    // UI Elements
+    const srSpeedInput = document.getElementById('srSpeed');
+    const srClockIn = document.getElementById('clockInside');
+    const srClockOut = document.getElementById('clockOutside');
+    const valV = document.getElementById('valV');
+    const valGamma = document.getElementById('valGamma');
+    const valTimePrime = document.getElementById('valTimePrime');
+    const valTime = document.getElementById('valTime');
+
+    const srState = {
+        v: 0.5,
+        c: 150, // Piksele na sekundę
+        h: 180, // Wysokość wagonu
+        t: 0,   
+        pathPoints: [],
+        camX: 0 // Pozycja kamery (oś X)
+    };
+
+    function drawWagon(ctx, x, y, w, h, isStatic) {
+        ctx.fillStyle = '#444';
+        ctx.fillRect(x, y, w, 10); 
+        ctx.fillRect(x, y + h, w, 10);
+        
+        ctx.fillStyle = '#aaa';
+        ctx.fillRect(x + 20, y + 2, w - 40, 6);
+        ctx.fillRect(x + 20, y + h + 2, w - 40, 6);
+
+        ctx.fillStyle = '#222';
+        ctx.fillRect(x, y, 5, h+10);
+        ctx.fillRect(x+w-5, y, 5, h+10);
+
+        if(!isStatic) {
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.arc(x + 30, y + h + 20, 15, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + w - 30, y + h + 20, 15, 0, Math.PI*2); ctx.fill();
+        }
+    }
+
+    function updateSR(dt) {
+        if(activeTab !== 'sr') return;
+
+        srState.v = parseFloat(srSpeedInput.value);
+        const gamma = 1 / Math.sqrt(1 - srState.v * srState.v);
+        
+        srState.t += dt;
+        const tau = srState.t / gamma;
+
+        // UI
+        valV.textContent = srState.v.toFixed(2) + " c";
+        valGamma.textContent = gamma.toFixed(3);
+        valTimePrime.textContent = tau.toFixed(2) + " s";
+        valTime.textContent = srState.t.toFixed(2) + " s";
+        
+        // Fizyka Fotonu
+        const cycleTime = (srState.h / srState.c) * 2; 
+        const halfCycle = cycleTime / 2;
+        let phase = tau % cycleTime;
+        let photonY_rel = 0;
+        
+        if (phase < halfCycle) {
+            photonY_rel = srState.c * phase;
+        } else {
+            photonY_rel = srState.h - (srState.c * (phase - halfCycle));
+        }
+
+        // LEWY EKRAN (WNĘTRZE)
+        const wIn = cvSrIn.canvas.width;
+        const hIn = cvSrIn.canvas.height;
+        cvSrIn.clearRect(0, 0, wIn, hIn);
+        
+        const wagonW = 120;
+        const wagonY = 50;
+        const wagonCenterX_In = wIn / 2;
+        const wagonX_In = wagonCenterX_In - wagonW/2;
+
+        drawWagon(cvSrIn, wagonX_In, wagonY, wagonW, srState.h, true);
+        
+        cvSrIn.fillStyle = '#ffcc00';
+        cvSrIn.beginPath();
+        cvSrIn.arc(wagonCenterX_In, wagonY + photonY_rel + 5, 6, 0, Math.PI*2);
+        cvSrIn.fill();
+        cvSrIn.fillStyle = 'rgba(255, 204, 0, 0.2)';
+        cvSrIn.fillRect(wagonCenterX_In - 2, wagonY+5, 4, photonY_rel);
+
+        srClockIn.textContent = "t' = " + tau.toFixed(2) + " s";
+
+        // PRAWY EKRAN (PERON - PANNING CAMERA)
+        const wOut = cvSrOut.canvas.width;
+        const hOut = cvSrOut.canvas.height;
+        cvSrOut.clearRect(0, 0, wOut, hOut);
+        
+        const speedPx = srState.v * srState.c;
+        const trainX = speedPx * srState.t;
+        
+        // Logika Kamery:
+        // Jeśli pociąg przekracza 50% ekranu, kamera zaczyna go gonić
+        const followThreshold = wOut * 0.5;
+        let camTargetX = 0;
+        
+        if (trainX > followThreshold) {
+            camTargetX = trainX - followThreshold;
+        }
+        
+        // Płynne podążanie (bez lerpa dla prostoty fizycznej, po prostu sztywne podążanie)
+        srState.camX = camTargetX;
+
+        cvSrOut.save();
+        // Przesuwamy świat w lewo o pozycję kamery
+        cvSrOut.translate(-srState.camX, 0);
+
+        // Tło (Tory)
+        // Rysujemy tylko w widocznym obszarze: od camX do camX + wOut
+        const startTile = Math.floor(srState.camX / 40) * 40;
+        const endTile = srState.camX + wOut;
+        
+        cvSrOut.fillStyle = '#333';
+        cvSrOut.fillRect(srState.camX, wagonY + srState.h + 35, wOut, 2); // Linia ciągła
+        
+        for(let i=startTile; i<endTile + 40; i+=40) {
+            cvSrOut.fillRect(i, wagonY + srState.h + 35, 2, 5);
+        }
+
+        // Rejestracja punktu ścieżki
+        if (srState.pathPoints.length === 0 || 
+            Math.abs(trainX - srState.pathPoints[srState.pathPoints.length-1].x) > 2) {
+            
+            srState.pathPoints.push({
+                x: trainX + wagonW/2,
+                y: wagonY + photonY_rel + 5
+            });
+        }
+
+        // Usuwanie starych punktów spoza ekranu (optymalizacja)
+        // Jeśli punkt jest mocno z lewej od kamery
+        if (srState.pathPoints.length > 0 && srState.pathPoints[0].x < srState.camX - 100) {
+            srState.pathPoints.shift();
+        }
+
+        // Rysuj Ścieżkę
+        cvSrOut.beginPath();
+        cvSrOut.strokeStyle = 'rgba(255, 204, 0, 0.6)';
+        cvSrOut.lineWidth = 3;
+        
+        // Rysujemy tylko punkty widoczne + margines
+        let first = true;
+        // Znajdź indeks startowy (binary search byłby lepszy, ale liniowy ok przy tej ilości)
+        let startIndex = 0;
+        for(let i=0; i<srState.pathPoints.length; i++) {
+            if(srState.pathPoints[i].x > srState.camX - 50) {
+                startIndex = Math.max(0, i-1); // weź jeden wcześniejszy żeby łączyć linię
+                break;
+            }
+        }
+
+        for(let i=startIndex; i<srState.pathPoints.length; i++) {
+            const p = srState.pathPoints[i];
+            if (first) { cvSrOut.moveTo(p.x, p.y); first=false; }
+            else { cvSrOut.lineTo(p.x, p.y); }
+        }
+        cvSrOut.stroke();
+
+        // Rysuj Wagon
+        drawWagon(cvSrOut, trainX, wagonY, wagonW, srState.h, false);
+
+        // Foton
+        cvSrOut.fillStyle = '#ffcc00';
+        cvSrOut.beginPath();
+        cvSrOut.arc(trainX + wagonW/2, wagonY + photonY_rel + 5, 6, 0, Math.PI*2);
+        cvSrOut.fill();
+
+        cvSrOut.restore();
+
+        srClockOut.textContent = "t = " + srState.t.toFixed(2) + " s";
+    }
+
+    document.getElementById('srReset').addEventListener('click', () => {
+        srState.t = 0;
+        srState.pathPoints = [];
+        srState.camX = 0;
+    });
+
+
+    // --- TAB 2: GENERAL RELATIVITY (GRAVITY) ---
+    const cvGr = document.getElementById('cvGr').getContext('2d');
+    const grContainer = document.getElementById('grContainer');
+    
+    const grState = {
+        probeX: 600,
+        probeY: 250,
+        dragging: false,
+        rs: 50,
+        blackHoleX: 200,
+        blackHoleY: 250,
+        timeEarth: 0,
+        timeProbe: 0
+    };
+
+    function drawClock(ctx, x, y, r, time, color, label) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI*2);
+        ctx.fillStyle = '#222';
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1;
+        for(let i=0; i<12; i++) {
+            const a = (i/12) * Math.PI*2;
+            ctx.beginPath();
+            ctx.moveTo(x + Math.cos(a)*(r-5), y + Math.sin(a)*(r-5));
+            ctx.lineTo(x + Math.cos(a)*(r-10), y + Math.sin(a)*(r-10));
+            ctx.stroke();
+        }
+
+        const angle = (time % 1) * Math.PI * 2 - Math.PI/2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(angle)*(r-5), y + Math.sin(angle)*(r-5));
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+
+        ctx.fillStyle = color;
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, y + r + 15);
+    }
+
+    function updateGR(dt) {
+        if(activeTab !== 'gr') return;
+
+        const w = cvGr.canvas.width;
+        const h = cvGr.canvas.height;
+        cvGr.clearRect(0, 0, w, h);
+
+        const bx = grState.blackHoleX;
+        const by = grState.blackHoleY;
+        const rs = grState.rs;
+
+        const grad = cvGr.createRadialGradient(bx, by, rs, bx, by, rs*4);
+        grad.addColorStop(0, '#000');
+        grad.addColorStop(0.3, 'rgba(255, 100, 0, 0.4)');
+        grad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+        cvGr.fillStyle = grad;
+        cvGr.fillRect(0, 0, w, h);
+
+        cvGr.beginPath();
+        cvGr.arc(bx, by, rs, 0, Math.PI*2);
+        cvGr.fillStyle = '#000';
+        cvGr.fill();
+        cvGr.strokeStyle = 'rgba(100, 100, 255, 0.5)';
+        cvGr.lineWidth = 2;
+        cvGr.stroke();
+        
+        cvGr.beginPath();
+        cvGr.arc(bx, by, rs * 1.5, 0, Math.PI*2);
+        cvGr.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        cvGr.setLineDash([5, 5]);
+        cvGr.stroke();
+        cvGr.setLineDash([]);
+
+        const dist = Math.sqrt((grState.probeX - bx)**2 + (grState.probeY - by)**2);
+        
+        let factor = 0;
+        if (dist > rs) {
+            factor = Math.sqrt(1 - (rs / dist));
+        }
+        
+        grState.timeEarth += dt;
+        grState.timeProbe += dt * factor;
+
+        drawClock(cvGr, w - 80, 80, 40, grState.timeEarth, '#00d4ff', "Zegar na Ziemi");
+        const probeColor = dist <= rs ? '#444' : '#ffcc00';
+        drawClock(cvGr, grState.probeX, grState.probeY, 30, grState.timeProbe, probeColor, "Sonda");
+
+        const r_units = (dist / rs).toFixed(2);
+        document.getElementById('grDist').innerText = dist <= rs ? "HORYZONT" : r_units + " Rs";
+        const factorPerc = (factor * 100).toFixed(1);
+        document.getElementById('grFactor').innerText = factorPerc + "%";
+        
+        let ratioTxt = "∞";
+        if (factor > 0.01) {
+            ratioTxt = (1 / factor).toFixed(2);
+        }
+        document.getElementById('grRatioText').innerText = ratioTxt;
+    }
+
+    // --- GR INTERACTION ---
+    grContainer.addEventListener('mousedown', e => {
+        const rect = cvGr.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        if(Math.hypot(x - grState.probeX, y - grState.probeY) < 50) {
+            grState.dragging = true;
+            grContainer.style.cursor = 'grabbing';
+        }
+    });
+    window.addEventListener('mousemove', e => {
+        if(grState.dragging) {
+            const rect = cvGr.canvas.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+            x = Math.max(20, Math.min(cvGr.canvas.width-20, x));
+            y = Math.max(20, Math.min(cvGr.canvas.height-20, y));
+            grState.probeX = x;
+            grState.probeY = y;
+        }
+    });
+    window.addEventListener('mouseup', () => {
+        grState.dragging = false;
+        grContainer.style.cursor = 'grab';
+    });
+
+    // --- MAIN LOOP ---
+    let lastTime = 0;
+    function loop(timestamp) {
+        if(!lastTime) lastTime = timestamp;
+        const dt = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+
+        if(activeTab === 'sr') updateSR(dt);
+        if(activeTab === 'gr') updateGR(dt);
+
+        requestAnimationFrame(loop);
+    }
+    
+    requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
