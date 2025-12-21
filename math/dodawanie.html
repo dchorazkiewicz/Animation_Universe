@@ -20,6 +20,13 @@
         @keyframes spin-slow { to { transform: rotate(360deg); } }
         .spin-slow { animation: spin-slow 4s linear infinite; }
 
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+
         /* Style specyficzne dla kafelków */
         .tile-btn:active { transform: scale(0.95); }
         
@@ -36,11 +43,14 @@
         <!-- 1. PASEK GÓRNY (TABS & STATUS) -->
         <div class="flex flex-col gap-2">
             <!-- Zakładki -->
-            <div class="bg-slate-800 p-1 rounded-2xl flex shadow-lg">
-                <button onclick="App.setMode('ADD')" id="btn-mode-add" class="flex-1 py-3 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2">
+            <div class="bg-slate-800 p-1 rounded-2xl flex shadow-lg overflow-x-auto hide-scroll">
+                <button onclick="App.setMode('ADD')" id="btn-mode-add" class="flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
                     <i data-lucide="plus-circle" class="w-5 h-5"></i> Dodawanie
                 </button>
-                <button onclick="App.setMode('COUNT')" id="btn-mode-count" class="flex-1 py-3 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2">
+                <button onclick="App.setMode('SUB')" id="btn-mode-sub" class="flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
+                    <i data-lucide="minus-circle" class="w-5 h-5"></i> Odejmowanie
+                </button>
+                <button onclick="App.setMode('COUNT')" id="btn-mode-count" class="flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
                     <i data-lucide="layout-grid" class="w-5 h-5"></i> Liczenie
                 </button>
             </div>
@@ -67,8 +77,8 @@
             
             <!-- Overlay Feedback (Brawo/Błąd) -->
             <div id="feedback-layer" class="absolute inset-0 z-50 hidden flex-col items-center justify-center bg-slate-900/95 backdrop-blur-sm">
-                <div id="feedback-icon" class="mb-4"></div>
-                <div id="feedback-text" class="text-4xl font-bold"></div>
+                <div id="feedback-emoji" class="text-8xl mb-4 animate-pop"></div>
+                <div id="feedback-text" class="text-4xl font-bold text-center px-4"></div>
             </div>
 
             <!-- Obszar Wizualizacji -->
@@ -81,7 +91,7 @@
 
                 <!-- Pytanie -->
                 <div class="h-16 flex items-center justify-center">
-                    <h2 id="question-text" class="text-2xl sm:text-3xl font-bold text-slate-300">Ile to razem?</h2>
+                    <h2 id="question-text" class="text-xl sm:text-3xl font-bold text-slate-300 text-center">Ile to razem?</h2>
                 </div>
             </div>
         </div>
@@ -107,88 +117,68 @@
         const MathCore = {
             // Generuje pytanie do dodawania
             generateAddition(range, currentScore) {
-                // Progresja trudności dla zakresu do 10
                 let maxTarget = range;
                 if (range === 10) {
-                    if (currentScore < 5) maxTarget = 5;       // Bardzo proste (do 5)
-                    else if (currentScore < 10) maxTarget = 8; // Średnie (do 8)
+                    if (currentScore < 5) maxTarget = 5;       
+                    else if (currentScore < 10) maxTarget = 8; 
                     else maxTarget = 10;
                 } else {
-                    // Dla zakresu 20, staramy się dawać wyniki powyżej 10
                     maxTarget = 20;
                 }
-
                 const minTarget = range === 20 ? 11 : 2;
-                
-                // Losowanie sumy (wyniku)
                 const target = Math.floor(Math.random() * (maxTarget - minTarget + 1)) + minTarget;
-                
-                // Rozbicie na składniki A i B
-                // A musi być < target, B = target - A
                 const splitPoint = Math.floor(Math.random() * (target - 1)) + 1;
                 let a = splitPoint;
                 let b = target - splitPoint;
 
-                // ZASADA: Preferuj A > B (80% szans) dla ułatwienia liczenia
-                if (b > a && Math.random() > 0.2) {
-                    [a, b] = [b, a];
-                }
+                if (b > a && Math.random() > 0.2) { [a, b] = [b, a]; }
 
-                return {
-                    type: 'ADD',
-                    a: a,
-                    b: b,
-                    correct: target
-                };
+                return { type: 'ADD', a, b, correct: target };
             },
 
-            // Generuje pytanie do liczenia (Counting)
+            // Generuje pytanie do odejmowania
+            generateSubtraction(range, currentScore) {
+                let maxA = range;
+                if (range === 10) {
+                    if (currentScore < 5) maxA = 5;
+                    else if (currentScore < 10) maxA = 8;
+                }
+                const minA = 2;
+                const a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+                const maxB = a - 1;
+                const b = Math.floor(Math.random() * maxB) + 1;
+
+                return { type: 'SUB', a, b, correct: a - b };
+            },
+
+            // Generuje pytanie do liczenia
             generateCounting(range) {
                 const minVal = range === 20 ? 5 : 1;
                 const target = Math.floor(Math.random() * (range - minVal + 1)) + minVal;
-                
-                // Określenie układu (Strategy Pattern)
-                let layout = 'pairs'; // domyślnie pary
-                if (target <= 9 && Math.random() > 0.5) layout = 'square'; // kwadraty/kostka
-                if (target % 5 === 0 || (target > 10 && Math.random() > 0.6)) layout = 'fives'; // piątki
+                let layout = 'pairs'; 
+                if (target <= 9 && Math.random() > 0.5) layout = 'square'; 
+                if (target % 5 === 0 || (target > 10 && Math.random() > 0.6)) layout = 'fives';
 
-                return {
-                    type: 'COUNT',
-                    value: target,
-                    layout: layout,
-                    correct: target
-                };
+                return { type: 'COUNT', value: target, layout, correct: target };
             },
 
-            // Generuje odpowiedzi (jedna poprawna, 3 błędne, posortowane)
+            // Generuje odpowiedzi
             generateOptions(correct, maxRange) {
                 const options = new Set();
                 options.add(correct);
-
-                // Pula bezpiecznych błędów (blisko wyniku)
-                const candidates = [
-                    correct - 1, correct + 1, 
-                    correct - 2, correct + 2, 
-                    correct - 3, correct + 3
-                ];
-
-                // Mieszanie kandydatów
+                const candidates = [correct - 1, correct + 1, correct - 2, correct + 2, correct - 3, correct + 3];
                 candidates.sort(() => Math.random() - 0.5);
 
                 for (let n of candidates) {
-                    // Filtrowanie: musi być > 0, <= maxRange + zapas, i unikalne
                     if (n > 0 && n <= (maxRange + 5) && !options.has(n)) {
                         options.add(n);
                     }
                     if (options.size === 4) break;
                 }
-
-                // Jakby brakowało (rzadki edge case przy bardzo małych liczbach np. 1)
                 while (options.size < 4) {
                     let r = Math.floor(Math.random() * maxRange) + 1;
                     if (r > 0) options.add(r);
                 }
-
                 return Array.from(options).sort((a, b) => a - b);
             }
         };
@@ -198,52 +188,98 @@
          */
         const Renderer = {
             // Tworzy HTML dla pojedynczego klocka
-            createBlock(color, size = "md") {
+            createBlock(color, size = "md", isCrossed = false) {
                 const sizes = {
-                    sm: "w-5 h-5 sm:w-6 sm:h-6",
+                    sm: "w-6 h-6 sm:w-8 sm:h-8", // Nieco szersze dla czytelności slasha
                     md: "w-8 h-8 sm:w-10 sm:h-10",
                     lg: "w-10 h-10 sm:w-12 sm:h-12"
                 };
-                return `<div class="${sizes[size]} bg-${color}-500 rounded-md border-2 border-slate-900 shadow-[0_4px_0_rgba(0,0,0,0.3)] transform transition-transform hover:scale-110"></div>`;
+                
+                let crossHtml = '';
+                if (isCrossed) {
+                    // Slash wychodzący poza obrys (width: 140%)
+                    crossHtml = `<div class="absolute w-[140%] h-1 bg-orange-500 rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 pointer-events-none shadow-sm z-10"></div>`;
+                }
+
+                // overflow-visible jest kluczowe, żeby slash wystawał
+                return `<div class="${sizes[size]} bg-${color}-500 rounded-md border-2 border-slate-900 shadow-[0_4px_0_rgba(0,0,0,0.3)] transform transition-transform hover:scale-110 flex items-center justify-center relative overflow-visible z-0 mx-0.5">
+                    ${crossHtml}
+                </div>`;
             },
 
-            // Tworzy grid klocków
+            // Grid zwykły (Dodawanie, Liczenie)
             createGrid(count, color, layout = 'auto') {
-                let gridClass = "grid-cols-2"; // default pairs
+                let gridClass = "grid-cols-2"; 
                 let size = "md";
-                
-                // Dostosowanie do ilości
                 if (count > 12) size = "sm";
 
                 if (layout === 'fives') gridClass = "grid-cols-5";
                 else if (layout === 'square') gridClass = count > 4 ? "grid-cols-3" : "grid-cols-2";
-                else if (count > 8) gridClass = "grid-cols-3 sm:grid-cols-4"; // auto adjustment
+                else if (count > 8) gridClass = "grid-cols-3 sm:grid-cols-4"; 
 
                 let html = `<div class="grid ${gridClass} gap-2 p-2 bg-slate-800/50 rounded-xl border border-slate-700/50">`;
                 for (let i = 0; i < count; i++) {
-                    // Logic for grouping colors in 'fives' layout
                     let c = color;
                     if (layout === 'fives') {
-                        // Co 5 klocków zmiana odcienia dla łatwiejszego liczenia
                         if (Math.floor(i / 5) % 2 !== 0) c = color === 'blue' ? 'indigo' : 'emerald';
                     }
                     html += this.createBlock(c, size);
                 }
                 html += `</div>`;
                 return html;
+            },
+
+            // Grid do odejmowania (LINIOWY + AGREGOWANY)
+            createSubtractionGrid(total, crossedCount) {
+                const thresholdIndex = total - crossedCount;
+                let html = '';
+
+                if (total <= 10) {
+                    // Tryb Liniowy (do 10)
+                    // Wymuszamy jedną linię (flex-nowrap). 
+                    // Jeśli liczb jest dużo (8-10), zmniejszamy klocki, żeby weszły na małe ekrany.
+                    let size = "md";
+                    if (total > 6) size = "sm";
+
+                    html += `<div class="flex flex-nowrap justify-center gap-1 sm:gap-2 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-visible">`;
+                    for (let i = 0; i < total; i++) {
+                        const isCrossed = i >= thresholdIndex;
+                        html += this.createBlock('blue', size, isCrossed);
+                    }
+                    html += `</div>`;
+                } else {
+                    // Tryb "Ramki Dziesiętnej" (> 10)
+                    // Używamy siatki 5-kolumnowej. To sprawia, że:
+                    // 10 klocków układa się w 2 rzędy po 5 (dwupiętrowa piątka).
+                    // Reszta przechodzi do kolejnych rzędów.
+                    let size = "sm"; // Mniejsze klocki dla dużych liczb
+                    
+                    html += `<div class="grid grid-cols-5 gap-x-2 gap-y-2 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-visible">`;
+                    for (let i = 0; i < total; i++) {
+                        const isCrossed = i >= thresholdIndex;
+                        html += this.createBlock('blue', size, isCrossed);
+                    }
+                    html += `</div>`;
+                }
+                return html;
             }
         };
 
         /**
-         * APP CONTROLLER - Zarządza stanem i zdarzeniami
+         * APP CONTROLLER
          */
         const App = {
             state: {
-                mode: 'ADD',    // ADD | COUNT
-                range: 10,      // 10 | 20
+                mode: 'ADD',    // ADD | SUB | COUNT
+                range: 10,
                 score: 0,
                 isLocked: false,
                 currentQuestion: null
+            },
+
+            emojis: {
+                success: ['🤩', '👍', '🤯', '😎'],
+                error: ['😱', '😨', '🫣']
             },
 
             init() {
@@ -255,7 +291,7 @@
             setMode(mode) {
                 if (this.state.isLocked) return;
                 this.state.mode = mode;
-                this.state.score = 0; // Reset wyniku przy zmianie trybu? Uznajmy że tak, dla czystości.
+                this.state.score = 0; 
                 this.updateUI();
                 this.nextQuestion();
             },
@@ -274,7 +310,6 @@
                 this.nextQuestion();
             },
 
-            // Główna pętla gry
             nextQuestion() {
                 this.state.isLocked = false;
                 this.hideFeedback();
@@ -282,66 +317,51 @@
                 const { mode, range, score } = this.state;
                 let qData;
 
-                // 1. Generowanie danych logicznych
-                if (mode === 'ADD') {
-                    qData = MathCore.generateAddition(range, score);
-                } else {
-                    qData = MathCore.generateCounting(range);
-                }
+                if (mode === 'ADD') qData = MathCore.generateAddition(range, score);
+                else if (mode === 'SUB') qData = MathCore.generateSubtraction(range, score);
+                else qData = MathCore.generateCounting(range);
 
-                // 2. Generowanie opcji
                 const options = MathCore.generateOptions(qData.correct, range);
-
                 this.state.currentQuestion = { ...qData, options };
                 
-                // 3. Renderowanie
                 this.renderScene();
                 this.renderOptions();
+                lucide.createIcons(); 
             },
 
             handleAnswer(answer) {
                 if (this.state.isLocked) return;
                 
                 const correct = this.state.currentQuestion.correct;
-                this.state.isLocked = true; // BLOKADA KLIKANIA
+                this.state.isLocked = true;
 
                 if (answer === correct) {
-                    // SUKCES
                     this.state.score++;
-                    this.updateUI(); // Odśwież wynik
+                    this.updateUI();
                     this.showFeedback(true);
-                    
-                    // Szybkie przejście (500ms)
-                    setTimeout(() => {
-                        this.nextQuestion(); 
-                        // nextQuestion zdejmuje blokadę isLocked
-                    }, 600);
+                    setTimeout(() => { this.nextQuestion(); }, 800);
                 } else {
-                    // BŁĄD
                     this.showFeedback(false);
-                    // Dłuższa chwila na refleksję (1200ms)
                     setTimeout(() => {
                         this.hideFeedback();
-                        this.state.isLocked = false; // Zdejmij blokadę, pozwól spróbować ponownie (lub generuj nowe - tu wybieram: pozwól poprawić)
-                        // Aby wymusić nowe pytanie po błędzie, odkomentuj: this.nextQuestion();
-                        // Ale dydaktycznie lepiej pozwolić poprawić.
-                    }, 1200);
+                        this.state.isLocked = false; 
+                    }, 1500);
                 }
             },
 
-            // --- UI MANAGERS ---
+            // --- UI RENDERERS ---
 
             renderScene() {
                 const q = this.state.currentQuestion;
                 const container = document.getElementById('visual-container');
                 const title = document.getElementById('question-text');
 
-                container.innerHTML = ''; // Clear
+                container.innerHTML = ''; 
 
                 if (q.type === 'ADD') {
                     title.innerText = "Ile to razem?";
                     container.innerHTML = `
-                        <div class="flex items-center gap-4 animate-pop">
+                        <div class="flex items-center gap-2 sm:gap-4 animate-pop">
                             <div class="flex flex-col items-center">
                                 <span class="text-4xl font-bold text-blue-400 mb-2">${q.a}</span>
                                 ${Renderer.createGrid(q.a, 'blue')}
@@ -353,10 +373,20 @@
                             </div>
                         </div>
                     `;
+                } else if (q.type === 'SUB') {
+                    title.innerText = "Ile zostało?";
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center animate-pop w-full">
+                             <div class="flex items-center gap-4 mb-4">
+                                <span class="text-5xl font-bold text-blue-400">${q.a}</span>
+                                <span class="text-5xl font-black text-slate-500">-</span>
+                                <span class="text-5xl font-bold text-orange-500">${q.b}</span>
+                             </div>
+                            ${Renderer.createSubtractionGrid(q.a, q.b)}
+                        </div>
+                    `;
                 } else {
                     title.innerText = "Ile klocków widzisz?";
-                    // Use layout from logic, fallback to auto if undefined
-                    // Kolor zielony dla liczenia
                     container.innerHTML = `
                         <div class="flex flex-col items-center animate-pop">
                             ${Renderer.createGrid(q.value, 'green', q.layout)}
@@ -380,24 +410,25 @@
 
             showFeedback(isSuccess) {
                 const layer = document.getElementById('feedback-layer');
-                const icon = document.getElementById('feedback-icon');
-                const text = document.getElementById('feedback-text');
+                const emojiDiv = document.getElementById('feedback-emoji');
+                const textDiv = document.getElementById('feedback-text');
 
                 layer.classList.remove('hidden');
                 layer.classList.add('flex');
 
                 if (isSuccess) {
                     layer.className = "absolute inset-0 z-50 flex flex-col items-center justify-center bg-emerald-600/95 backdrop-blur-sm animate-pop";
-                    icon.innerHTML = `<i data-lucide="star" class="w-32 h-32 text-white fill-white spin-slow"></i>`;
-                    text.innerText = "BRAWO!";
-                    text.className = "text-5xl font-black text-white mt-4 tracking-wider";
+                    const emoji = this.emojis.success[Math.floor(Math.random() * this.emojis.success.length)];
+                    emojiDiv.innerHTML = emoji;
+                    textDiv.innerText = "BRAWO!";
+                    textDiv.className = "text-5xl font-black text-white mt-4 tracking-wider";
                 } else {
-                    layer.className = "absolute inset-0 z-50 flex flex-col items-center justify-center bg-rose-600/95 backdrop-blur-sm animate-pop";
-                    icon.innerHTML = `<span class="text-8xl">🤔</span>`;
-                    text.innerText = "SPRÓBUJ JESZCZE RAZ";
-                    text.className = "text-2xl font-bold text-white mt-4";
+                    layer.className = "absolute inset-0 z-50 flex flex-col items-center justify-center bg-rose-600/95 backdrop-blur-sm animate-shake";
+                    const emoji = this.emojis.error[Math.floor(Math.random() * this.emojis.error.length)];
+                    emojiDiv.innerHTML = emoji;
+                    textDiv.innerText = "SPRÓBUJ JESZCZE RAZ";
+                    textDiv.className = "text-2xl font-bold text-white mt-4";
                 }
-                lucide.createIcons();
             },
 
             hideFeedback() {
@@ -407,31 +438,31 @@
             },
 
             updateUI() {
-                // Score
                 document.getElementById('score-val').innerText = this.state.score;
                 
-                // Range Indicator
                 const rangeInd = document.getElementById('range-indicator');
                 rangeInd.innerText = this.state.range;
                 rangeInd.className = `w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${this.state.range === 20 ? 'bg-purple-500' : 'bg-emerald-500'} text-white`;
 
-                // Tabs Styling
-                const btnAdd = document.getElementById('btn-mode-add');
-                const btnCount = document.getElementById('btn-mode-count');
+                const btns = {
+                    ADD: document.getElementById('btn-mode-add'),
+                    SUB: document.getElementById('btn-mode-sub'),
+                    COUNT: document.getElementById('btn-mode-count')
+                };
+
                 const activeClass = "bg-slate-700 text-yellow-400 shadow-inner";
                 const inactiveClass = "text-slate-400 hover:text-white";
 
-                if (this.state.mode === 'ADD') {
-                    btnAdd.className = `flex-1 py-3 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${activeClass}`;
-                    btnCount.className = `flex-1 py-3 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${inactiveClass}`;
-                } else {
-                    btnAdd.className = `flex-1 py-3 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${inactiveClass}`;
-                    btnCount.className = `flex-1 py-3 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${activeClass}`;
-                }
+                Object.keys(btns).forEach(key => {
+                    if (key === this.state.mode) {
+                        btns[key].className = `flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeClass}`;
+                    } else {
+                        btns[key].className = `flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${inactiveClass}`;
+                    }
+                });
             }
         };
 
-        // Start aplikacji po załadowaniu
         window.onload = () => App.init();
 
     </script>
