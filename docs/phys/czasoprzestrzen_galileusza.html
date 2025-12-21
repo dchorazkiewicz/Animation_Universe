@@ -3,103 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Czasoprzestrzeń Galileusza - Dark Mode</title>
+    <title>Czasoprzestrzeń Galileusza - Split View</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Globalne ciemne tło */
+        /* Globalne ustawienia */
         body { margin: 0; overflow: hidden; background-color: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #e2e8f0; }
         
-        /* Ciemny Canvas */
-        canvas { display: block; background-color: #1e293b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); border-radius: 8px; margin: 0 auto; border: 1px solid #334155; }
-        
-        /* Ciemny panel sterowania */
-        .controls { position: absolute; top: 20px; right: 20px; background: rgba(30, 41, 59, 0.95); padding: 15px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); width: 380px; border: 1px solid #475569; max-height: 95vh; overflow-y: auto; color: #f1f5f9; }
-        
-        .label { font-size: 0.85rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.25rem; display: block; }
-        
-        /* Ciemny kontener slidera */
-        .slider-container { margin-bottom: 15px; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
-        
+        /* Styl suwaka */
         .slider { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 5px; background: #475569; outline: none; }
         .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; cursor: pointer; border: 2px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
         
-        /* Ciemny box kalkulatora */
-        .calc-box { font-family: 'Courier New', monospace; background: #0f172a; color: #cbd5e1; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 0.85rem; border-left: 4px solid #f59e0b; border: 1px solid #334155; border-left-width: 4px; }
+        /* Boxy informacyjne */
+        .calc-box { font-family: 'Courier New', monospace; background: #1e293b; color: #cbd5e1; padding: 12px; border-radius: 6px; font-size: 0.85rem; border-left: 4px solid #f59e0b; border: 1px solid #334155; }
         .calc-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
         .calc-val { color: #34d399; font-weight: bold; }
-        .calc-header { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #334155; margin-bottom: 5px; padding-bottom: 2px;}
+        .calc-header { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #334155; margin-bottom: 8px; padding-bottom: 4px;}
 
-        .legend-row { display: flex; align-items: center; margin-bottom: 4px; font-size: 0.8rem; color: #cbd5e1; }
-        .color-box { width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; flex-shrink: 0; }
+        /* Legenda */
+        .legend-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.85rem; color: #cbd5e1; }
+        .color-box { width: 14px; height: 14px; margin-right: 10px; border-radius: 3px; flex-shrink: 0; }
         
-        /* Scrollbar dla panelu */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        /* Scrollbar dla panelu bocznego */
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-track { background: #0f172a; }
+        .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
     </style>
 </head>
-<body class="flex items-center justify-center h-screen">
+<body class="flex h-screen w-screen">
 
-    <div class="relative w-full h-full flex items-center justify-center bg-slate-900">
-        <canvas id="canvas"></canvas>
-
-        <div class="controls">
-            <h2 class="text-lg font-bold text-gray-100 mb-3 border-b border-gray-600 pb-2">Transformacja Galileusza</h2>
+    <!-- LEWA KOLUMNA: Panel Sterowania i Opis -->
+    <div class="sidebar w-[400px] flex-shrink-0 bg-slate-900 border-r border-slate-700 flex flex-col overflow-y-auto z-10 shadow-2xl">
+        <div class="p-6 space-y-6">
             
-            <div class="slider-container">
-                <label class="label">Prędkość układu ruchomego (v)</label>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs font-mono text-gray-400">-1.5</span>
+            <!-- Nagłówek -->
+            <div class="border-b border-slate-700 pb-4">
+                <h1 class="text-xl font-bold text-gray-100">Czasoprzestrzeń Galileusza</h1>
+                <p class="text-xs text-gray-400 mt-1">Interaktywna analiza transformacji</p>
+            </div>
+
+            <!-- Kontrolery -->
+            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                <label class="block text-sm font-bold text-gray-200 mb-3">Prędkość układu (v)</label>
+                <div class="flex items-center space-x-3 mb-2">
+                    <span class="text-xs font-mono text-gray-500">-1.5</span>
                     <input type="range" id="vSlider" min="-1.5" max="1.5" step="0.01" value="0.6" class="slider">
-                    <span class="text-xs font-mono text-gray-400">1.5</span>
+                    <span class="text-xs font-mono text-gray-500">1.5</span>
                 </div>
-                <div class="text-center mt-1">
-                    <span class="text-sm font-mono text-gray-400">v = </span>
-                    <span id="vValue" class="font-bold text-blue-400 text-lg font-mono">0.60</span>
+                <div class="flex justify-between items-center mt-1">
+                    <span class="text-xs text-gray-400">Ruch w lewo / prawo</span>
+                    <span class="text-sm font-mono text-gray-400">v = <span id="vValue" class="font-bold text-blue-400 text-lg">0.60</span></span>
                 </div>
             </div>
 
-            <!-- Panel weryfikacji - ciemny -->
-            <div class="bg-slate-800 rounded-lg border border-slate-600 p-3 shadow-sm mb-4">
-                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Weryfikacja Matematyczna</h3>
-                <p class="text-xs text-gray-300 mb-2">Wzór: <b class="text-white">x' = x - (v · t)</b></p>
-                <p class="text-xs text-gray-300 mb-2">Czas zdarzeń (stały): <b class="text-white">t = 3.0</b></p>
+            <!-- Panel weryfikacji -->
+            <div>
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">Weryfikacja Matematyczna</h3>
+                <div class="text-xs text-gray-400 mb-3 font-mono bg-slate-800 p-2 rounded border border-slate-700">
+                    x' = x - (v · t)<br>
+                    t  = 3.0 (stałe)
+                </div>
                 
-                <div class="calc-box">
+                <div class="calc-box mb-3">
                     <div class="calc-header">Zdarzenie A (Prawa strona)</div>
                     <div class="calc-row"><span>x (Ty):</span> <span>2.00</span></div>
                     <div class="calc-row"><span>v · t:</span> <span id="vtCalc_A">1.80</span></div>
-                    <div class="calc-row border-t border-gray-700 pt-1">
+                    <div class="calc-row border-t border-slate-600 pt-2 mt-1">
                         <span>x' (Wynik):</span> <span id="res_A" class="calc-val">0.20</span>
                     </div>
                 </div>
 
-                <div class="calc-box mt-2">
+                <div class="calc-box">
                     <div class="calc-header">Zdarzenie B (Lewa strona)</div>
                     <div class="calc-row"><span>x (Ty):</span> <span>-2.00</span></div>
                     <div class="calc-row"><span>v · t:</span> <span id="vtCalc_B">1.80</span></div>
-                    <div class="calc-row border-t border-gray-700 pt-1">
+                    <div class="calc-row border-t border-slate-600 pt-2 mt-1">
                         <span>x' (Wynik):</span> <span id="res_B" class="calc-val">-3.80</span>
                     </div>
                 </div>
             </div>
 
-            <div class="text-xs text-gray-400">
+            <!-- Legenda -->
+            <div class="border-t border-slate-700 pt-4">
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-3">Legenda</h3>
                 <div class="legend-row">
-                    <div class="color-box" style="background: #ef4444;"></div>
+                    <div class="color-box bg-red-500"></div>
                     <span>Zdarzenia A i B (Czerwone kropki)</span>
                 </div>
                 <div class="legend-row">
-                    <div class="color-box" style="background: #f59e0b;"></div>
-                    <span>Żółta linia: Rzut równoległy do osi t'</span>
+                    <div class="color-box bg-slate-400"></div>
+                    <span>Układ Nieruchomy (Szary/Czarny)</span>
+                </div>
+                <div class="legend-row">
+                    <div class="color-box bg-blue-400"></div>
+                    <span>Oś czasu ruchoma t' (Niebieska)</span>
+                </div>
+                <div class="legend-row">
+                    <div class="color-box bg-amber-400"></div>
+                    <span>Rzut Galileusza (Żółta linia przerywana)</span>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- PRAWA KOLUMNA: Scena / Canvas -->
+    <div id="scene-container" class="flex-1 bg-slate-950 relative overflow-hidden flex items-center justify-center">
+        <!-- Canvas wypełni ten kontener -->
+        <canvas id="canvas"></canvas>
+    </div>
+
     <script>
         const canvas = document.getElementById('canvas');
+        const sceneContainer = document.getElementById('scene-container');
         const ctx = canvas.getContext('2d');
         const vSlider = document.getElementById('vSlider');
         const vValueSpan = document.getElementById('vValue');
@@ -116,13 +130,15 @@
         const eventB = { x: -2, t: 3, label: "B" };
 
         function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            // Pobieramy wymiary kontenera prawej kolumny, a nie całego okna
+            canvas.width = sceneContainer.clientWidth;
+            canvas.height = sceneContainer.clientHeight;
             draw();
         }
         window.addEventListener('resize', resize);
 
         function toScreen(x, t) {
+            // Centrujemy względem aktualnego wymiaru canvasa
             const centerX = canvas.width / 2;
             const centerY = canvas.height * 0.75; 
             return {
@@ -132,19 +148,21 @@
         }
 
         function drawGrid(v) {
-            const rangeX = 15;
-            const rangeT = 8;
+            // Dostosowanie zakresu rysowania do szerokości ekranu
+            // Im szerszy ekran, tym więcej kratek rysujemy
+            const rangeX = Math.ceil(canvas.width / (2 * scale)) + 2;
+            const rangeT = Math.ceil(canvas.height / scale) + 2;
             
             ctx.lineWidth = 1;
 
             // 1. Siatka Tła (Nieruchoma) - Ciemnoszara
             ctx.strokeStyle = '#334155'; // Slate-700
             for (let i = -rangeX; i <= rangeX; i++) {
-                let p1 = toScreen(i, -2);
+                let p1 = toScreen(i, -5);
                 let p2 = toScreen(i, rangeT);
                 ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
             }
-            for (let i = -2; i <= rangeT; i++) {
+            for (let i = -5; i <= rangeT; i++) {
                 let p1 = toScreen(-rangeX, i);
                 let p2 = toScreen(rangeX, i);
                 ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
@@ -156,14 +174,14 @@
             
             // Oś t (Pionowa)
             ctx.beginPath();
-            let start = toScreen(0, -2);
-            let end = toScreen(0, rangeT);
+            let start = toScreen(0, -5);
+            let end = toScreen(0, rangeT - 2);
             ctx.moveTo(start.x, start.y);
             ctx.lineTo(end.x, end.y);
             ctx.stroke();
-            ctx.fillStyle = '#cbd5e1'; // Jasny tekst
+            ctx.fillStyle = '#cbd5e1'; 
             ctx.font = 'bold 14px Arial';
-            ctx.fillText("t", end.x - 15, end.y - 10);
+            ctx.fillText("t", end.x - 20, end.y + 10);
 
             // Oś x (Pozioma)
             ctx.beginPath();
@@ -172,20 +190,20 @@
             ctx.moveTo(start.x, start.y);
             ctx.lineTo(end.x, end.y);
             ctx.stroke();
-            ctx.fillText("x (oraz x' przy t=0)", end.x - 120, end.y + 20);
+            ctx.fillText("x", end.x - 30, end.y + 20);
 
-            // 3. Oś t' (Ruchoma - Linia Świata Obserwatora) - Jasnoniebieska
-            ctx.strokeStyle = '#60a5fa'; // Blue-400 (jaśniejszy niebieski dla kontrastu)
+            // 3. Oś t' (Ruchoma)
+            ctx.strokeStyle = '#60a5fa'; // Blue-400
             ctx.lineWidth = 3;
             ctx.beginPath();
-            start = toScreen(v * -2, -2);
-            end = toScreen(v * rangeT, rangeT);
+            start = toScreen(v * -5, -5);
+            end = toScreen(v * (rangeT-2), rangeT-2);
             ctx.moveTo(start.x, start.y);
             ctx.lineTo(end.x, end.y);
             ctx.stroke();
             
             ctx.fillStyle = '#60a5fa';
-            ctx.fillText("t' (Oś czasu ruchoma)", end.x + 10, end.y);
+            ctx.fillText("t'", end.x + 10, end.y);
         }
 
         function drawProjection(ev, v) {
@@ -194,9 +212,9 @@
             const pAxisMove = toScreen(xPrime, 0); 
 
             // RYSOWANIE RZUTU (Żółta linia)
-            ctx.strokeStyle = '#fbbf24'; // Amber-400 (jaśniejszy żółty)
+            ctx.strokeStyle = '#fbbf24'; // Amber-400
             ctx.lineWidth = 2;
-            ctx.setLineDash([4, 2]);
+            ctx.setLineDash([6, 3]);
 
             ctx.beginPath();
             ctx.moveTo(screenP.x, screenP.y);
@@ -208,14 +226,14 @@
             ctx.fillStyle = '#fbbf24';
             ctx.font = 'bold 12px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(xPrime.toFixed(2), pAxisMove.x, pAxisMove.y + 15);
+            ctx.fillText(xPrime.toFixed(2), pAxisMove.x, pAxisMove.y + 20);
 
-            // Wektor przesunięcia
+            // Wektor przesunięcia na osi
             const pVerticalProj = toScreen(ev.x, 0); 
             
             if (Math.abs(v) > 0.05) {
                 ctx.beginPath();
-                ctx.strokeStyle = '#f87171'; // Red-400 (jaśniejszy czerwony)
+                ctx.strokeStyle = '#f87171'; // Red-400
                 ctx.lineWidth = 1;
                 ctx.moveTo(pVerticalProj.x, pVerticalProj.y);
                 ctx.lineTo(pAxisMove.x, pAxisMove.y);
@@ -247,12 +265,14 @@
             ctx.fill();
             
             // Label
-            ctx.fillStyle = '#f1f5f9'; // Biały tekst
+            ctx.fillStyle = '#f1f5f9';
             ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'left';
             ctx.fillText(ev.label, p.x + 10, p.y - 10);
+            
             ctx.fillStyle = '#94a3b8'; // Slate-400
-            ctx.font = '10px monospace';
-            ctx.fillText(`x=${ev.x}`, p.x + 10, p.y);
+            ctx.font = '11px monospace';
+            ctx.fillText(`x=${ev.x}`, p.x + 10, p.y + 5);
         }
 
         function updateCalculator(v) {
@@ -282,7 +302,9 @@
         }
 
         vSlider.addEventListener('input', draw);
-        draw();
+        
+        // Inicjalizacja: najpierw resize, żeby ustawić rozmiar, potem draw
+        resize();
 
     </script>
 </body>
