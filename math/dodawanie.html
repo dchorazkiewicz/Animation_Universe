@@ -64,20 +64,30 @@
                 </button>
             </div>
 
-            <!-- Pasek Info: Wynik | Zakres -->
+            <!-- Pasek Info: Wynik | Opcje -->
             <div class="flex justify-between items-center px-2">
+                <!-- Wynik -->
                 <div class="flex items-center gap-3 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700">
                     <i data-lucide="star" class="w-6 h-6 text-yellow-400 fill-yellow-400"></i>
                     <span id="score-val" class="text-2xl font-bold text-white">0</span>
                 </div>
 
-                <!-- Przełącznik Zakresu -->
-                <button onclick="App.toggleRange()" class="flex items-center gap-2 bg-slate-800 px-1 py-1 pr-4 rounded-full border border-slate-700 active:scale-95 transition-transform">
-                    <div id="range-indicator" class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-emerald-500 text-white transition-colors">
-                        10
-                    </div>
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">Zakres</span>
-                </button>
+                <!-- Kontrolki Prawa Strona -->
+                <div class="flex gap-2">
+                    <!-- Przełącznik Widoczności Kratek -->
+                    <button onclick="App.toggleHints()" id="btn-hints" class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700 active:scale-95 transition-all">
+                        <i id="icon-hints" data-lucide="eye" class="w-5 h-5 text-emerald-400"></i>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wide hidden sm:inline">Pomoc</span>
+                    </button>
+
+                    <!-- Przełącznik Zakresu -->
+                    <button onclick="App.toggleRange()" class="flex items-center gap-2 bg-slate-800 px-1 py-1 pr-4 rounded-full border border-slate-700 active:scale-95 transition-transform">
+                        <div id="range-indicator" class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-emerald-500 text-white transition-colors">
+                            10
+                        </div>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">Zakres</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -94,7 +104,7 @@
             <div class="flex-1 flex flex-col p-4 justify-center">
                 
                 <!-- Kontener Klocków -->
-                <div id="visual-container" class="w-full bg-slate-900/50 rounded-2xl border border-slate-700/50 p-4 mb-4 min-h-[160px] flex items-center justify-center">
+                <div id="visual-container" class="w-full bg-slate-900/50 rounded-2xl border border-slate-700/50 p-4 mb-4 min-h-[160px] flex items-center justify-center transition-all duration-300">
                     <!-- Dynamiczna zawartość -->
                 </div>
 
@@ -124,7 +134,6 @@
          * LOGIC CORE - Czysta matematyka
          */
         const MathCore = {
-            // Generuje pytanie do dodawania
             generateAddition(range, currentScore) {
                 let maxTarget = range;
                 if (range === 10) {
@@ -139,13 +148,10 @@
                 const splitPoint = Math.floor(Math.random() * (target - 1)) + 1;
                 let a = splitPoint;
                 let b = target - splitPoint;
-
                 if (b > a && Math.random() > 0.2) { [a, b] = [b, a]; }
-
                 return { type: 'ADD', a, b, correct: target };
             },
 
-            // Generuje pytanie do odejmowania
             generateSubtraction(range, currentScore) {
                 let maxA = range;
                 if (range === 10) {
@@ -156,32 +162,25 @@
                 const a = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
                 const maxB = a - 1;
                 const b = Math.floor(Math.random() * maxB) + 1;
-
                 return { type: 'SUB', a, b, correct: a - b };
             },
 
-            // Generuje pytanie do liczenia
             generateCounting(range) {
                 const minVal = range === 20 ? 5 : 1;
                 const target = Math.floor(Math.random() * (range - minVal + 1)) + minVal;
                 let layout = 'pairs'; 
                 if (target <= 9 && Math.random() > 0.5) layout = 'square'; 
                 if (target % 5 === 0 || (target > 10 && Math.random() > 0.6)) layout = 'fives';
-
                 return { type: 'COUNT', value: target, layout, correct: target };
             },
 
-            // Generuje odpowiedzi
             generateOptions(correct, maxRange) {
                 const options = new Set();
                 options.add(correct);
                 const candidates = [correct - 1, correct + 1, correct - 2, correct + 2, correct - 3, correct + 3];
                 candidates.sort(() => Math.random() - 0.5);
-
                 for (let n of candidates) {
-                    if (n > 0 && n <= (maxRange + 5) && !options.has(n)) {
-                        options.add(n);
-                    }
+                    if (n > 0 && n <= (maxRange + 5) && !options.has(n)) options.add(n);
                     if (options.size === 4) break;
                 }
                 while (options.size < 4) {
@@ -196,35 +195,19 @@
          * RENDERER - Funkcje pomocnicze do HTML
          */
         const Renderer = {
-            // Tworzy HTML dla pojedynczego klocka
             createBlock(color, size = "md", isCrossed = false) {
-                const sizes = {
-                    sm: "w-6 h-6 sm:w-8 sm:h-8",
-                    md: "w-8 h-8 sm:w-10 sm:h-10",
-                    lg: "w-10 h-10 sm:w-12 sm:h-12"
-                };
-                
-                let crossHtml = '';
-                if (isCrossed) {
-                    // Slash wychodzący poza obrys
-                    crossHtml = `<div class="absolute w-[140%] h-1 bg-orange-500 rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 pointer-events-none shadow-sm z-10"></div>`;
-                }
-
-                return `<div class="${sizes[size]} bg-${color}-500 rounded-md border-2 border-slate-900 shadow-[0_4px_0_rgba(0,0,0,0.3)] transform transition-transform hover:scale-110 flex items-center justify-center relative overflow-visible z-0 mx-0.5">
-                    ${crossHtml}
-                </div>`;
+                const sizes = { sm: "w-6 h-6 sm:w-8 sm:h-8", md: "w-8 h-8 sm:w-10 sm:h-10", lg: "w-10 h-10 sm:w-12 sm:h-12" };
+                let crossHtml = isCrossed ? `<div class="absolute w-[140%] h-1 bg-orange-500 rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-45 pointer-events-none shadow-sm z-10"></div>` : '';
+                return `<div class="${sizes[size]} bg-${color}-500 rounded-md border-2 border-slate-900 shadow-[0_4px_0_rgba(0,0,0,0.3)] transform transition-transform hover:scale-110 flex items-center justify-center relative overflow-visible z-0 mx-0.5">${crossHtml}</div>`;
             },
 
-            // Grid zwykły
             createGrid(count, color, layout = 'auto') {
                 let gridClass = "grid-cols-2"; 
                 let size = "md";
                 if (count > 12) size = "sm";
-
                 if (layout === 'fives') gridClass = "grid-cols-5";
                 else if (layout === 'square') gridClass = count > 4 ? "grid-cols-3" : "grid-cols-2";
                 else if (count > 8) gridClass = "grid-cols-3 sm:grid-cols-4"; 
-
                 let html = `<div class="grid ${gridClass} gap-2 p-2 bg-slate-800/50 rounded-xl border border-slate-700/50">`;
                 for (let i = 0; i < count; i++) {
                     let c = color;
@@ -237,33 +220,31 @@
                 return html;
             },
 
-            // Grid do odejmowania
             createSubtractionGrid(total, crossedCount) {
                 const thresholdIndex = total - crossedCount;
                 let html = '';
-
                 if (total <= 10) {
-                    // Tryb Liniowy (do 10)
-                    let size = "md";
-                    if (total > 6) size = "sm";
-
+                    let size = total > 6 ? "sm" : "md";
                     html += `<div class="flex flex-nowrap justify-center gap-1 sm:gap-2 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-visible">`;
                     for (let i = 0; i < total; i++) {
-                        const isCrossed = i >= thresholdIndex;
-                        html += this.createBlock('blue', size, isCrossed);
+                        html += this.createBlock('blue', size, i >= thresholdIndex);
                     }
                     html += `</div>`;
                 } else {
-                    // Tryb "Ramki Dziesiętnej" (> 10)
-                    let size = "sm"; 
                     html += `<div class="grid grid-cols-5 gap-x-2 gap-y-2 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-visible">`;
                     for (let i = 0; i < total; i++) {
-                        const isCrossed = i >= thresholdIndex;
-                        html += this.createBlock('blue', size, isCrossed);
+                        html += this.createBlock('blue', 'sm', i >= thresholdIndex);
                     }
                     html += `</div>`;
                 }
                 return html;
+            },
+
+            // Zmniejszony Placeholder - aby nie rozpychał layoutu
+            createHiddenPlaceholder() {
+                return `<div class="flex items-center justify-center w-full py-2 animate-pop">
+                    <i data-lucide="help-circle" class="w-8 h-8 text-slate-700 opacity-50"></i>
+                </div>`;
             }
         };
 
@@ -272,17 +253,15 @@
          */
         const App = {
             state: {
-                mode: 'ADD',    // ADD | SUB | COUNT
+                mode: 'ADD', 
                 range: 10,
                 score: 0,
+                showHints: true, // Domyślnie włączone
                 isLocked: false,
                 currentQuestion: null
             },
 
-            emojis: {
-                success: ['🤩', '👍', '🤯', '😎'],
-                error: ['😱', '😨', '🫣']
-            },
+            emojis: { success: ['🤩', '👍', '🤯', '😎'], error: ['😱', '😨', '🫣'] },
 
             init() {
                 lucide.createIcons();
@@ -304,6 +283,16 @@
                 this.state.score = 0;
                 this.updateUI();
                 this.nextQuestion();
+            },
+
+            toggleHints() {
+                if (this.state.isLocked) return;
+                // W trybie COUNTING nie pozwalamy wyłączyć
+                if (this.state.mode === 'COUNT') return;
+                
+                this.state.showHints = !this.state.showHints;
+                this.updateUI();
+                this.renderScene(); 
             },
 
             reset() {
@@ -357,26 +346,33 @@
                 const q = this.state.currentQuestion;
                 const container = document.getElementById('visual-container');
                 const title = document.getElementById('question-text');
+                const show = this.state.showHints;
 
                 container.innerHTML = ''; 
 
                 if (q.type === 'ADD') {
                     title.innerText = "Ile to razem?";
+                    const visualA = show ? Renderer.createGrid(q.a, 'blue') : Renderer.createHiddenPlaceholder();
+                    const visualB = show ? Renderer.createGrid(q.b, 'orange') : Renderer.createHiddenPlaceholder();
+
+                    // Zmieniono items-center na items-start, aby wyrównać do góry
                     container.innerHTML = `
-                        <div class="flex items-center gap-2 sm:gap-4 animate-pop">
-                            <div class="flex flex-col items-center">
+                        <div class="flex items-start gap-2 sm:gap-4 animate-pop w-full justify-center">
+                            <div class="flex flex-col items-center w-1/2 sm:w-auto">
                                 <span class="text-4xl font-bold text-blue-400 mb-2">${q.a}</span>
-                                ${Renderer.createGrid(q.a, 'blue')}
+                                ${visualA}
                             </div>
-                            <div class="text-4xl font-black text-slate-500">+</div>
-                            <div class="flex flex-col items-center">
+                            <div class="text-4xl font-black text-slate-500 mt-1">+</div>
+                            <div class="flex flex-col items-center w-1/2 sm:w-auto">
                                 <span class="text-4xl font-bold text-orange-400 mb-2">${q.b}</span>
-                                ${Renderer.createGrid(q.b, 'orange')}
+                                ${visualB}
                             </div>
                         </div>
                     `;
                 } else if (q.type === 'SUB') {
                     title.innerText = "Ile zostało?";
+                    const visualSub = show ? Renderer.createSubtractionGrid(q.a, q.b) : Renderer.createHiddenPlaceholder();
+                    
                     container.innerHTML = `
                         <div class="flex flex-col items-center animate-pop w-full">
                              <div class="flex items-center gap-4 mb-4">
@@ -384,7 +380,7 @@
                                 <span class="text-5xl font-black text-slate-500">-</span>
                                 <span class="text-5xl font-bold text-orange-500">${q.b}</span>
                              </div>
-                            ${Renderer.createSubtractionGrid(q.a, q.b)}
+                            ${visualSub}
                         </div>
                     `;
                 } else {
@@ -395,12 +391,13 @@
                         </div>
                     `;
                 }
+                
+                lucide.createIcons();
             },
 
             renderOptions() {
                 const container = document.getElementById('options-container');
                 container.innerHTML = '';
-
                 this.state.currentQuestion.options.forEach(opt => {
                     const btn = document.createElement('button');
                     btn.className = "tile-btn bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900 active:border-b-0 active:translate-y-1 rounded-2xl text-3xl sm:text-4xl font-bold text-white shadow-lg transition-all flex items-center justify-center";
@@ -414,10 +411,8 @@
                 const layer = document.getElementById('feedback-layer');
                 const emojiDiv = document.getElementById('feedback-emoji');
                 const textDiv = document.getElementById('feedback-text');
-
                 layer.classList.remove('hidden');
                 layer.classList.add('flex');
-
                 if (isSuccess) {
                     layer.className = "absolute inset-0 z-50 flex flex-col items-center justify-center bg-emerald-600/95 backdrop-blur-sm animate-pop";
                     const emoji = this.emojis.success[Math.floor(Math.random() * this.emojis.success.length)];
@@ -440,33 +435,43 @@
             },
 
             updateUI() {
+                // Score & Range
                 document.getElementById('score-val').innerText = this.state.score;
-                
                 const rangeInd = document.getElementById('range-indicator');
                 rangeInd.innerText = this.state.range;
                 rangeInd.className = `w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${this.state.range === 20 ? 'bg-purple-500' : 'bg-emerald-500'} text-white`;
 
-                const btns = {
-                    ADD: document.getElementById('btn-mode-add'),
-                    SUB: document.getElementById('btn-mode-sub'),
-                    COUNT: document.getElementById('btn-mode-count')
-                };
+                // Hints Button Style
+                const btnHints = document.getElementById('btn-hints');
+                const iconHints = document.getElementById('icon-hints');
+                if (this.state.mode === 'COUNT') {
+                    btnHints.className = "flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700/50 opacity-50 cursor-not-allowed";
+                    iconHints.setAttribute('data-lucide', 'eye');
+                    iconHints.className = "w-5 h-5 text-slate-500";
+                } else {
+                    if (this.state.showHints) {
+                        btnHints.className = "flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-emerald-500/50 active:scale-95 transition-all shadow-[0_0_10px_rgba(16,185,129,0.2)]";
+                        iconHints.setAttribute('data-lucide', 'eye');
+                        iconHints.className = "w-5 h-5 text-emerald-400";
+                    } else {
+                        btnHints.className = "flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-600 active:scale-95 transition-all";
+                        iconHints.setAttribute('data-lucide', 'eye-off');
+                        iconHints.className = "w-5 h-5 text-slate-400";
+                    }
+                }
+                lucide.createIcons();
 
+                // Tabs Styling
+                const btns = { ADD: document.getElementById('btn-mode-add'), SUB: document.getElementById('btn-mode-sub'), COUNT: document.getElementById('btn-mode-count') };
                 const activeClass = "bg-slate-700 text-yellow-400 shadow-inner";
                 const inactiveClass = "text-slate-400 hover:text-white";
-
                 Object.keys(btns).forEach(key => {
-                    if (key === this.state.mode) {
-                        btns[key].className = `flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeClass}`;
-                    } else {
-                        btns[key].className = `flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${inactiveClass}`;
-                    }
+                    btns[key].className = `flex-1 py-3 px-2 rounded-xl font-bold text-sm sm:text-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${key === this.state.mode ? activeClass : inactiveClass}`;
                 });
             }
         };
 
         window.onload = () => App.init();
-
     </script>
 </body>
 </html>
