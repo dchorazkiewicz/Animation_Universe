@@ -32,6 +32,7 @@ nav:
   - Matematyka:
     - Arytmetyka:
       - Arytmetyka: math/arytmetyka.md
+      - Dodawanie: math/dodawanie.html
       - Działania Pisemne: math/dzialania_pisemne.html
       - Kolejność Działań: math/kolejnosc_dzialan.html
       - Kolejność Działań 2: math/kolejnosc_dzialan_2.html
