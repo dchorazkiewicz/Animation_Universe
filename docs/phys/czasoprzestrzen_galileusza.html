@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Czasoprzestrzeń Galileusza - Dark Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Globalne ciemne tło */
+        body { margin: 0; overflow: hidden; background-color: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #e2e8f0; }
+        
+        /* Ciemny Canvas */
+        canvas { display: block; background-color: #1e293b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); border-radius: 8px; margin: 0 auto; border: 1px solid #334155; }
+        
+        /* Ciemny panel sterowania */
+        .controls { position: absolute; top: 20px; right: 20px; background: rgba(30, 41, 59, 0.95); padding: 15px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); width: 380px; border: 1px solid #475569; max-height: 95vh; overflow-y: auto; color: #f1f5f9; }
+        
+        .label { font-size: 0.85rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.25rem; display: block; }
+        
+        /* Ciemny kontener slidera */
+        .slider-container { margin-bottom: 15px; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
+        
+        .slider { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 5px; background: #475569; outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #3b82f6; cursor: pointer; border: 2px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+        
+        /* Ciemny box kalkulatora */
+        .calc-box { font-family: 'Courier New', monospace; background: #0f172a; color: #cbd5e1; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 0.85rem; border-left: 4px solid #f59e0b; border: 1px solid #334155; border-left-width: 4px; }
+        .calc-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .calc-val { color: #34d399; font-weight: bold; }
+        .calc-header { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid #334155; margin-bottom: 5px; padding-bottom: 2px;}
+
+        .legend-row { display: flex; align-items: center; margin-bottom: 4px; font-size: 0.8rem; color: #cbd5e1; }
+        .color-box { width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; flex-shrink: 0; }
+        
+        /* Scrollbar dla panelu */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div class="relative w-full h-full flex items-center justify-center bg-slate-900">
+        <canvas id="canvas"></canvas>
+
+        <div class="controls">
+            <h2 class="text-lg font-bold text-gray-100 mb-3 border-b border-gray-600 pb-2">Transformacja Galileusza</h2>
+            
+            <div class="slider-container">
+                <label class="label">Prędkość układu ruchomego (v)</label>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono text-gray-400">-1.5</span>
+                    <input type="range" id="vSlider" min="-1.5" max="1.5" step="0.01" value="0.6" class="slider">
+                    <span class="text-xs font-mono text-gray-400">1.5</span>
+                </div>
+                <div class="text-center mt-1">
+                    <span class="text-sm font-mono text-gray-400">v = </span>
+                    <span id="vValue" class="font-bold text-blue-400 text-lg font-mono">0.60</span>
+                </div>
+            </div>
+
+            <!-- Panel weryfikacji - ciemny -->
+            <div class="bg-slate-800 rounded-lg border border-slate-600 p-3 shadow-sm mb-4">
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Weryfikacja Matematyczna</h3>
+                <p class="text-xs text-gray-300 mb-2">Wzór: <b class="text-white">x' = x - (v · t)</b></p>
+                <p class="text-xs text-gray-300 mb-2">Czas zdarzeń (stały): <b class="text-white">t = 3.0</b></p>
+                
+                <div class="calc-box">
+                    <div class="calc-header">Zdarzenie A (Prawa strona)</div>
+                    <div class="calc-row"><span>x (Ty):</span> <span>2.00</span></div>
+                    <div class="calc-row"><span>v · t:</span> <span id="vtCalc_A">1.80</span></div>
+                    <div class="calc-row border-t border-gray-700 pt-1">
+                        <span>x' (Wynik):</span> <span id="res_A" class="calc-val">0.20</span>
+                    </div>
+                </div>
+
+                <div class="calc-box mt-2">
+                    <div class="calc-header">Zdarzenie B (Lewa strona)</div>
+                    <div class="calc-row"><span>x (Ty):</span> <span>-2.00</span></div>
+                    <div class="calc-row"><span>v · t:</span> <span id="vtCalc_B">1.80</span></div>
+                    <div class="calc-row border-t border-gray-700 pt-1">
+                        <span>x' (Wynik):</span> <span id="res_B" class="calc-val">-3.80</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-xs text-gray-400">
+                <div class="legend-row">
+                    <div class="color-box" style="background: #ef4444;"></div>
+                    <span>Zdarzenia A i B (Czerwone kropki)</span>
+                </div>
+                <div class="legend-row">
+                    <div class="color-box" style="background: #f59e0b;"></div>
+                    <span>Żółta linia: Rzut równoległy do osi t'</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const vSlider = document.getElementById('vSlider');
+        const vValueSpan = document.getElementById('vValue');
+        
+        const vtCalcA = document.getElementById('vtCalc_A');
+        const resA = document.getElementById('res_A');
+        const vtCalcB = document.getElementById('vtCalc_B');
+        const resB = document.getElementById('res_B');
+
+        let scale = 50; 
+        let velocity = 0.6;
+        
+        const eventA = { x: 2, t: 3, label: "A" };
+        const eventB = { x: -2, t: 3, label: "B" };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        function toScreen(x, t) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height * 0.75; 
+            return {
+                x: centerX + x * scale,
+                y: centerY - t * scale
+            };
+        }
+
+        function drawGrid(v) {
+            const rangeX = 15;
+            const rangeT = 8;
+            
+            ctx.lineWidth = 1;
+
+            // 1. Siatka Tła (Nieruchoma) - Ciemnoszara
+            ctx.strokeStyle = '#334155'; // Slate-700
+            for (let i = -rangeX; i <= rangeX; i++) {
+                let p1 = toScreen(i, -2);
+                let p2 = toScreen(i, rangeT);
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            }
+            for (let i = -2; i <= rangeT; i++) {
+                let p1 = toScreen(-rangeX, i);
+                let p2 = toScreen(rangeX, i);
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            }
+
+            // 2. Osie Główne - Jasnoszare
+            ctx.strokeStyle = '#94a3b8'; // Slate-400
+            ctx.lineWidth = 2;
+            
+            // Oś t (Pionowa)
+            ctx.beginPath();
+            let start = toScreen(0, -2);
+            let end = toScreen(0, rangeT);
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            ctx.fillStyle = '#cbd5e1'; // Jasny tekst
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText("t", end.x - 15, end.y - 10);
+
+            // Oś x (Pozioma)
+            ctx.beginPath();
+            start = toScreen(-rangeX, 0);
+            end = toScreen(rangeX, 0);
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            ctx.fillText("x (oraz x' przy t=0)", end.x - 120, end.y + 20);
+
+            // 3. Oś t' (Ruchoma - Linia Świata Obserwatora) - Jasnoniebieska
+            ctx.strokeStyle = '#60a5fa'; // Blue-400 (jaśniejszy niebieski dla kontrastu)
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            start = toScreen(v * -2, -2);
+            end = toScreen(v * rangeT, rangeT);
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#60a5fa';
+            ctx.fillText("t' (Oś czasu ruchoma)", end.x + 10, end.y);
+        }
+
+        function drawProjection(ev, v) {
+            const screenP = toScreen(ev.x, ev.t);
+            const xPrime = ev.x - v * ev.t; 
+            const pAxisMove = toScreen(xPrime, 0); 
+
+            // RYSOWANIE RZUTU (Żółta linia)
+            ctx.strokeStyle = '#fbbf24'; // Amber-400 (jaśniejszy żółty)
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 2]);
+
+            ctx.beginPath();
+            ctx.moveTo(screenP.x, screenP.y);
+            ctx.lineTo(pAxisMove.x, pAxisMove.y);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            // Etykieta wyniku na osi
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(xPrime.toFixed(2), pAxisMove.x, pAxisMove.y + 15);
+
+            // Wektor przesunięcia
+            const pVerticalProj = toScreen(ev.x, 0); 
+            
+            if (Math.abs(v) > 0.05) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#f87171'; // Red-400 (jaśniejszy czerwony)
+                ctx.lineWidth = 1;
+                ctx.moveTo(pVerticalProj.x, pVerticalProj.y);
+                ctx.lineTo(pAxisMove.x, pAxisMove.y);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(pAxisMove.x, pAxisMove.y, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function drawEventPoint(ev) {
+            const p = toScreen(ev.x, ev.t);
+            
+            // Linia pionowa (rzut klasyczny)
+            ctx.strokeStyle = '#64748b'; // Slate-500
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(toScreen(ev.x, 0).x, toScreen(ev.x, 0).y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Kropka
+            ctx.fillStyle = '#ef4444'; // Red-500
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Label
+            ctx.fillStyle = '#f1f5f9'; // Biały tekst
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText(ev.label, p.x + 10, p.y - 10);
+            ctx.fillStyle = '#94a3b8'; // Slate-400
+            ctx.font = '10px monospace';
+            ctx.fillText(`x=${ev.x}`, p.x + 10, p.y);
+        }
+
+        function updateCalculator(v) {
+            const vtA = v * eventA.t;
+            const resValA = eventA.x - vtA;
+            vtCalcA.textContent = `${(v*eventA.t).toFixed(2)}`;
+            resA.textContent = resValA.toFixed(2);
+
+            const vtB = v * eventB.t;
+            const resValB = eventB.x - vtB;
+            vtCalcB.textContent = `${(v*eventB.t).toFixed(2)}`;
+            resB.textContent = resValB.toFixed(2);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            velocity = parseFloat(vSlider.value);
+            vValueSpan.textContent = velocity.toFixed(2);
+
+            drawGrid(velocity);
+            drawProjection(eventA, velocity);
+            drawProjection(eventB, velocity);
+            drawEventPoint(eventA);
+            drawEventPoint(eventB);
+            updateCalculator(velocity);
+        }
+
+        vSlider.addEventListener('input', draw);
+        draw();
+
+    </script>
+</body>
+</html>

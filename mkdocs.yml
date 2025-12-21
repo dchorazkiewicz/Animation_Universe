@@ -63,6 +63,7 @@ nav:
       - Metoda Newtona: phys/numeryczny_newton.html
     - Teoria Względności:
       - Transformacja Galileusza: phys/galileo_transformation.html
+      - Czasoprzestrzeń Galileusza: phys/czasoprzestrzen_galileusza.html
       - Czasoprzestrzeń Minkowskiego: phys/minkowski.html
       - Czasoprzestrzeń Minkowskiego 2: phys/minkowski_2.html
       - Czasoprzestrzeń Minkowskiego 3: phys/minkowski_3.html
