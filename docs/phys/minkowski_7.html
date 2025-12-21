@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Szczególna Teoria Względności: Zestawienie</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --panel: #111;
+            --border: #333;
+            --text: #ddd;
+            --accent: #00d4ff; /* Cyan - Bob */
+            --accent-2: #ff0055; /* Magenta - Alice */
+            --accent-3: #ffcc00; /* Yellow - Light */
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* UI ELEMENTS */
+        .nav-bar {
+            display: flex;
+            background: var(--panel);
+            width: 100%;
+            justify-content: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #888;
+            padding: 8px 20px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        .nav-btn:hover { background: #222; color: #fff; }
+        .nav-btn.active {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .module { display: none; width: 100%; max-width: 1000px; flex-direction: column; align-items: center; padding: 0 10px; box-sizing: border-box; }
+        .module.active { display: flex; }
+
+        h2 { margin-top: 0; color: #fff; text-transform: uppercase; font-size: 1.2rem; letter-spacing: 1px; }
+        p.desc { text-align: center; color: #888; max-width: 700px; margin-bottom: 20px; font-size: 0.9rem; }
+
+        /* CANVAS & VISUALS */
+        .canvas-container {
+            position: relative;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        canvas { display: block; width: 100%; }
+
+        .overlay-info {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--accent);
+            pointer-events: none;
+            border-left: 3px solid var(--accent);
+        }
+        
+        .overlay-info.sec {
+            color: var(--accent-2);
+            border-left: 3px solid var(--accent-2);
+        }
+
+        /* CONTROLS */
+        .controls {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 15px 25px;
+            border-radius: 8px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        label { font-size: 0.8rem; text-transform: uppercase; color: #666; margin-right: 5px; }
+        input[type=range] { accent-color: var(--accent); cursor: pointer; width: 200px; vertical-align: middle; }
+        
+        button.action-btn {
+            background: #222; color: #fff; border: 1px solid #444;
+            padding: 6px 15px; border-radius: 4px; cursor: pointer;
+            text-transform: uppercase; font-size: 0.8rem;
+        }
+        button.action-btn:hover { background: #333; border-color: #666; }
+
+        .val-disp { font-family: monospace; color: #fff; font-weight: bold; margin-left: 5px; width: 50px; display: inline-block;}
+
+        /* LAYOUT HELPERS */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        @media(max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    </style>
+</head>
+<body>
+
+<nav class="nav-bar">
+    <button class="nav-btn active" onclick="setTab('simul')">1. Jednoczesność</button>
+    <button class="nav-btn" onclick="setTab('doppler')">2. Efekt Dopplera</button>
+    <button class="nav-btn" onclick="setTab('twins')">3. Paradoks Bliźniąt</button>
+    <button class="nav-btn" onclick="setTab('penrose')">4. Diagram Penrose'a</button>
+</nav>
+
+<main>
+
+    <!-- MODULE 1: SIMULTANEITY -->
+    <div id="mod-simul" class="module active">
+        <h2>Względność Jednoczesności</h2>
+        <p class="desc">
+            Widok z Peronu. Błyskawice uderzają w tory w punktach A i B <b>jednocześnie</b> ($t=0$).<br>
+            Bob (na peronie) jest w środku – sygnały docierają do niego w tym samym momencie.<br>
+            Alice (w pociągu) porusza się w prawo – ucieka przed sygnałem z lewej i goni sygnał z prawej. Dlatego widzi je w różnym czasie.
+        </p>
+
+        <div class="canvas-container">
+            <div class="overlay-info">EKSPERYMENT (Układ Boba)</div>
+            <canvas id="cvSim" width="800" height="350"></canvas>
+        </div>
+
+        <div class="controls">
+            <div>
+                <label>Prędkość Alice ($v$):</label>
+                <input type="range" id="simSpeed" min="0" max="0.8" step="0.05" value="0.5">
+                <span id="simSpeedVal" class="val-disp">0.50c</span>
+            </div>
+            <button class="action-btn" onclick="simTrigger()">Start Symulacji</button>
+        </div>
+    </div>
+
+    <!-- MODULE 2: DOPPLER -->
+    <div id="mod-doppler" class="module">
+        <h2>Relatywistyczny Efekt Dopplera</h2>
+        <p class="desc">
+            Widok z kokpitu. Wzrost prędkości powoduje przesunięcie barw (Doppler) oraz skupienie gwiazd z przodu (Aberracja).
+        </p>
+
+        <div class="canvas-container">
+            <div class="overlay-info" id="dopplerInfo">v = 0.00c</div>
+            <canvas id="cvDoppler" width="800" height="400"></canvas>
+        </div>
+
+        <div class="controls">
+            <div>
+                <label>Prędkość statku ($v$):</label>
+                <input type="range" id="dopSpeed" min="0" max="0.99" step="0.01" value="0.0">
+                <span id="dopSpeedVal" class="val-disp">0.00c</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULE 3: TWINS -->
+    <div id="mod-twins" class="module">
+        <h2>Paradoks Bliźniąt (Metoda Radarowa)</h2>
+        <p class="desc">
+            <span style="color:var(--accent-2)">Czerwona linia</span> to trasa podróżnika (Bliźniak B). Pionowa linia to Ziemia (Bliźniak A).<br>
+            <span style="color:var(--accent-3)">Żółte linie</span> to sygnały świetlne (45&deg;). Ziemia wysyła sygnał, który odbija się od Bliźniaka i wraca.<br>
+            <b>Auto-Skalowanie</b> zapewnia widoczność całej podróży.
+        </p>
+
+        <div class="canvas-container">
+            <canvas id="cvTwins" width="800" height="500"></canvas>
+        </div>
+
+        <div class="controls">
+            <div>
+                <label>Prędkość ($v$):</label>
+                <input type="range" id="twinSpeed" min="0.1" max="0.85" step="0.05" value="0.6">
+                <span id="twinSpeedVal" class="val-disp">0.60c</span>
+            </div>
+            <div>
+                <label>Dystans ($L$):</label>
+                <input type="range" id="twinDist" min="2" max="10" step="1" value="4">
+                <span id="twinDistVal" class="val-disp">4.0ly</span>
+            </div>
+            <div style="font-family: monospace; font-size: 0.9rem; margin-left:20px;">
+                <span style="color:var(--accent)">Ziemia: <span id="ageEarth">--</span> lat</span> | 
+                <span style="color:var(--accent-2)">Podróżnik: <span id="ageSpace">--</span> lat</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULE 4: PENROSE -->
+    <div id="mod-penrose" class="module">
+        <h2>Diagram Penrose'a</h2>
+        <p class="desc">
+            Mapowanie nieskończoności. Przesuwaj myszką po diagramie Minkowskiego (lewa), aby zobaczyć odpowiedni punkt na diagramie Penrose'a (prawa).
+        </p>
+
+        <div class="grid-2">
+            <div class="canvas-container">
+                <div class="overlay-info">MINKOWSKI</div>
+                <canvas id="cvPenMink" width="400" height="400"></canvas>
+            </div>
+            <div class="canvas-container">
+                <div class="overlay-info">PENROSE</div>
+                <canvas id="cvPenDia" width="400" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    // --- UTILS & CONSTANTS ---
+    const C_GRID = '#222';
+    const C_AXIS = '#555';
+    const C_LIGHT = '#ffcc00';   // Yellow
+    const C_BOB = '#00d4ff';     // Cyan
+    const C_ALICE = '#ff0055';   // Magenta
+    const C_WHITE = '#ffffff';
+    const C_P1 = '#00d4ff';      // Bob alias
+    const C_P2 = '#ff0055';      // Alice alias
+    const C_ACCENT3 = '#ffcc00';
+
+    function drawScaledGrid(ctx, w, h, unitSizeInPx, originX, originY, color=C_GRID) {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        // Vertical lines
+        for(let x = originX; x < w; x += unitSizeInPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+        for(let x = originX; x > 0; x -= unitSizeInPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+        // Horizontal lines
+        for(let y = originY; y < h; y += unitSizeInPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+        for(let y = originY; y > 0; y -= unitSizeInPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+        ctx.stroke();
+    }
+
+    function drawArrow(ctx, x1, y1, x2, y2, color, width=2) {
+        const head = 10;
+        const angle = Math.atan2(y2-y1, x2-x1);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2-head*Math.cos(angle-Math.PI/6), y2-head*Math.sin(angle-Math.PI/6));
+        ctx.lineTo(x2-head*Math.cos(angle+Math.PI/6), y2-head*Math.sin(angle+Math.PI/6));
+        ctx.fillStyle = color; ctx.fill();
+    }
+
+    let activeTab = 'simul';
+
+    function setTab(id) {
+        activeTab = id;
+        document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+        document.getElementById('mod-'+id).classList.add('active');
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        
+        const tabs = ['simul','doppler','twins','penrose'];
+        document.querySelectorAll('.nav-btn')[tabs.indexOf(id)].classList.add('active');
+        
+        if(id === 'simul') simReset();
+        if(id === 'doppler') initDopplerStars();
+        if(id === 'twins') drawTwins(); // Refresh grid
+    }
+
+    /* =========================================
+       1. SIMULTANEITY (Camera Tracking)
+       ========================================= */
+    const cvSim = document.getElementById('cvSim').getContext('2d');
+    let sim = { active: false, t: 0, v: 0.5, camX: 0, hitAliceL: false, hitAliceR: false, hitBobL: false, hitBobR: false };
+
+    function simReset() {
+        sim.active = false;
+        sim.t = 0;
+        sim.camX = 0;
+        sim.hitAliceL = sim.hitAliceR = sim.hitBobL = sim.hitBobR = false;
+        drawSimFrame();
+    }
+
+    function simTrigger() {
+        sim.active = true;
+        sim.t = 0;
+        sim.hitAliceL = sim.hitAliceR = sim.hitBobL = sim.hitBobR = false;
+        sim.v = parseFloat(document.getElementById('simSpeed').value);
+        document.getElementById('simSpeedVal').innerText = sim.v.toFixed(2)+"c";
+    }
+
+    function drawSimFrame() {
+        const w = cvSim.canvas.width;
+        const h = cvSim.canvas.height;
+        cvSim.clearRect(0,0,w,h);
+
+        const cy = h/2;
+        const cx = w/2; // Initial center
+        const scale = 100; // px per sec
+        const L = 250; // Distance to flash source from center (px)
+
+        // Physics State
+        const t = sim.active ? sim.t : 0;
+        const trainX_abs = sim.v * t * scale; // Train pos relative to start (0)
+        
+        // --- CAMERA LOGIC ---
+        const screenLimit = w * 0.1; 
+        const targetCamX = Math.max(0, trainX_abs - screenLimit);
+        sim.camX = targetCamX;
+
+        // Effective drawing offset
+        const dx = cx - sim.camX; 
+
+        // World Coordinates
+        const aliceX = dx + trainX_abs;
+        const bobX = dx; // Bob starts at 0
+        const flashL_X = dx - L;
+        const flashR_X = dx + L;
+        const radius = t * scale;
+
+        // 1. Draw Environment
+        // Tracks
+        cvSim.fillStyle = '#222'; 
+        cvSim.fillRect(0, cy+20, w, 6); 
+        
+        cvSim.fillStyle = '#444'; 
+        const startTie = Math.floor(sim.camX / 40) * 40;
+        for(let i = startTie - w/2 - 40; i < startTie + w + 40; i+=40) {
+            const screenX = cx + i - sim.camX;
+            if(screenX > -20 && screenX < w+20) {
+                cvSim.fillRect(screenX, cy+20, 4, 10);
+            }
+        }
+
+        // Flash Sources
+        if (flashL_X > -50 && flashL_X < w+50) {
+            cvSim.fillStyle = '#888'; cvSim.fillRect(flashL_X-5, cy+30, 10, 10);
+            cvSim.fillStyle = '#aaa'; cvSim.font="10px sans-serif"; cvSim.fillText("Źródło A", flashL_X-20, cy+55);
+        }
+        if (flashR_X > -50 && flashR_X < w+50) {
+            cvSim.fillStyle = '#888'; cvSim.fillRect(flashR_X-5, cy+30, 10, 10);
+            cvSim.fillStyle = '#aaa'; cvSim.font="10px sans-serif"; cvSim.fillText("Źródło B", flashR_X-20, cy+55);
+        }
+
+        // 2. Draw Observers
+        // Bob
+        if (bobX > -20 && bobX < w+20) {
+            cvSim.fillStyle = C_BOB;
+            cvSim.fillRect(bobX-3, cy+30, 6, 20);
+            cvSim.fillText("Bob", bobX-10, cy+65);
+        }
+
+        // Alice (Train)
+        const trainLen = 100;
+        cvSim.strokeStyle = C_ALICE; cvSim.lineWidth=3;
+        cvSim.strokeRect(aliceX - trainLen/2, cy-30, trainLen, 40);
+        cvSim.fillStyle = C_ALICE;
+        cvSim.beginPath(); cvSim.arc(aliceX, cy-10, 6, 0, Math.PI*2); cvSim.fill();
+        cvSim.fillStyle = C_WHITE; cvSim.fillText("Alice", aliceX-15, cy-45);
+
+        // 3. Light Propagation & Collision Logic
+        if(sim.active) {
+            // Draw Waves
+            cvSim.strokeStyle = C_LIGHT; cvSim.lineWidth = 2;
+            cvSim.beginPath(); cvSim.arc(flashL_X, cy+35, radius, 0, Math.PI*2); cvSim.stroke();
+            cvSim.beginPath(); cvSim.arc(flashR_X, cy+35, radius, 0, Math.PI*2); cvSim.stroke();
+
+            // Collision Logic
+            const aX = trainX_abs; 
+            const bX = 0;
+            const fLx = -L + radius;
+            const fRx = L - radius;
+
+            if(fLx >= aX && !sim.hitAliceL) sim.hitAliceL = true;
+            if(fRx <= aX && !sim.hitAliceR) sim.hitAliceR = true;
+            
+            if(fLx >= bX && !sim.hitBobL) sim.hitBobL = true;
+            if(fRx <= bX && !sim.hitBobR) sim.hitBobR = true;
+        }
+
+        // 4. Annotations
+        cvSim.font = "bold 14px monospace";
+        
+        // Bob events
+        if(sim.hitBobL && sim.hitBobR) {
+            if (bobX > 0 && bobX < w) {
+                cvSim.fillStyle = C_BOB;
+                cvSim.fillText("BOB: Sygnały dotarły JEDNOCZEŚNIE!", bobX - 120, cy + 90);
+            }
+        }
+
+        // Alice events UI
+        let msgY = 30;
+        if(sim.hitAliceR) {
+            cvSim.fillStyle = C_ALICE;
+            cvSim.fillText("1. ALICE widzi B (Prawy)", w - 250, msgY);
+            cvSim.beginPath(); cvSim.arc(w-260, msgY-5, 5, 0, Math.PI*2); cvSim.fill();
+            msgY += 25;
+        }
+        if(sim.hitAliceL) {
+            cvSim.fillStyle = C_ALICE;
+            cvSim.fillText("2. ALICE widzi A (Lewy)", w - 250, msgY);
+            cvSim.beginPath(); cvSim.arc(w-260, msgY-5, 5, 0, Math.PI*2); cvSim.fill();
+        }
+    }
+
+    /* =========================================
+       2. DOPPLER
+       ========================================= */
+    const cvDop = document.getElementById('cvDoppler').getContext('2d');
+    let stars = [];
+    const NUM_STARS = 200;
+
+    function initDopplerStars() {
+        stars = [];
+        for(let i=0; i<NUM_STARS; i++) {
+            const theta = Math.acos(2 * Math.random() - 1);
+            const phi = Math.random() * Math.PI * 2;
+            stars.push({ theta_rest: theta, phi: phi });
+        }
+    }
+
+    function updateDoppler() {
+        const w = cvDop.canvas.width;
+        const h = cvDop.canvas.height;
+        const v = parseFloat(document.getElementById('dopSpeed').value);
+        document.getElementById('dopSpeedVal').innerText = v.toFixed(2)+"c";
+        document.getElementById('dopplerInfo').innerText = "v = " + v.toFixed(2) + "c";
+
+        cvDop.fillStyle = '#000';
+        cvDop.fillRect(0,0,w,h);
+
+        const gamma = 1 / Math.sqrt(1 - v*v);
+
+        cvDop.strokeStyle = '#333';
+        cvDop.beginPath(); 
+        cvDop.moveTo(w/2-10, h/2); cvDop.lineTo(w/2+10, h/2);
+        cvDop.moveTo(w/2, h/2-10); cvDop.lineTo(w/2, h/2+10);
+        cvDop.stroke();
+
+        for(let star of stars) {
+            const cosT = Math.cos(star.theta_rest);
+            const cosTp = (cosT + v) / (1 + v * cosT);
+            const theta_prime = Math.acos(cosTp);
+            const D = 1 / (gamma * (1 - v * Math.cos(theta_prime))); 
+            
+            const distFromCenter = (theta_prime / Math.PI) * (h * 0.9); 
+            const x = w/2 + distFromCenter * Math.cos(star.phi);
+            const y = h/2 + distFromCenter * Math.sin(star.phi);
+
+            let r=255, g=255, b=255;
+            if(D > 1.05) { 
+                r = Math.max(0, 255 - (D-1)*400); g = Math.max(0, 255 - (D-1)*400); b = 255;
+            } else if (D < 0.95) { 
+                r = 255; g = Math.max(0, 255 - (1-D)*400); b = Math.max(0, 255 - (1-D)*400);
+            }
+            const size = Math.min(4, 1.5 * D);
+            cvDop.fillStyle = `rgb(${r},${g},${b})`;
+            cvDop.beginPath(); cvDop.arc(x, y, size, 0, Math.PI*2); cvDop.fill();
+        }
+    }
+
+    /* =========================================
+       3. TWIN PARADOX (RADAR METHOD + FIXED 45 DEG)
+       ========================================= */
+    const cvTwins = document.getElementById('cvTwins').getContext('2d');
+
+    function drawTwins() {
+        const w = cvTwins.canvas.width;
+        const h = cvTwins.canvas.height;
+        const v = parseFloat(document.getElementById('twinSpeed').value);
+        const dist = parseFloat(document.getElementById('twinDist').value);
+        document.getElementById('twinSpeedVal').innerText = v.toFixed(2)+"c";
+        document.getElementById('twinDistVal').innerText = dist.toFixed(1)+"ly";
+
+        cvTwins.clearRect(0,0,w,h);
+        
+        // --- 1. COORDINATE SETUP ---
+        const timeOneWay = dist / v;
+        const totalTimeEarth = timeOneWay * 2;
+        
+        // Bounds with padding
+        // Scale logic: Fit totalTimeEarth in H and dist in W (approx)
+        // BUT enforce 1:1 ratio.
+        
+        const pad = 40;
+        const availW = w - 2*pad;
+        const availH = h - 2*pad;
+        
+        // Determine required logical size
+        // We need X from 0 to dist*1.2
+        // We need T from 0 to totalTimeEarth*1.1
+        const reqX = dist * 1.5;
+        const reqT = totalTimeEarth * 1.1;
+        
+        // Find minimum scale to fit both
+        const scale = Math.min(availW / reqX, availH / reqT);
+        
+        const ox = pad;
+        const oy = h - pad;
+
+        // --- 2. GRID & AXES ---
+        // Light cones (45 deg = 1 px per 1 px because c=1 and scale is uniform)
+        cvTwins.strokeStyle = '#222'; cvTwins.lineWidth = 1;
+        for(let i=0; i<w+h; i+=scale*5) { // visual guide lines
+            cvTwins.beginPath(); cvTwins.moveTo(ox+i, oy); cvTwins.lineTo(ox, oy-i); cvTwins.stroke();
+        }
+
+        // Logic Grid
+        let step = 1;
+        if(totalTimeEarth > 20) step = 5;
+        
+        cvTwins.strokeStyle = '#333';
+        cvTwins.beginPath();
+        // X lines
+        for(let x=0; x<=reqX; x+=step) {
+            const px = ox + x*scale;
+            cvTwins.moveTo(px, oy); cvTwins.lineTo(px, oy - reqT*scale);
+            if(x%2===0) { cvTwins.fillStyle='#666'; cvTwins.fillText(x, px-3, oy+15); }
+        }
+        // T lines
+        for(let t=0; t<=reqT; t+=step) {
+            const py = oy - t*scale;
+            cvTwins.moveTo(ox, py); cvTwins.lineTo(ox + reqX*scale, py);
+            if(t%2===0) { cvTwins.fillStyle='#666'; cvTwins.fillText(t, ox-25, py+3); }
+        }
+        cvTwins.stroke();
+
+        // Axes Arrows
+        drawArrow(cvTwins, ox, h, ox, 0, C_AXIS); // t
+        drawArrow(cvTwins, 0, oy, w, oy, C_AXIS); // x
+        cvTwins.fillStyle='#aaa'; cvTwins.fillText("x (ly)", w-30, oy-10); cvTwins.fillText("ct (lat)", ox+10, 20);
+
+        // --- 3. WORLDLINES ---
+        
+        // Earth (Bob)
+        cvTwins.strokeStyle = C_P1; cvTwins.lineWidth = 3;
+        cvTwins.beginPath();
+        cvTwins.moveTo(ox, oy);
+        cvTwins.lineTo(ox, oy - totalTimeEarth * scale);
+        cvTwins.stroke();
+        
+        // Traveler (Alice)
+        const turnX_px = ox + dist * scale;
+        const turnY_px = oy - timeOneWay * scale;
+        const returnY_px = oy - totalTimeEarth * scale;
+
+        cvTwins.strokeStyle = C_P2;
+        cvTwins.beginPath();
+        cvTwins.moveTo(ox, oy);
+        cvTwins.lineTo(turnX_px, turnY_px); // Outbound
+        cvTwins.lineTo(ox, returnY_px); // Inbound
+        cvTwins.stroke();
+        
+        // Highlight Turn Point
+        cvTwins.fillStyle = C_WHITE;
+        cvTwins.fillText("Zwrot", turnX_px+5, turnY_px);
+
+        // --- 4. RADAR SIGNALS (Earth -> Alice -> Earth) ---
+        // Earth emits signals every 1 year.
+        // Signal goes at 45 deg (slope 1).
+        // Hit Alice. Reflect at -45 deg (slope -1).
+        
+        cvTwins.lineWidth = 1;
+        for(let te=0; te<totalTimeEarth; te+=1) {
+            const emitY = oy - te*scale;
+            const emitX = ox;
+            
+            // Equation of light ray: t = x + te.
+            // 1. Intersect with Outbound (x = vt)
+            // t = vt + te => t(1-v) = te => t = te/(1-v).
+            const t1 = te / (1-v);
+            const x1 = v * t1;
+            
+            // 2. Intersect with Inbound (x = dist - v(t - T_one_way)) -> t = (dist + vT1 + te)/(1+v)
+            const t2 = (dist + v*timeOneWay + te) / (1+v);
+            const x2 = dist - v*(t2 - timeOneWay);
+            
+            // Determine which segment is hit
+            let hitT, hitX;
+            if (t1 <= timeOneWay) {
+                hitT = t1; hitX = x1;
+            } else if (t2 <= totalTimeEarth) {
+                hitT = t2; hitX = x2;
+            } else {
+                // Misses (after journey end)
+                continue; 
+            }
+            
+            // Draw Outbound Ray
+            cvTwins.strokeStyle = 'rgba(255, 204, 0, 0.5)'; // Yellow weak
+            cvTwins.beginPath();
+            cvTwins.moveTo(emitX, emitY);
+            cvTwins.lineTo(ox + hitX*scale, oy - hitT*scale);
+            cvTwins.stroke();
+            
+            // Draw Return Ray (Slope -1 => t = -x + C)
+            // t - hitT = -(x - hitX) => t = -x + hitX + hitT
+            // Intersect with Earth (x=0) => t_return = hitX + hitT
+            const t_return = hitX + hitT;
+            
+            if(t_return <= totalTimeEarth * 1.2) {
+                cvTwins.strokeStyle = 'rgba(0, 212, 255, 0.3)'; // Cyan return
+                cvTwins.beginPath();
+                cvTwins.moveTo(ox + hitX*scale, oy - hitT*scale);
+                cvTwins.lineTo(ox, oy - t_return*scale);
+                cvTwins.stroke();
+            }
+            
+            // Dot at reflection
+            cvTwins.fillStyle = C_LIGHT;
+            cvTwins.fillRect(ox + hitX*scale - 2, oy - hitT*scale - 2, 4, 4);
+        }
+
+        // --- 5. STATS & TICKS ---
+        const gamma = 1 / Math.sqrt(1 - v*v);
+        const timeProper = totalTimeEarth / gamma;
+        
+        document.getElementById('ageEarth').innerText = totalTimeEarth.toFixed(2);
+        document.getElementById('ageSpace').innerText = timeProper.toFixed(2);
+        
+        // Ticks on Alice worldline (Proper Time years)
+        cvTwins.fillStyle = C_P2;
+        // Outbound
+        const properOneWay = timeProper / 2;
+        const dx_proper = v * gamma * scale;
+        const dt_proper = gamma * scale;
+        
+        for(let i=1; i < properOneWay; i++) {
+            cvTwins.beginPath();
+            cvTwins.arc(ox + i*dx_proper, oy - i*dt_proper, 3, 0, Math.PI*2);
+            cvTwins.fill();
+        }
+        // Inbound
+        for(let i=1; i < properOneWay; i++) {
+            // Start from turn, go left/up
+            // dx is negative
+            const tx = dist*scale - i * dx_proper;
+            const ty = timeOneWay*scale + i * dt_proper;
+            cvTwins.beginPath(); cvTwins.arc(ox + tx, oy - ty, 3, 0, Math.PI*2); cvTwins.fill();
+        }
+    }
+
+    /* =========================================
+       4. PENROSE DIAGRAM (FIXED)
+       ========================================= */
+    const cvPM = document.getElementById('cvPenMink').getContext('2d');
+    const cvPD = document.getElementById('cvPenDia').getContext('2d');
+    let penMouse = {x:0, y:0};
+
+    function drawPenrose() {
+        const w = 400, h = 400;
+        const ox = w/2, oy = h/2;
+        const scale = 20;
+
+        // LEFT: MINKOWSKI
+        cvPM.clearRect(0,0,w,h);
+        drawScaledGrid(cvPM, w, h, scale, ox, oy, '#222');
+        cvPM.strokeStyle = C_LIGHT; cvPM.lineWidth = 2; cvPM.beginPath();
+        cvPM.moveTo(0, h); cvPM.lineTo(w, 0); cvPM.moveTo(0, 0); cvPM.lineTo(w, h); cvPM.stroke();
+        drawArrow(cvPM, ox, h, ox, 0, C_AXIS); drawArrow(cvPM, 0, oy, w, oy, C_AXIS);
+        
+        cvPM.fillStyle = C_P1; cvPM.beginPath(); cvPM.arc(penMouse.x, penMouse.y, 5, 0, Math.PI*2); cvPM.fill();
+
+        // RIGHT: PENROSE
+        cvPD.clearRect(0,0,w,h);
+        const dSize = 140;
+        
+        cvPD.fillStyle = '#111'; cvPD.beginPath();
+        cvPD.moveTo(ox, oy - dSize); cvPD.lineTo(ox + dSize, oy);
+        cvPD.lineTo(ox, oy + dSize); cvPD.lineTo(ox - dSize, oy);
+        cvPD.closePath(); cvPD.fill();
+        cvPD.strokeStyle = '#fff'; cvPD.lineWidth = 3; cvPD.stroke();
+
+        cvPD.fillStyle = '#fff'; cvPD.font = "bold 14px sans-serif";
+        cvPD.textAlign = "center";
+        cvPD.fillText("i+", ox, oy - dSize - 10);
+        cvPD.fillText("i-", ox, oy + dSize + 20);
+        cvPD.textAlign = "left"; cvPD.fillText("i0", ox + dSize + 5, oy+5);
+        cvPD.textAlign = "right"; cvPD.fillText("i0", ox - dSize - 5, oy+5);
+        
+        const mathX = (penMouse.x - ox) / scale;
+        const mathT = -(penMouse.y - oy) / scale; // FIX: .y instead of .my
+        const u = mathT - mathX;
+        const v = mathT + mathX;
+        const U = Math.atan(u);
+        const V = Math.atan(v);
+        const T = U + V; 
+        const X = V - U; 
+        const screenX = ox + X * (dSize/Math.PI);
+        const screenY = oy - T * (dSize/Math.PI);
+
+        cvPD.lineWidth = 1;
+        for(let i=-10; i<=10; i+=4) {
+            cvPD.strokeStyle = 'rgba(0, 212, 255, 0.3)'; cvPD.beginPath();
+            for(let j=-20; j<=20; j+=0.5) {
+                let _t = i, _x = j;
+                let _sx = ox + (Math.atan(_t+_x)-Math.atan(_t-_x)) * (dSize/Math.PI);
+                let _sy = oy - (Math.atan(_t-_x)+Math.atan(_t+_x)) * (dSize/Math.PI);
+                if(j==-20) cvPD.moveTo(_sx, _sy); else cvPD.lineTo(_sx, _sy);
+            }
+            cvPD.stroke();
+        }
+        for(let i=-10; i<=10; i+=4) {
+            cvPD.strokeStyle = 'rgba(255, 0, 85, 0.3)'; cvPD.beginPath();
+            for(let j=-20; j<=20; j+=0.5) {
+                let _x = i, _t = j;
+                let _sx = ox + (Math.atan(_t+_x)-Math.atan(_t-_x)) * (dSize/Math.PI);
+                let _sy = oy - (Math.atan(_t-_x)+Math.atan(_t+_x)) * (dSize/Math.PI);
+                if(j==-20) cvPD.moveTo(_sx, _sy); else cvPD.lineTo(_sx, _sy);
+            }
+            cvPD.stroke();
+        }
+
+        if (Math.abs(screenX-ox) < dSize+40 && Math.abs(screenY-oy) < dSize+40) {
+            cvPD.fillStyle = C_P1; cvPD.beginPath(); cvPD.arc(screenX, screenY, 6, 0, Math.PI*2); cvPD.fill();
+            cvPD.strokeStyle = C_P1; cvPD.beginPath(); cvPD.arc(screenX, screenY, 10, 0, Math.PI*2); cvPD.stroke();
+        }
+    }
+
+    document.getElementById('cvPenMink').addEventListener('mousemove', e => {
+        const r = e.target.getBoundingClientRect();
+        penMouse.x = e.clientX - r.left;
+        penMouse.y = e.clientY - r.top;
+    });
+
+    /* =========================================
+       MAIN LOOP
+       ========================================= */
+    function loop() {
+        if(activeTab === 'simul') {
+            if(sim.active) sim.t += 0.02; // Slower speed
+            drawSimFrame();
+        }
+        if(activeTab === 'doppler') updateDoppler();
+        if(activeTab === 'twins') drawTwins();
+        if(activeTab === 'penrose') drawPenrose();
+
+        requestAnimationFrame(loop);
+    }
+
+    // Init
+    initDopplerStars();
+    drawTwins();
+    loop();
+
+</script>
+</body>
+</html>
