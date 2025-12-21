@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symulacja 5: Podłużny Zegar Świetlny (Auto-Scale)</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 { margin: 5px 0; font-size: 1.4rem; color: #fff; }
+        p { max-width: 900px; text-align: center; color: #aaa; margin-bottom: 15px; font-size: 0.9rem; line-height: 1.4; }
+
+        /* Panel sterowania */
+        .controls {
+            background-color: #1e1e1e;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .input-group { display: flex; align-items: center; gap: 10px; }
+        input[type=range] { width: 200px; accent-color: #00d4ff; cursor: pointer; }
+        
+        .stats-box {
+            background: #2a2a2a;
+            padding: 8px 15px;
+            border-radius: 4px;
+            border-left: 3px solid #00d4ff;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .highlight { color: #ffcc00; font-weight: bold; }
+        .sym-result { margin-left: 10px; color: #aaa; }
+
+        /* Grid */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 15px;
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        .panel {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        
+        .panel h3 { 
+            margin: 5px 0; 
+            font-size: 0.95rem; 
+            font-weight: normal; 
+            color: #ccc;
+        }
+
+        canvas {
+            background-color: #080808;
+            border: 1px solid #2a2a2a;
+            cursor: crosshair;
+            display: block;
+        }
+
+        .txt-s { color: #00d4ff; font-weight: bold; }      
+        .txt-sp { color: #ff0055; font-weight: bold; }     
+
+        /* Legenda asymetrii */
+        .legend-bar {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+        .leg-out { background-color: #4caf50; } /* Zielony */
+        .leg-back { background-color: #ff5722; } /* Pomarańczowy */
+
+    </style>
+</head>
+<body>
+
+    <h1>Symulacja: Asymetria Czasu Lotu</h1>
+    <p>
+        Zwróć uwagę na oś czasu (pionową). 
+        W układzie $S$ (lewa) czas dolotu do lustra (<span class="legend-bar leg-out"></span>) jest dłuższy niż powrotu (<span class="legend-bar leg-back"></span>), bo lustro "ucieka".
+        W układzie $S'$ (prawa) czasy są równe.
+    </p>
+
+    <div class="controls">
+        <div class="input-group">
+            <label>Prędkość <i>v</i>:</label>
+            <input type="range" id="velSlider" min="0" max="0.92" step="0.01" value="0.6">
+            <span id="velVal" style="font-family: monospace; color: #00d4ff; width: 60px;">0.60 c</span>
+        </div>
+        
+        <div class="stats-box" id="dataBox">
+            <!-- Wypełniane przez JS -->
+            Ładowanie danych...
+        </div>
+
+        <button id="btnRestart" style="background:#333; color:#fff; border:none; padding:5px 15px; cursor:pointer; border-radius:4px;">Reset</button>
+    </div>
+
+    <div class="grid-container">
+        <!-- Rząd 1: Minkowski -->
+        <div class="panel">
+            <h3>Minkowski: Peron (S)</h3>
+            <canvas id="cvMinkS" width="450" height="350"></canvas>
+        </div>
+        <div class="panel">
+            <h3>Minkowski: Pociąg (S')</h3>
+            <canvas id="cvMinkSp" width="450" height="350"></canvas>
+        </div>
+
+        <!-- Rząd 2: Przestrzeń -->
+        <div class="panel">
+            <h3>Widok Przestrzenny: Peron (S)</h3>
+            <canvas id="cvSpaceS" width="450" height="150"></canvas>
+        </div>
+        <div class="panel">
+            <h3>Widok Przestrzenny: Pociąg (S')</h3>
+            <canvas id="cvSpaceSp" width="450" height="150"></canvas>
+        </div>
+    </div>
+
+<script>
+(function() {
+    // --- Konfiguracja ---
+    const L_PRIME = 4; // Długość własna pociągu (jednostki arbitralne)
+    
+    // Kolory
+    const C_AXIS = '#555';
+    const C_GRID = '#222';
+    const C_LIGHT = '#ffcc00';
+    const C_S = '#00d4ff';
+    const C_SP = '#ff0055';
+    const C_OUT = '#4caf50'; // Zielony (tam)
+    const C_BACK = '#ff5722'; // Pomarańcz (powrót)
+
+    // Stan symulacji
+    let v = 0.6;
+    let gamma = 1.25;
+    
+    // Zmienne do niezależnych animacji
+    let timeS = 0;
+    let timeSp = 0;
+    
+    // Obliczone limity (do skalowania)
+    let maxTimeS = 0;
+    let maxDistS = 0;
+    
+    // Canvas contexty
+    const ctxMS = document.getElementById('cvMinkS').getContext('2d');
+    const ctxMSp = document.getElementById('cvMinkSp').getContext('2d');
+    const ctxSS = document.getElementById('cvSpaceS').getContext('2d');
+    const ctxSSp = document.getElementById('cvSpaceSp').getContext('2d');
+
+    // UI
+    const sld = document.getElementById('velSlider');
+    const lblV = document.getElementById('velVal');
+    const divData = document.getElementById('dataBox');
+    const btnRes = document.getElementById('btnRestart');
+
+    // Struktury na zdarzenia
+    let evS = {};   // Start, Hit, End w S
+    let evSp = {};  // Start, Hit, End w S'
+
+    // --- Fizyka i Matematyka ---
+
+    function updatePhysics() {
+        v = parseFloat(sld.value);
+        if (v < 0.01) v = 0.001; // unikanie 0
+        gamma = 1 / Math.sqrt(1 - v*v);
+
+        lblV.textContent = v.toFixed(2) + " c";
+
+        // 1. Zdarzenia w S' (Pociąg) - Proste
+        // Start (0,0), Odbicie (L', L'), Powrót (2L', 0)
+        evSp.start = { t: 0, x: 0 };
+        evSp.hit   = { t: L_PRIME, x: L_PRIME }; 
+        evSp.end   = { t: 2 * L_PRIME, x: 0 };
+
+        // 2. Transformacja Lorentza do S (Peron)
+        const transform = (e) => ({
+            t: gamma * (e.t + v * e.x),
+            x: gamma * (e.x + v * e.t)
+        });
+
+        evS.start = transform(evSp.start);
+        evS.hit   = transform(evSp.hit);
+        evS.end   = transform(evSp.end);
+
+        // 3. Obliczanie granic do skalowania
+        // W S: maksymalny czas to evS.end.t
+        // W S: maksymalny x to pozycja odbicia (evS.hit.x) LUB pozycja przodu pociągu na końcu symulacji
+        // Przód pociągu w t_end: x = v*t_end + L_contracted
+        // Ale światło zawraca wcześniej. Najdalszy punkt światła to evS.hit.x.
+        // Najdalszy punkt wagonu to przód.
+        
+        maxTimeS = evS.end.t;
+        maxDistS = evS.hit.x * 1.2; // margines
+
+        // Aktualizacja tekstu
+        const totalTimeS = evS.end.t.toFixed(2);
+        const totalTimeSp = evSp.end.t.toFixed(2);
+        
+        divData.innerHTML = `
+            <span style="color:${C_S}">t (Peron): <b>${totalTimeS}</b></span> &nbsp;|&nbsp; 
+            <span style="color:${C_SP}">t' (Pociąg): <b>${totalTimeSp}</b></span><br>
+            Dylatacja: <span class="highlight">t = ${gamma.toFixed(2)} &times; t'</span>
+        `;
+    }
+
+    // --- Rysowanie Pomocnicze ---
+
+    function drawGrid(ctx, w, h, scale, offsetX, offsetY) {
+        ctx.strokeStyle = C_GRID;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        // Poziome (czas)
+        for(let t = 0; t < h/scale; t+=1) {
+            const y = offsetY - t * scale;
+            if(y < 0) break;
+            ctx.moveTo(0, y); ctx.lineTo(w, y);
+        }
+        // Pionowe (przestrzeń)
+        for(let x = 0; x < w/scale; x+=1) {
+            const xp = offsetX + x * scale;
+            ctx.moveTo(xp, 0); ctx.lineTo(xp, h);
+        }
+        ctx.stroke();
+
+        // Osie
+        ctx.strokeStyle = C_AXIS;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(offsetX, 0); ctx.lineTo(offsetX, h); // t-axis
+        ctx.moveTo(0, offsetY); ctx.lineTo(w, offsetY); // x-axis
+        ctx.stroke();
+    }
+
+    function circle(ctx, x, y, r, color) {
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.arc(x, y, r, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    function line(ctx, x1, y1, x2, y2, col, w=2) {
+        ctx.beginPath();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = w;
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    // --- GŁÓWNE FUNKCJE RYSOWANIA ---
+
+    function drawMinkowskiS() {
+        const w = 450;
+        const h = 350;
+        ctxMS.clearRect(0,0,w,h);
+
+        // SKALOWANIE AUTOMATYCZNE
+        // Chcemy zmieścić maxTimeS w wysokości i maxDistS w szerokości
+        // Marginesy: dół 20px, lewo 20px, góra 20px, prawo 20px
+        const availH = h - 60; 
+        const availW = w - 60;
+        
+        // Wyliczamy skalę (px na jednostkę)
+        // Musi być taka sama dla X i T, żeby kąt światła był 45 stopni!
+        // Bierzemy mniejszą z dwóch, żeby wszystko się zmieściło.
+        const scaleT = availH / evS.end.t;
+        const scaleX = availW / evS.hit.x;
+        const scale = Math.min(scaleT, scaleX); // Globalna skala
+
+        const offX = 40;
+        const offY = h - 30;
+
+        drawGrid(ctxMS, w, h, scale, offX, offY);
+
+        // Funkcja mapująca współrzędne fizyczne na ekran
+        const toPx = (t, x) => ({
+            x: offX + x * scale,
+            y: offY - t * scale
+        });
+
+        const pStart = toPx(evS.start.t, evS.start.x);
+        const pHit   = toPx(evS.hit.t, evS.hit.x);
+        const pEnd   = toPx(evS.end.t, evS.end.x);
+
+        // 1. Linie świata wagonu
+        // Tył: od (0,0) do (end.t, v*end.t)
+        // Rysujemy trochę dalej niż koniec eksperymentu
+        const extT = evS.end.t * 1.1;
+        const extBackX = v * extT;
+        const pBackExt = toPx(extT, extBackX);
+        line(ctxMS, pStart.x, pStart.y, pBackExt.x, pBackExt.y, C_SP, 2);
+
+        // Przód: od (0, L_contr)
+        const L_contr = L_PRIME / gamma;
+        const extFrontX = v * extT + L_contr;
+        const pFrontStart = toPx(0, L_contr);
+        const pFrontExt = toPx(extT, extFrontX);
+        line(ctxMS, pFrontStart.x, pFrontStart.y, pFrontExt.x, pFrontExt.y, C_SP, 2);
+
+        // 2. Trajektoria Światła
+        line(ctxMS, pStart.x, pStart.y, pHit.x, pHit.y, C_LIGHT, 3);
+        line(ctxMS, pHit.x, pHit.y, pEnd.x, pEnd.y, C_LIGHT, 3);
+
+        // 3. WIZUALIZACJA ASYMETRII CZASU (Paski na osi T)
+        // Pasek "Tam" (zielony) - od t=0 do t=hit
+        const xBar = offX - 8;
+        ctxMS.fillStyle = C_OUT;
+        ctxMS.fillRect(xBar, offY - evS.hit.t * scale, 6, evS.hit.t * scale);
+        
+        // Pasek "Powrót" (pomarańczowy) - od t=hit do t=end
+        ctxMS.fillStyle = C_BACK;
+        const durBack = evS.end.t - evS.hit.t;
+        ctxMS.fillRect(xBar, offY - evS.end.t * scale, 6, durBack * scale);
+
+        // 4. Aktualny punkt (Animacja)
+        let curT = timeS;
+        if(curT <= evS.end.t * 1.1) {
+            let curX = 0;
+            // Interpolacja pozycji światła
+            if(curT <= evS.hit.t) {
+                curX = lerp(0, evS.hit.x, curT/evS.hit.t);
+            } else if (curT <= evS.end.t) {
+                curX = lerp(evS.hit.x, evS.end.x, (curT - evS.hit.t)/(evS.end.t - evS.hit.t));
+            } else {
+                curX = evS.end.x; // Zatrzymaj na końcu, albo leć dalej wzdłuż tyłu pociągu (opcjonalne)
+            }
+            
+            // Jeśli czas przekroczył koniec, nie rysujemy fotonu, tylko linię czasu
+            if(curT <= evS.end.t) {
+                const pNow = toPx(curT, curX);
+                circle(ctxMS, pNow.x, pNow.y, 6, C_LIGHT);
+            }
+
+            // Linia "Teraz"
+            const yNow = offY - curT * scale;
+            if(yNow > 0) {
+                ctxMS.setLineDash([4, 4]);
+                line(ctxMS, 0, yNow, w, yNow, '#fff', 1);
+                ctxMS.setLineDash([]);
+            }
+        }
+    }
+
+    function drawMinkowskiSp() {
+        const w = 450;
+        const h = 350;
+        ctxMSp.clearRect(0,0,w,h);
+
+        // Skalowanie - używamy tej samej logiki "zmieszczenia się"
+        // Ale tutaj x max to L', a t max to 2L'. 
+        const availH = h - 60;
+        const scale = availH / (2 * L_PRIME); // Dostosuj do czasu (jest dominujący)
+        
+        const offX = 40;
+        const offY = h - 30;
+
+        drawGrid(ctxMSp, w, h, scale, offX, offY);
+        const toPx = (t, x) => ({ x: offX + x * scale, y: offY - t * scale });
+
+        // Linie świata (Pionowe)
+        line(ctxMSp, offX, offY, offX, 0, C_SP, 3); // Tył
+        const pFront = toPx(0, L_PRIME);
+        line(ctxMSp, pFront.x, offY, pFront.x, 0, C_SP, 3); // Przód
+
+        // Światło
+        const pHit = toPx(L_PRIME, L_PRIME);
+        const pEnd = toPx(2*L_PRIME, 0);
+        line(ctxMSp, offX, offY, pHit.x, pHit.y, C_LIGHT, 3);
+        line(ctxMSp, pHit.x, pHit.y, pEnd.x, pEnd.y, C_LIGHT, 3);
+
+        // ASYMETRIA (A właściwie SYMETRIA tutaj)
+        const xBar = offX - 8;
+        // Tam (zielony)
+        ctxMSp.fillStyle = C_OUT;
+        ctxMSp.fillRect(xBar, offY - L_PRIME * scale, 6, L_PRIME * scale);
+        // Powrót (pomarańcz)
+        ctxMSp.fillStyle = C_BACK;
+        ctxMSp.fillRect(xBar, offY - 2*L_PRIME * scale, 6, L_PRIME * scale);
+
+        // Animacja
+        let curT = timeSp;
+        if(curT <= 2*L_PRIME * 1.1) {
+            let curX = 0;
+            if(curT <= L_PRIME) curX = curT;
+            else curX = L_PRIME - (curT - L_PRIME);
+            
+            if(curT > 2*L_PRIME) curX = 0; // stop
+
+            if(curT <= 2*L_PRIME) {
+                const pNow = toPx(curT, curX);
+                circle(ctxMSp, pNow.x, pNow.y, 6, C_LIGHT);
+            }
+
+            const yNow = offY - curT * scale;
+            if(yNow > 0) {
+                ctxMSp.setLineDash([4, 4]);
+                line(ctxMSp, 0, yNow, w, yNow, '#fff', 1);
+                ctxMSp.setLineDash([]);
+            }
+        }
+    }
+
+    function drawSpaceS() {
+        const w = 450;
+        const h = 150;
+        ctxSS.clearRect(0,0,w,h);
+        
+        // AUTO-ZOOM (Przestrzeń)
+        // Maksymalny X, jaki musimy pokazać, to miejsce, gdzie jest światło przy odbiciu, 
+        // lub tył pociągu przy końcu symulacji.
+        // Najbezpieczniej wziąć evS.hit.x (odbicie jest najdalej w prawo dla światła) 
+        // ale pociąg jedzie dalej.
+        // Weźmy pozycję przodu pociągu w chwili end.
+        const L_contr = L_PRIME / gamma;
+        const maxTrainX = v * evS.end.t + L_contr;
+        
+        // Skala przestrzenna
+        const availW = w - 40;
+        const scale = availW / (maxTrainX * 1.1); // 10% marginesu
+        const offX = 20;
+        const midY = h/2;
+
+        // Peron (tło)
+        ctxSS.fillStyle = '#222';
+        ctxSS.fillRect(0, midY+20, w, 4);
+        for(let i=0; i<w; i+=30) ctxSS.fillRect(i, midY+20, 2, 6);
+
+        // Pociąg
+        let curT = timeS;
+        const backX = v * curT;
+        const frontX = backX + L_contr;
+
+        const pBack = offX + backX * scale;
+        const pFront = offX + frontX * scale;
+        const pLen = pFront - pBack;
+
+        ctxSS.strokeStyle = C_SP;
+        ctxSS.lineWidth = 4;
+        ctxSS.strokeRect(pBack, midY-25, pLen, 50);
+        ctxSS.fillStyle = C_SP;
+        ctxSS.fillRect(pBack, midY-25, 4, 50);
+        ctxSS.fillRect(pFront-4, midY-25, 4, 50);
+
+        // Światło
+        if(curT <= evS.end.t) {
+            let photonX = 0;
+            if(curT <= evS.hit.t) photonX = lerp(0, evS.hit.x, curT/evS.hit.t);
+            else photonX = lerp(evS.hit.x, evS.end.x, (curT-evS.hit.t)/(evS.end.t-evS.hit.t));
+
+            const pPh = offX + photonX * scale;
+            circle(ctxSS, pPh, midY, 6, C_LIGHT);
+        }
+    }
+
+    function drawSpaceSp() {
+        const w = 450;
+        const h = 150;
+        ctxSSp.clearRect(0,0,w,h);
+        
+        // Tu skala stała, bo pociąg stoi w miejscu
+        // Ale dopasujmy ją lekko do wielkości L'
+        const scale = (w - 100) / L_PRIME;
+        const offX = 50;
+        const midY = h/2;
+
+        const pLen = L_PRIME * scale;
+
+        // Pociąg (Stacjonarny)
+        ctxSSp.strokeStyle = C_SP;
+        ctxSSp.lineWidth = 4;
+        ctxSSp.strokeRect(offX, midY-25, pLen, 50);
+        ctxSSp.fillStyle = C_SP;
+        ctxSSp.fillRect(offX, midY-25, 4, 50);
+        ctxSSp.fillRect(offX+pLen-4, midY-25, 4, 50);
+
+        // Światło
+        let curT = timeSp;
+        if(curT <= 2*L_PRIME) {
+            let phX = 0;
+            if(curT <= L_PRIME) phX = curT;
+            else phX = L_PRIME - (curT - L_PRIME);
+
+            const pPh = offX + phX * scale;
+            circle(ctxSSp, pPh, midY, 6, C_LIGHT);
+        }
+    }
+
+
+    function loop() {
+        // Logika pętli czasu
+        const speed = 0.05; // Prędkość symulacji
+        
+        timeS += speed;
+        // Margines po końcu, żeby zobaczyć wynik
+        if(timeS > evS.end.t * 1.5) timeS = 0;
+
+        timeSp += speed;
+        if(timeSp > (2*L_PRIME) * 1.5) timeSp = 0;
+
+        drawMinkowskiS();
+        drawMinkowskiSp();
+        drawSpaceS();
+        drawSpaceSp();
+
+        requestAnimationFrame(loop);
+    }
+
+    // Interakcja
+    sld.addEventListener('input', () => {
+        updatePhysics();
+        timeS = 0;
+        timeSp = 0;
+    });
+
+    btnRes.addEventListener('click', () => {
+        timeS = 0;
+        timeSp = 0;
+    });
+
+    updatePhysics();
+    loop();
+
+})();
+</script>
+</body>
+</html>
